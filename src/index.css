@@ -1,0 +1,27 @@
+/* التنسيق الأساسي للمشروع الجديد */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* هنا نضع كود الـ Eagle الذي قمنا بتعديله برابط Supabase */
+.hero-soaring-eagle {
+  position: absolute;
+  top: 4%;
+  left: 0; right: 0;
+  height: 55%;
+  background-image: url('https://qydluewlkgprehqksxwl.supabase.co/storage/v1/object/public/assets/Messenger_creation_79B5F388-967B-48DF-BE48-511DDE544ED4.jpeg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: 62% center;
+  animation: hero-eagle-soar 18s ease-in-out infinite alternate;
+  pointer-events: none;
+  filter: brightness(1.15) saturate(1.4) drop-shadow(0 0 40px rgba(212,160,12,0.28));
+  mix-blend-mode: multiply; /* تم التعديل ليتناسب مع الخلفية البيضاء */
+  will-change: transform, opacity;
+}
+
+@keyframes hero-eagle-soar {
+  0%   { transform: translate(-8%,  4%) scale(1.00) rotate(-1.5deg); opacity: 0.18; }
+  45%  { transform: translate( 2%,  0%) scale(1.06) rotate( 1.0deg); opacity: 0.24; }
+  100% { transform: translate(-6%,  3%) scale(1.02) rotate(-0.5deg); opacity: 0.18; }
+}
