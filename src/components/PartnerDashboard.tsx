@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 
 export default function PartnerDashboard() {
@@ -7,6 +7,9 @@ export default function PartnerDashboard() {
   const [restaurantStatus, setRestaurantStatus] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
 
+  // استخدام useRef للحفاظ على العدد السابق للطلبات في حالة الانتظار منعا للتكرار المزعج
+  const prevPendingCountRef = useRef<number>(0);
+
   // حالات النافذة المنبثقة للتعديل الاحترافي
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -14,16 +17,16 @@ export default function PartnerDashboard() {
   const [editPrice, setEditPrice] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // دالة تشغيل صوت النسر عند وصول طلب جديد
+
+  // دالة تشغيل صوت النسر التنبيهي
   const playEagleSound = () => {
     const audio = new Audio("https://actions.google.com/sounds/v1/animals/bald_eagle_call.ogg");
-    audio.volume = 0.7;
-    audio.play().catch(err => console.log("Audio playback blocked by browser auto-play policy:", err));
+    audio.volume = 0.8;
+    audio.play().catch(err => console.log("Audio auto-play interaction constraint:", err));
   };
 
   const fetchLiveAndRealData = async () => {
     try {
-      // 1. جلب حالة المطعم (عم علي id=1)
       const { data: restData } = await supabase
         .from('restaurants')
         .select('is_open')
@@ -31,20 +34,31 @@ export default function PartnerDashboard() {
         .single();
       if (restData) setRestaurantStatus(restData.is_open);
 
-      // 2. جلب الطلبات والوجبات
       const { data: fetchedOrders } = await supabase
         .from('orders')
         .select(`*, order_items (*)`)
         .order('created_at', { ascending: false });
 
-      // 3. جلب المنيو
       const { data: fetchedMenu } = await supabase
         .from('products')
         .select('*')
         .order('id', { ascending: true });
 
-      if (fetchedOrders) setOrders(fetchedOrders);
       if (fetchedMenu) setMenuItems(fetchedMenu);
+      
+      if (fetchedOrders) {
+        // حساب عدد الطلبات الحالية التي في حالة انتظار
+        const currentPendingCount = fetchedOrders.filter(o => o.status === 'en_attente').length;
+        
+        // إذا زاد عدد الطلبات المنتظرة عن المرة السابقة، نطلق الصوت فورا
+        if (currentPendingCount > prevPendingCountRef.current) {
+          playEagleSound();
+        }
+        
+        // تحديث المرجع بالعدد الحالي
+        prevPendingCountRef.current = currentPendingCount;
+        setOrders(fetchedOrders);
+      }
     } catch (err) {
       console.error("Error loading real-time data:", err);
     } finally {
@@ -55,15 +69,9 @@ export default function PartnerDashboard() {
   useEffect(() => {
     fetchLiveAndRealData();
 
+    // التسمع للحركات والتغيرات بشكل مستقر
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-        // تشغيل صوت النسر فوراً إذا كان الطلب الجديد في حالة انتظار
-        if (payload.new && payload.new.status === 'en_attente') {
-          playEagleSound();
-        }
-        fetchLiveAndRealData();
-      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         fetchLiveAndRealData();
       })
@@ -74,7 +82,6 @@ export default function PartnerDashboard() {
     };
   }, []);
 
-  // تفعيل تبديل حالة المطبخ حياً (Cuisine Ouverte / Fermée)
   const handleToggleKitchen = async () => {
     const nextStatus = !restaurantStatus;
     try {
@@ -87,7 +94,7 @@ export default function PartnerDashboard() {
       setRestaurantStatus(nextStatus);
       alert(`🦅 تم تحديث حالة المطبخ إلى: ${nextStatus ? 'مفتوح 🟢' : 'مغلق 🔴'}`);
     } catch (err: any) {
-      alert(`خطأ أثناء تبديل حالة المطبخ: ${err.message}`);
+      alert(`خطأ: ${err.message}`);
     }
   };
 
@@ -131,7 +138,6 @@ export default function PartnerDashboard() {
     }
   };
 
-  // فتح نافذة التعديل الاحترافية وحقن البيانات الحالية بها
   const openEditModal = (product: any) => {
     setSelectedProduct(product);
     setEditName(product.name || '');
@@ -140,7 +146,6 @@ export default function PartnerDashboard() {
     setIsEditModalOpen(true);
   };
 
-  // حفظ التعديلات الشاملة من المودال إلى قاعدة البيانات
   const handleSaveProductChanges = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct || !editName || !editPrice) return;
@@ -159,34 +164,24 @@ export default function PartnerDashboard() {
       if (error) throw error;
       setIsEditModalOpen(false);
       fetchLiveAndRealData();
-      alert("🦅 تم تحديث البيانات والصورة بنجاح في قاعدة البيانات!");
+      alert("🦅 تم تحديث البيانات بنجاح!");
     } catch (err: any) {
-      alert(`خطأ أثناء الحفظ: ${err.message}`);
+      alert(`خطأ: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0b111e] flex flex-col items-center justify-center text-white">
-        <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-500 mb-3"></div>
-        <p className="text-xs text-gray-400 font-bold">جاري المزامنة المشفرة الحية...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#0b111e] text-white p-4 font-sans select-none relative" dir="ltr">
       
-      {/* 🏛️ الترويسة العلوية التفاعلية */}
+      {/* الترويسة العلوية */}
       <div className="bg-[#161f30] p-4 rounded-2xl border border-gray-800/80 mb-6 flex justify-between items-center shadow-xl">
         <div>
           <h1 className="text-base font-black tracking-tight text-white">Eagle TN • Partner</h1>
           <p className="text-[10px] text-gray-400 font-bold mt-0.5">Espace Gestion de Restaurant</p>
         </div>
         
-        {/* زر Cuisine Ouverte التفاعلي الذكي */}
         <button 
           onClick={handleToggleKitchen}
           className={`flex items-center gap-2 border px-3 py-1.5 rounded-xl transition-all active:scale-95 cursor-pointer ${restaurantStatus ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
@@ -204,9 +199,13 @@ export default function PartnerDashboard() {
           <h2 className="text-sm font-black border-l-4 border-amber-500 pl-2.5 tracking-wide text-gray-100">
             Suivi des Commandes En Direct
           </h2>
-          <span className="text-[10px] text-red-400 font-black flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded-lg">
-            ⚠️ Alerte Sonore Active
-          </span>
+          {/* زر اختبار يدوي للصوت لكسر حماية المتصفح عند أول دخول */}
+          <button 
+            onClick={playEagleSound}
+            className="text-[10px] text-red-400 font-black flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded-lg cursor-pointer active:scale-95 transition-all"
+          >
+            ⚠️ Alerte Sonore Active 🔊
+          </button>
         </div>
 
         {orders.filter(o => o.status !== 'annule' && o.status !== 'livre').length === 0 ? (
@@ -237,7 +236,7 @@ export default function PartnerDashboard() {
                       </p>
                     ))
                   ) : (
-                    <p className="text-[11px] text-gray-500 italic">Aucun article spécificado</p>
+                    <p className="text-[11px] text-gray-500 italic">Aucun article spécifié</p>
                   )}
                 </div>
                 
@@ -290,7 +289,6 @@ export default function PartnerDashboard() {
               </div>
               
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* فتح المودال الاحترافي للتعديل الشامل */}
                 <button 
                   onClick={() => openEditModal(item)}
                   className="bg-[#1e293b] hover:bg-[#334155] text-gray-300 font-black text-[11px] px-3 py-2 rounded-xl border border-gray-800 transition-all active:scale-95"
@@ -309,72 +307,31 @@ export default function PartnerDashboard() {
         </div>
       </div>
 
-      {/* 📥 3. نافذة التعديل الاحترافية المنبثقة (Premium Dark Modal) */}
+      {/* 📥 3. النافذة المنبثقة للتعديل */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-[#0b111e]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-[#0b111e]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#161f30] w-full max-w-sm rounded-3xl p-5 border border-gray-800 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-gray-800 pb-3">
-              <h3 className="text-sm font-black text-white flex items-center gap-1.5">
-                ✏️ Modifier l'Article
-              </h3>
-              <button 
-                onClick={() => setIsEditModalOpen(false)}
-                className="text-gray-400 font-black text-xs bg-[#0b111e] w-6 h-6 rounded-full flex items-center justify-center border border-gray-800"
-              >
-                ✕
-              </button>
+              <h3 className="text-sm font-black text-white">✏️ Modifier l'Article</h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 font-black text-xs bg-[#0b111e] w-6 h-6 rounded-full flex items-center justify-center border border-gray-800">✕</button>
             </div>
 
             <form onSubmit={handleSaveProductChanges} className="space-y-4">
               <div>
-                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase tracking-wider">Nom du Plat *</label>
-                <input 
-                  type="text" 
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500 transition-colors"
-                />
+                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase">Nom du Plat *</label>
+                <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500" />
               </div>
-
               <div>
-                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase tracking-wider">Prix (DT) *</label>
-                <input 
-                  type="number" 
-                  step="0.001"
-                  required
-                  value={editPrice}
-                  onChange={(e) => setEditPrice(e.target.value)}
-                  className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500 transition-colors"
-                />
+                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase">Prix (DT) *</label>
+                <input type="number" step="0.001" required value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500" />
               </div>
-
               <div>
-                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase tracking-wider">URL de l'image (Lien Photo)</label>
-                <input 
-                  type="text" 
-                  placeholder="https://images.unsplash.com/..."
-                  value={editImageUrl}
-                  onChange={(e) => setEditImageUrl(e.target.value)}
-                  className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500 transition-colors"
-                />
+                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase">URL de l'image</label>
+                <input type="text" value={editImageUrl} onChange={(e) => setEditImageUrl(e.target.value)} className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500" />
               </div>
-
               <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="w-1/3 bg-[#1e293b] text-gray-400 font-black py-3 rounded-xl text-xs transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-2/3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-3 rounded-xl text-xs transition-colors shadow-lg"
-                >
-                  {isSubmitting ? 'Enregistrement...' : 'Sauvegarder 🚀'}
-                </button>
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="w-1/3 bg-[#1e293b] text-gray-400 font-black py-3 rounded-xl text-xs">Annuler</button>
+                <button type="submit" disabled={isSubmitting} className="w-2/3 bg-amber-500 text-slate-950 font-black py-3 rounded-xl text-xs">{isSubmitting ? 'Enregistrement...' : 'Sauvegarder 🚀'}</button>
               </div>
             </form>
           </div>
