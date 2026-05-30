@@ -4,18 +4,34 @@ import { supabase } from '../services/supabaseClient';
 export default function PartnerDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [restaurantStatus, setRestaurantStatus] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
+
+  // حالات النافذة المنبثقة للتعديل الاحترافي
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [editName, setEditName] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchLiveAndRealData = async () => {
     try {
+      // 1. جلب حالة المطعم (عم علي id=1)
+      const { data: restData } = await supabase
+        .from('restaurants')
+        .select('is_open')
+        .eq('id', 1)
+        .single();
+      if (restData) setRestaurantStatus(restData.is_open);
+
+      // 2. جلب الطلبات والوجبات
       const { data: fetchedOrders } = await supabase
         .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
+        .select(`*, order_items (*)`)
         .order('created_at', { ascending: false });
 
+      // 3. جلب المنيو
       const { data: fetchedMenu } = await supabase
         .from('products')
         .select('*')
@@ -45,23 +61,36 @@ export default function PartnerDashboard() {
     };
   }, []);
 
-  // 1. زر قبول وتحضير الطلب (إرسال 'accepte' الحقيقية)
+  // تفعيل تبديل حالة المطبخ حياً (Cuisine Ouverte / Fermée)
+  const handleToggleKitchen = async () => {
+    const nextStatus = !restaurantStatus;
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ is_open: nextStatus })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setRestaurantStatus(nextStatus);
+      alert(`🦅 تم تحديث حالة المطبخ إلى: ${nextStatus ? 'مفتوح 🟢' : 'مغلق 🔴'}`);
+    } catch (err: any) {
+      alert(`خطأ أثناء تبديل حالة المطبخ: ${err.message}`);
+    }
+  };
+
   const handleAcceptOrder = async (orderId: string) => {
     try {
       const { error } = await supabase
         .from('orders')
         .update({ status: 'accepte' })
         .eq('id', orderId);
-
       if (error) throw error;
-      alert("🦅 Eagle Partner: تم قبول الطلب وبدء التحضير بنجاح!");
       fetchLiveAndRealData();
     } catch (err: any) {
       alert(`خطأ: ${err.message}`);
     }
   };
 
-  // 2. زر رفض الطلب (إرسال 'annule' الحقيقية)
   const handleRefuseOrder = async (orderId: string) => {
     if (!window.confirm("هل أنت متأكد من إلغاء هذا الطلب؟ ⚠️")) return;
     try {
@@ -69,46 +98,59 @@ export default function PartnerDashboard() {
         .from('orders')
         .update({ status: 'annule' })
         .eq('id', orderId);
-
       if (error) throw error;
-      alert("❌ تم إلغاء الطلب بنجاح.");
       fetchLiveAndRealData();
     } catch (err: any) {
       alert(`خطأ: ${err.message}`);
     }
   };
 
-  // 3. زر تعديل السعر الفوري للوجبة
-  const handleEditPrice = async (productId: string, currentPrice: number) => {
-    const newPrice = prompt("أدخل السعر الجديد للوجبة (DT):", currentPrice.toString());
-    if (newPrice === null || newPrice === "") return;
-    
-    try {
-      const { error } = await supabase
-        .from('products')
-        .update({ price: parseFloat(newPrice) })
-        .eq('id', productId);
-
-      if (error) throw error;
-      alert("🦅 تم تحديث السعر بنجاح!");
-      fetchLiveAndRealData();
-    } catch (err: any) {
-      alert(`خطأ: ${err.message}`);
-    }
-  };
-
-  // 4. زر التحكم في حالة المخزن (Stock / Épuisé)
   const handleToggleStock = async (productId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('products')
         .update({ in_stock: !currentStatus })
         .eq('id', productId);
-
       if (error) throw error;
       fetchLiveAndRealData();
     } catch (err: any) {
       alert(`خطأ: ${err.message}`);
+    }
+  };
+
+  // فتح نافذة التعديل الاحترافية وحقن البيانات الحالية بها
+  const openEditModal = (product: any) => {
+    setSelectedProduct(product);
+    setEditName(product.name || '');
+    setEditPrice(product.price?.toString() || '');
+    setEditImageUrl(product.image_url || '');
+    setIsEditModalOpen(true);
+  };
+
+  // حفظ التعديلات الشاملة من المودال إلى قاعدة البيانات
+  const handleSaveProductChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct || !editName || !editPrice) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: editName,
+          price: parseFloat(editPrice),
+          image_url: editImageUrl
+        })
+        .eq('id', selectedProduct.id);
+
+      if (error) throw error;
+      setIsEditModalOpen(false);
+      fetchLiveAndRealData();
+      alert("🦅 تم تحديث البيانات والصورة بنجاح في قاعدة البيانات!");
+    } catch (err: any) {
+      alert(`خطأ أثناء الحفظ: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -116,24 +158,31 @@ export default function PartnerDashboard() {
     return (
       <div className="min-h-screen bg-[#0b111e] flex flex-col items-center justify-center text-white">
         <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-500 mb-3"></div>
-        <p className="text-xs text-gray-400 font-bold">جاري تحديث النظام والمفاتيح حياً...</p>
+        <p className="text-xs text-gray-400 font-bold">جاري المزامنة المشفرة الحية...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0b111e] text-white p-4 font-sans select-none" dir="ltr">
+    <div className="min-h-screen bg-[#0b111e] text-white p-4 font-sans select-none relative" dir="ltr">
       
-      {/* الترويسة العلوية */}
+      {/* 🏛️ الترويسة العلوية التفاعلية */}
       <div className="bg-[#161f30] p-4 rounded-2xl border border-gray-800/80 mb-6 flex justify-between items-center shadow-xl">
         <div>
           <h1 className="text-base font-black tracking-tight text-white">Eagle TN • Partner</h1>
           <p className="text-[10px] text-gray-400 font-bold mt-0.5">Espace Gestion de Restaurant</p>
         </div>
-        <div className="flex items-center gap-2 bg-[#0b111e]/80 border border-emerald-500/10 px-3 py-1.5 rounded-xl">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-[9px] text-emerald-400 font-extrabold tracking-wider uppercase">Cuisine Ouverte</span>
-        </div>
+        
+        {/* زر Cuisine Ouverte التفاعلي الذكي */}
+        <button 
+          onClick={handleToggleKitchen}
+          className={`flex items-center gap-2 border px-3 py-1.5 rounded-xl transition-all active:scale-95 cursor-pointer ${restaurantStatus ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${restaurantStatus ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+          <span className="text-[9px] font-extrabold tracking-wider uppercase">
+            {restaurantStatus ? 'Cuisine Ouverte' : 'Cuisine Fermée'}
+          </span>
+        </button>
       </div>
 
       {/* 1. قسم الطلبات المباشرة */}
@@ -175,7 +224,7 @@ export default function PartnerDashboard() {
                       </p>
                     ))
                   ) : (
-                    <p className="text-[11px] text-gray-500 italic">Aucun article spécifié</p>
+                    <p className="text-[11px] text-gray-500 italic">Aucun article spécificado</p>
                   )}
                 </div>
                 
@@ -228,8 +277,9 @@ export default function PartnerDashboard() {
               </div>
               
               <div className="flex items-center gap-2 flex-shrink-0">
+                {/* فتح المودال الاحترافي للتعديل الشامل */}
                 <button 
-                  onClick={() => handleEditPrice(item.id, item.price)}
+                  onClick={() => openEditModal(item)}
                   className="bg-[#1e293b] hover:bg-[#334155] text-gray-300 font-black text-[11px] px-3 py-2 rounded-xl border border-gray-800 transition-all active:scale-95"
                 >
                   ✏️ Editer
@@ -245,6 +295,78 @@ export default function PartnerDashboard() {
           ))}
         </div>
       </div>
+
+      {/* 📥 3. نافذة التعديل الاحترافية المنبثقة (Premium Dark Modal) */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-[#0b111e]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#161f30] w-full max-w-sm rounded-3xl p-5 border border-gray-800 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+              <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                ✏️ Modifier l'Article
+              </h3>
+              <button 
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-gray-400 font-black text-xs bg-[#0b111e] w-6 h-6 rounded-full flex items-center justify-center border border-gray-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProductChanges} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase tracking-wider">Nom du Plat *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase tracking-wider">Prix (DT) *</label>
+                <input 
+                  type="number" 
+                  step="0.001"
+                  required
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-gray-400 block mb-1 uppercase tracking-wider">URL de l'image (Lien Photo)</label>
+                <input 
+                  type="text" 
+                  placeholder="https://images.unsplash.com/..."
+                  value={editImageUrl}
+                  onChange={(e) => setEditImageUrl(e.target.value)}
+                  className="w-full bg-[#0b111e] border border-gray-800 rounded-xl p-3 text-xs font-bold outline-none text-white focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="w-1/3 bg-[#1e293b] text-gray-400 font-black py-3 rounded-xl text-xs transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-2/3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-3 rounded-xl text-xs transition-colors shadow-lg"
+                >
+                  {isSubmitting ? 'Enregistrement...' : 'Sauvegarder 🚀'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
