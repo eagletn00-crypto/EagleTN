@@ -20,7 +20,7 @@ export default function PartnerDashboard() {
 
   // دالة تشغيل صوت النسر التنبيهي
   const playEagleSound = () => {
-    const audio = new Audio("https://actions.google.com/sounds/v1/animals/bald_eagle_call.ogg");
+    const audio = new Audio("https://www.soundjay.com/nature/sounds/eagle-call-01.mp3");
     audio.volume = 0.8;
     audio.play().catch(err => console.log("Audio auto-play interaction constraint:", err));
   };
