@@ -17,18 +17,30 @@ export default function ClientHome() {
   const [partnerPhone, setPartnerPhone] = useState('');
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
 
-  const fetchData = async () => {
+  const fetchRestaurants = async () => {
     try {
       setLoading(true);
-      const { data: restData } = await supabase.from('restaurants').select('*');
-      const { data: prodData } = await supabase.from('products').select('*');
-      
-      if (restData) setRestaurants(restData);
-      if (prodData) setProducts(prodData);
+      const { data, error } = await supabase.from('restaurants').select('*');
+      if (error) throw error;
+      if (data) setRestaurants(data);
     } catch (err) {
-      console.error("خطأ أثناء جلب البيانات:", err);
+      console.error("Erreur fetch restaurants:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // جلب وتصفية المنتجات الحصرية للمطعم المختار ديناميكياً لمنع التداخل
+  const fetchProductsForRestaurant = async (restaurantId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('restaurant_id', restaurantId);
+      if (error) throw error;
+      if (data) setProducts(data);
+    } catch (err) {
+      console.error("Erreur fetch products:", err);
     }
   };
 
@@ -38,7 +50,7 @@ export default function ClientHome() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchRestaurants();
     updateCartCount();
     window.addEventListener('cart_updated', updateCartCount);
     return () => window.removeEventListener('cart_updated', updateCartCount);
@@ -49,15 +61,7 @@ export default function ClientHome() {
     items.push(product);
     localStorage.setItem('eagle_cart', JSON.stringify(items));
     updateCartCount();
-    alert(`🦅 تمت إضافة ${product.name} إلى السلة!`);
-  };
-
-  const handleFilterClick = (term: string) => {
-    setSearchQuery(term);
-    const container = document.getElementById('products-section');
-    if (container) {
-      container.scrollIntoView({ behavior: 'smooth' });
-    }
+    alert(`🦅 ${product.name} ajouté au panier avec succès !`);
   };
 
   const handlePartnerSubmit = async (e: React.FormEvent) => {
@@ -68,18 +72,19 @@ export default function ClientHome() {
     }
     setIsSubmittingLead(true);
     try {
+      // إصلاح حالة الـ Enum لتوثيق طلب الانضمام كحالة en_attente معيارية بالخلفية
       const { error } = await supabase
         .from('orders')
         .insert([{
-          customer_name: `[Partner Lead] ${partnerName} (${businessName})`,
+          customer_name: `[PARTNER LEAD] ${partnerName} (${businessName})`,
           customer_phone: partnerPhone,
-          customer_address: 'طلب انضمام شريك جديد عبر البنر',
-          status: 'En attente',
+          customer_address: 'Demande d\'adhésion via le banner premium',
+          status: 'en_attente',
           total_price: 0
         }]);
 
       if (error) throw error;
-      alert('Merci! Demande reçue. 🚀🦅');
+      alert('Merci ! Demande reçue avec succès. 🚀🦅');
       setShowPartnerModal(false);
       setPartnerName('');
       setBusinessName('');
@@ -97,7 +102,7 @@ export default function ClientHome() {
   );
 
   return (
-    <div className="bg-slate-50/70 min-h-screen pb-32 font-sans antialiased text-gray-900">
+    <div className="bg-slate-50/70 min-h-screen pb-32 font-sans antialiased text-gray-900" dir="ltr">
       
       {/* 1. الترويسة العلوية الفخمة بأسلوب آبل */}
       <div className="bg-white px-5 pt-5 pb-4 flex items-center justify-between sticky top-0 z-40 border-b border-gray-100/80 shadow-sm backdrop-blur-md bg-opacity-95">
@@ -185,23 +190,25 @@ export default function ClientHome() {
             </h3>
             
             {loading ? (
-              <p className="text-center text-xs text-gray-400 py-4">جاري تحميل المطاعم المتوفرة... 🍲</p>
+              <p className="text-center text-xs text-gray-400 py-4">Chargement des restaurants... 🍲</p>
             ) : filteredRestaurants.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">لا توجد مطاعم متوفرة حالياً.</p>
+              <p className="text-xs text-gray-400 text-center py-4">Aucun restaurant disponible.</p>
             ) : (
               <div className="space-y-4">
                 {filteredRestaurants.map((rest) => {
-                  // جلب الصورة الحقيقية للغلاف والشعار من الجداول أو وضع كروت افتراضية فخمة في حال غيابها
                   const coverImg = rest.cover_url || rest.banner_url || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80";
                   const logoImg = rest.logo_url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=120&q=80";
 
                   return (
                     <div 
                       key={rest.id}
-                      onClick={() => { setSelectedRestaurant(rest); setSearchQuery(''); }}
+                      onClick={() => { 
+                        setSelectedRestaurant(rest); 
+                        setSearchQuery('');
+                        fetchProductsForRestaurant(rest.id);
+                      }}
                       className="bg-white rounded-[28px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all transform active:scale-[0.99] cursor-pointer group"
                     >
-                      {/* عرض الـ Cover الفاخر للمطعم */}
                       <div className="relative h-40 bg-slate-100 overflow-hidden">
                         <img 
                           src={coverImg} 
@@ -211,10 +218,8 @@ export default function ClientHome() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
                       </div>
 
-                      {/* عرض الـ Logo وبيانات المطعم أسفل الـ Cover */}
                       <div className="p-4 flex items-center justify-between gap-3 relative">
                         <div className="flex items-center gap-3">
-                          {/* شعار المطعم الدائري المستقل */}
                           <img 
                             src={logoImg} 
                             alt="" 
@@ -248,31 +253,29 @@ export default function ClientHome() {
             ← Retour aux restaurants
           </button>
 
-          {/* ترويسة المنيو مع الـ Logo الصغير */}
           <div className="bg-white p-4 rounded-2xl border mb-4 shadow-sm flex justify-between items-center">
             <div className="flex items-center gap-3">
               {selectedRestaurant.logo_url && (
                 <img src={selectedRestaurant.logo_url} className="w-10 h-10 rounded-full object-cover border shadow-sm" alt="" />
               )}
               <div>
-                <h3 className="font-black text-xs text-gray-400">قائمة مأكولات</h3>
+                <h3 className="font-black text-xs text-gray-400">Menu du restaurant</h3>
                 <p className="text-base font-black text-gray-900">{selectedRestaurant.name}</p>
               </div>
             </div>
             <span className="text-xs font-bold text-amber-500 bg-amber-50 px-2.5 py-1 rounded-lg">★ 4.8</span>
           </div>
 
-          {/* وجبات المطعم الحقيقية بالتصميم العالمي المتقن */}
           <div id="products-section" className="space-y-3">
             {products.length === 0 ? (
-              <p className="text-center text-xs text-gray-400 py-6">جاري تحميل قائمة المأكولات... 🍲</p>
+              <p className="text-center text-xs text-gray-400 py-6">Aucun plat disponible pour ce restaurant... 🍲</p>
             ) : (
               products.map((p) => (
                 <div key={p.id} className="bg-white p-4 rounded-[24px] border border-gray-100 shadow-sm flex justify-between items-center gap-4">
                   <div className="space-y-1 flex-1">
                     <h4 className="font-extrabold text-sm text-gray-900">{p.name}</h4>
                     <p className="text-[11px] text-gray-400 font-semibold">{p.description || 'Pas de description disponible'}</p>
-                    <p className="text-sm font-black text-red-600 mt-1">{p.price} DT</p>
+                    <p className="text-sm font-black text-red-600 mt-1">{parseFloat(p.price).toFixed(3)} DT</p>
                   </div>
                   <div className="flex flex-col items-end shrink-0">
                     {p.image_url ? (
@@ -285,7 +288,7 @@ export default function ClientHome() {
                       className="bg-gray-950 text-white w-8 h-8 rounded-xl flex items-center justify-center font-black shadow-md mt-2 active:scale-95 transition-transform"
                     >
                       +
-                </button>
+                    </button>
                   </div>
                 </div>
               ))
@@ -306,7 +309,9 @@ export default function ClientHome() {
               <input type="text" placeholder="Nom *" required value={partnerName} onChange={(e) => setPartnerName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none" />
               <input type="text" placeholder="Boutique *" required value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none" />
               <input type="tel" placeholder="Téléphone *" required value={partnerPhone} onChange={(e) => setPartnerPhone(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none" />
-              <button type="submit" className="w-full bg-gray-950 text-white font-black py-3.5 rounded-xl text-xs mt-2">Envoyer 🚀</button>
+              <button type="submit" disabled={isSubmittingLead} className="w-full bg-gray-950 text-white font-black py-3.5 rounded-xl text-xs mt-2">
+                {isSubmittingLead ? 'Envoi...' : 'Envoyer 🚀'}
+              </button>
             </form>
           </div>
         </div>
