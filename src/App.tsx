@@ -1,4 +1,5 @@
 import PartnerDashboard from './components/PartnerDashboard';
+import LivreurDashboard from './components/LivreurDashboard';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { supabase } from './services/supabaseClient';
@@ -273,6 +274,7 @@ export default function App() {
         <Route path="/" element={<HomeView cartCount={cartCount} cart={cart} menuItems={menuItems} addToCart={addToCart} removeFromCart={removeFromCart} onValidate={handleCentralValidation} />} />
         <Route path="/restaurant/am-ali" element={<ClientMenuView cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} getCartTotal={getCartTotal} getCartCount={() => cartCount} onValidate={handleCentralValidation} menuItems={menuItems} />} />
         <Route path="/partner" element={<PartnerDashboard />} />
+        <Route path="/livreur" element={<LivreurDashboard />} />
       </Routes>
     </BrowserRouter>
   );
