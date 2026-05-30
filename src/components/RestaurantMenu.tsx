@@ -36,9 +36,12 @@ export default function RestaurantMenu() {
   }, [id]);
 
   // دالة الإضافة الاحترافية التي تحترم الـ Schema الخاص بك
-  const handleAddToCart = async (product: any) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+const handleAddToCart = (product: any) => {
+    if (localStorage.getItem("developer_bypass") === "true") {
+      addToCart(product.id);
+      return;
+    }
+    // بقية الكود القديم معزول للمستقبل
       
       if (!user) {
         if (localStorage.getItem("developer_bypass") !== "true") { alert("الرجاء تسجيل الدخول أولاً لإتمام الطلب!"); return; }
