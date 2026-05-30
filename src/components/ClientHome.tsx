@@ -1,21 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 
 export default function ClientHome() {
   const [restaurants, setRestaurants] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<any | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Tout');
+  const navigate = useNavigate();
 
-  // حالات النموذج المنبثق للشركاء
-  const [showPartnerModal, setShowPartnerModal] = useState(false);
-  const [partnerName, setPartnerName] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [partnerPhone, setPartnerPhone] = useState('');
-  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  // فئات الأكلات بالـ Emojis المطابقة تماماً للصورة 1000095471.png
+  const categories = [
+    { name: 'Tout', emoji: '🍳' },
+    { name: 'Kaftaji', emoji: '🍳' },
+    { name: 'Couscous', emoji: '🍲' },
+    { name: 'Maison', emoji: '🍲' },
+    { name: 'Sandwich', emoji: '🥪' }
+  ];
+
+  // الستوريات اليومية المطابقة للصورة 1000095471.png
+  const stories = [
+    { id: 1, name: 'Eagle.tn', img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100' },
+    { id: 2, name: 'Am Ali', img: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100' },
+    { id: 3, name: 'El Baraka', img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=100' }
+  ];
 
   const fetchRestaurants = async () => {
     try {
@@ -24,314 +32,225 @@ export default function ClientHome() {
       if (error) throw error;
       if (data) setRestaurants(data);
     } catch (err) {
-      console.error("Erreur fetch restaurants:", err);
+      console.error("Error fetching premium home data:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // جلب وتصفية المنتجات الحصرية للمطعم المختار ديناميكياً لمنع التداخل
-  const fetchProductsForRestaurant = async (restaurantId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('restaurant_id', restaurantId);
-      if (error) throw error;
-      if (data) setProducts(data);
-    } catch (err) {
-      console.error("Erreur fetch products:", err);
-    }
-  };
-
-  const updateCartCount = () => {
-    const items = JSON.parse(localStorage.getItem('eagle_cart') || '[]');
-    setCartCount(items.length);
-  };
-
   useEffect(() => {
     fetchRestaurants();
-    updateCartCount();
-    window.addEventListener('cart_updated', updateCartCount);
-    return () => window.removeEventListener('cart_updated', updateCartCount);
+
+    // استماع لحظي في حال فتح أو غلق الشركاء لمطابقتها فوراً أمام العميل
+    const channel = supabase
+      .channel('client-realtime-restaurants')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => {
+        fetchRestaurants();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const addToCart = (product: any) => {
-    const items = JSON.parse(localStorage.getItem('eagle_cart') || '[]');
-    items.push(product);
-    localStorage.setItem('eagle_cart', JSON.stringify(items));
-    updateCartCount();
-    alert(`🦅 ${product.name} ajouté au panier avec succès !`);
-  };
-
-  const handlePartnerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!partnerName || !businessName || !partnerPhone) {
-      alert('الرجاء ملء كافة الحقول ⚠️');
-      return;
-    }
-    setIsSubmittingLead(true);
-    try {
-      // إصلاح حالة الـ Enum لتوثيق طلب الانضمام كحالة en_attente معيارية بالخلفية
-      const { error } = await supabase
-        .from('orders')
-        .insert([{
-          customer_name: `[PARTNER LEAD] ${partnerName} (${businessName})`,
-          customer_phone: partnerPhone,
-          customer_address: 'Demande d\'adhésion via le banner premium',
-          status: 'en_attente',
-          total_price: 0
-        }]);
-
-      if (error) throw error;
-      alert('Merci ! Demande reçue avec succès. 🚀🦅');
-      setShowPartnerModal(false);
-      setPartnerName('');
-      setBusinessName('');
-      setPartnerPhone('');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsSubmittingLead(false);
-    }
-  };
-
-  const filteredRestaurants = restaurants.filter(r => 
-    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.category?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // تصفية المطاعم حسب البحث والفئة المختارة
+  const filteredRestaurants = restaurants.filter(r => {
+    const matchesSearch = r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          r.category?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'Tout' || r.category?.toLowerCase() === selectedCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
 
   return (
-    <div className="bg-slate-50/70 min-h-screen pb-32 font-sans antialiased text-gray-900" dir="ltr">
+    <div className="bg-[#0b111e] min-h-screen pb-32 font-sans antialiased text-white select-none" dir="ltr">
       
-      {/* 1. الترويسة العلوية الفخمة بأسلوب آبل */}
-      <div className="bg-white px-5 pt-5 pb-4 flex items-center justify-between sticky top-0 z-40 border-b border-gray-100/80 shadow-sm backdrop-blur-md bg-opacity-95">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl filter drop-shadow-[0_2px_4px_rgba(239,68,68,0.15)]">🦅</span>
+      {/* 👑 1. الترويسة الملكية المظلمة الفخمة (علم تونس + الـ Startup Act) */}
+      <div className="bg-[#161f30] px-4 pt-5 pb-4 sticky top-0 z-50 border-b border-gray-800 flex items-center justify-between shadow-2xl">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🦅</span>
           <div>
-            <h1 className="text-base font-black tracking-wider text-gray-950">
-              {selectedRestaurant ? selectedRestaurant.name : 'EAGLE.TN'}
-            </h1>
-            <span className="text-[9px] bg-red-50 text-red-600 border border-red-200/50 px-2 py-0.5 rounded-md font-extrabold tracking-widest block mt-0.5 w-fit">
-              {selectedRestaurant ? `${selectedRestaurant.category || 'Menu'}` : '🏛️ STARTUP ACT'}
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-black tracking-tight text-white">Eagle<span className="text-amber-500">.tn</span></h1>
+              <span className="text-xs">🇹🇳</span>
+            </div>
+            <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-extrabold tracking-wider block mt-0.5 uppercase">
+              🏛️ STARTUP ACT
             </span>
           </div>
         </div>
-        
-        <Link to="/cart" className="relative p-2.5 bg-gray-50 border border-gray-100 rounded-2xl flex items-center justify-center text-gray-800">
-          <span className="text-base">🛒</span>
-          {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-              {cartCount}
+
+        {/* جرس الإشعارات التنبيهي الفاخر */}
+        <div className="flex items-center gap-3">
+          <div className="relative p-2 bg-gray-800/80 rounded-xl border border-gray-700/60 flex items-center justify-center">
+            <span className="text-sm">🔔</span>
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-[#161f30]">
+              2
             </span>
-          )}
-        </Link>
+          </div>
+          <button className="text-gray-400 text-xl font-bold bg-transparent border-0 outline-none">
+            ☰
+          </button>
+        </div>
       </div>
 
-      {/* واجهة المطاعم الرئيسية الكبرى (Accueil) */}
-      {!selectedRestaurant ? (
-        <>
-          {/* 2. بنر استقطاب الشركاء التفاعلي */}
-          <div 
-            onClick={() => setShowPartnerModal(true)}
-            className="mx-4 mt-4 bg-gradient-to-r from-red-600 via-red-500 to-red-700 p-4 rounded-[24px] shadow-sm text-white flex justify-between items-center relative overflow-hidden cursor-pointer transform active:scale-[0.99] transition-all hover:opacity-95"
+      {/* 🔍 2. شريط البحث المطور مع الميكروفون الذهبي */}
+      <div className="px-4 mt-4">
+        <div className="bg-[#161f30] border border-gray-800 rounded-2xl px-4 py-3 flex items-center justify-between shadow-lg focus-within:border-amber-500 transition-colors">
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-gray-500 text-sm">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Rechercher un plat ou un restaurant..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent text-xs font-semibold outline-none text-white placeholder-gray-500"
+            />
+          </div>
+          <span className="bg-amber-500 text-slate-950 p-1.5 rounded-xl text-xs font-black cursor-pointer shadow-md">
+            🎙️
+          </span>
+        </div>
+      </div>
+
+      {/* 🍕 3. شريط الفئات المتنقل الفاخر بالـ Emojis */}
+      <div className="mt-4 overflow-x-auto no-scrollbar flex gap-2.5 px-4 pb-2">
+        {categories.map((cat) => (
+          <button
+            key={cat.name}
+            onClick={() => setSelectedCategory(cat.name)}
+            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 border shrink-0 transition-all ${
+              selectedCategory === cat.name
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md transform scale-105'
+                : 'bg-[#161f30] text-gray-300 border-gray-800'
+            }`}
           >
-            <div className="absolute right-0 top-0 opacity-10 text-7xl translate-x-4 -translate-y-2 font-black">🦅</div>
-            <div className="space-y-1 pr-2">
-              <span className="text-xs font-black uppercase tracking-wider block">Livraison Premium 4K</span>
-              <p className="text-[11px] text-white font-bold underline decoration-white/50 underline-offset-2">
-                Pour devenir partenaire, laissez vos informations ou contactez-nous 💬
-              </p>
-            </div>
-            <span className="text-[9px] bg-white text-red-600 px-2 py-1 rounded-xl font-black uppercase shrink-0 shadow-sm">
-              Rejoindre
-            </span>
-          </div>
-
-          {/* 3. شريط البحث الانسيابي عن المطاعم */}
-          <div className="px-4 mt-4">
-            <div className="bg-white border border-gray-200/80 rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-sm focus-within:border-red-500 transition-colors">
-              <span className="text-gray-400 text-sm">🔍</span>
-              <input 
-                type="text" 
-                placeholder="Rechercher un restaurant ou une spécialité..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent text-sm font-semibold outline-none text-gray-900 placeholder-gray-400"
-              />
-            </div>
-          </div>
-
-          {/* 4. فئات الخدمات المربعة الفاخرة */}
-          <div className="px-4 mt-6">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Espaces de commande</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white border border-gray-100 p-4 rounded-[24px] flex items-center justify-between shadow-sm">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-black text-gray-900 block">Pâtisserie</span>
-                  <span className="text-[9px] text-gray-400 font-bold">Gâteaux & Délices</span>
-                </div>
-                <span className="text-2xl">🎂</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-4 rounded-[24px] flex items-center justify-between shadow-sm">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-black text-gray-900 block">Shopping</span>
-                  <span className="text-[9px] text-gray-400 font-bold">Boutiques TN</span>
-                </div>
-                <span className="text-2xl">🛍️</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 5. عرض قائمة المطاعم مع الـ Cover والـ Logo الحقيقي */}
-          <div className="mt-7 px-4">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
-              Nos Partenaires Premium
-            </h3>
-            
-            {loading ? (
-              <p className="text-center text-xs text-gray-400 py-4">Chargement des restaurants... 🍲</p>
-            ) : filteredRestaurants.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">Aucun restaurant disponible.</p>
-            ) : (
-              <div className="space-y-4">
-                {filteredRestaurants.map((rest) => {
-                  const coverImg = rest.cover_url || rest.banner_url || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80";
-                  const logoImg = rest.logo_url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=120&q=80";
-
-                  return (
-                    <div 
-                      key={rest.id}
-                      onClick={() => { 
-                        setSelectedRestaurant(rest); 
-                        setSearchQuery('');
-                        fetchProductsForRestaurant(rest.id);
-                      }}
-                      className="bg-white rounded-[28px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all transform active:scale-[0.99] cursor-pointer group"
-                    >
-                      <div className="relative h-40 bg-slate-100 overflow-hidden">
-                        <img 
-                          src={coverImg} 
-                          alt={rest.name} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
-                      </div>
-
-                      <div className="p-4 flex items-center justify-between gap-3 relative">
-                        <div className="flex items-center gap-3">
-                          <img 
-                            src={logoImg} 
-                            alt="" 
-                            className="w-12 h-12 rounded-full border-2 border-white object-cover shadow-sm bg-white shrink-0"
-                          />
-                          <div>
-                            <h4 className="font-black text-sm text-gray-900 group-hover:text-red-600 transition-colors">{rest.name}</h4>
-                            <p className="text-[11px] text-gray-400 font-bold mt-0.5">{rest.category || 'Traditional'} • Cité Ibn Khaldoun</p>
-                          </div>
-                        </div>
-
-                        <span className="bg-red-50 text-red-600 text-[10px] font-black px-3 py-1.5 rounded-xl border border-red-100/50 shrink-0">
-                          Menu 📋
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        /* واجهة الـ Menu الحصرية للمطعم المختار */
-        <div className="px-4 mt-4 animate-fade-in">
-          
-          <button 
-            onClick={() => setSelectedRestaurant(null)}
-            className="mb-4 bg-gray-950 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-1 active:scale-95 transition-transform"
-          >
-            ← Retour aux restaurants
+            <span>{cat.emoji}</span>
+            <span>{cat.name}</span>
           </button>
+        ))}
+      </div>
 
-          <div className="bg-white p-4 rounded-2xl border mb-4 shadow-sm flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              {selectedRestaurant.logo_url && (
-                <img src={selectedRestaurant.logo_url} className="w-10 h-10 rounded-full object-cover border shadow-sm" alt="" />
-              )}
-              <div>
-                <h3 className="font-black text-xs text-gray-400">Menu du restaurant</h3>
-                <p className="text-base font-black text-gray-900">{selectedRestaurant.name}</p>
+      {/* ⚡ 4. بنر عروض اللحظة التفاعلي الكلاسيكي */}
+      <div className="mx-4 mt-4 bg-gradient-to-r from-amber-500 to-yellow-500 p-3 rounded-2xl shadow-lg text-slate-950 flex justify-between items-center font-black text-xs cursor-pointer active:scale-95 transition-transform">
+        <span>Commander Maintenant ➔</span>
+        <span className="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-lg text-[9px]">LIVE 🔴</span>
+      </div>
+
+      {/* 📸 5. قسم الستوريات اليومية (STORIES DU JOUR) */}
+      <div className="mt-5 px-4">
+        <h3 className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1">
+          <span className="text-red-500">●</span> STORIES DU JOUR
+        </h3>
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+          {stories.map((story) => (
+            <div key={story.id} className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group">
+              <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-red-500 to-yellow-400 group-active:scale-95 transition-transform">
+                <img src={story.img} alt="" className="w-full h-full rounded-full object-cover border-2 border-[#0b111e]" />
               </div>
+              <span className="text-[10px] font-bold text-gray-400">{story.name}</span>
             </div>
-            <span className="text-xs font-bold text-amber-500 bg-amber-50 px-2.5 py-1 rounded-lg">★ 4.8</span>
-          </div>
+          ))}
+        </div>
+      </div>
 
-          <div id="products-section" className="space-y-3">
-            {products.length === 0 ? (
-              <p className="text-center text-xs text-gray-400 py-6">Aucun plat disponible pour ce restaurant... 🍲</p>
-            ) : (
-              products.map((p) => (
-                <div key={p.id} className="bg-white p-4 rounded-[24px] border border-gray-100 shadow-sm flex justify-between items-center gap-4">
-                  <div className="space-y-1 flex-1">
-                    <h4 className="font-extrabold text-sm text-gray-900">{p.name}</h4>
-                    <p className="text-[11px] text-gray-400 font-semibold">{p.description || 'Pas de description disponible'}</p>
-                    <p className="text-sm font-black text-red-600 mt-1">{parseFloat(p.price).toFixed(3)} DT</p>
+      {/* 🍲 6. قسم عرض المطاعم الفاخرة الكبرى (Nos Partenaires Premium) */}
+      <div className="mt-6 px-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-[9px] font-black text-gray-500 uppercase tracking-widest border-l-2 border-amber-500 pl-2">
+            Nos Partenaires Premium
+          </h3>
+          <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-black px-2 py-0.5 rounded">TOP 7</span>
+        </div>
+
+        {loading ? (
+          <p className="text-center text-xs text-gray-500 py-6 font-bold">Chargement des délices locaux... 🍲</p>
+        ) : filteredRestaurants.length === 0 ? (
+          <p className="text-center text-xs text-gray-600 py-6 font-bold">Aucun partenaire disponible actuellement.</p>
+        ) : (
+          <div className="space-y-5">
+            {filteredRestaurants.map((rest) => {
+              const coverImg = rest.cover_url || rest.banner_url || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600";
+              const isKitchenOpen = rest.is_open !== false; // قراءة فتح وغلق المطبخ حياً من عم علي
+
+              return (
+                <div 
+                  key={rest.id}
+                  onClick={() => navigate(`/restaurant/${rest.id}`)} // فتح صفحة المنيو الحصرية للمطعم المختار عبر الـ ID
+                  className="bg-[#161f30] rounded-[28px] overflow-hidden border border-gray-800/60 shadow-2xl relative cursor-pointer transform active:scale-[0.99] transition-all group"
+                >
+                  {/* الغلاف العملاق الفاخر للمطعم */}
+                  <div className="relative h-44 bg-slate-900 overflow-hidden">
+                    <img 
+                      src={coverImg} 
+                      alt={rest.name} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#161f30] via-transparent to-transparent"></div>
+                    
+                    {/* شارة مفتوح/مغلق الحية والمتحركة فوق الغلاف */}
+                    <span className={`absolute top-4 right-4 text-[9px] font-black px-2.5 py-1 rounded-xl border shadow-lg ${
+                      isKitchenOpen 
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                        : 'bg-red-500/20 text-red-400 border-red-500/30'
+                    }`}>
+                      ● {isKitchenOpen ? 'OUVERT' : 'FERMÉ'}
+                    </span>
+
+                    {/* تفاصيل المطعم والوجبة الترويجية المكتوبة بخط فخم أسفل الغلاف */}
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h4 className="text-base font-black tracking-tight text-white">{rest.name} 👑</h4>
+                      <p className="text-[10px] text-amber-400 font-bold mt-0.5">✦ Spécialité: {rest.category || 'Terroir 1979'} • 15.000 DT</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end shrink-0">
-                    {p.image_url ? (
-                      <img src={p.image_url} alt="" className="w-16 h-16 rounded-xl object-cover border" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-xl bg-gray-50 border flex items-center justify-center text-xl">🍲</div>
-                    )}
-                    <button 
-                      onClick={() => addToCart(p)}
-                      className="bg-gray-950 text-white w-8 h-8 rounded-xl flex items-center justify-center font-black shadow-md mt-2 active:scale-95 transition-transform"
-                    >
-                      +
-                    </button>
+
+                  {/* بيانات التوصيل التقييم والسرعة والزر السفلي */}
+                  <div className="p-4 flex justify-between items-center bg-[#1a2436] border-t border-gray-800/40 font-bold text-[10px] text-gray-400">
+                    <div className="flex gap-4">
+                      <span>⏱️ 25–35 min</span>
+                      <span>🏍️ 3.000 DT</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-amber-400 font-black">
+                      <span>★ 4.9</span>
+                      <span className="text-gray-500 text-[9px] font-normal">(2 400)</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-[#161f30] py-2.5 text-center text-xs font-black text-amber-500 hover:text-white transition-colors border-t border-gray-800/40">
+                    Consulter le Menu ➔
                   </div>
                 </div>
-              ))
-            )}
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* نموذج الشركاء المنبثق */}
-      {showPartnerModal && (
-        <div className="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-base font-black text-gray-950 flex items-center gap-1.5">🤝 Devenir Partenaire</h3>
-              <button onClick={() => setShowPartnerModal(false)} className="text-gray-400 font-black text-sm bg-gray-100 w-7 h-7 rounded-full flex items-center justify-center">✕</button>
-            </div>
-            <form onSubmit={handlePartnerSubmit} className="space-y-3">
-              <input type="text" placeholder="Nom *" required value={partnerName} onChange={(e) => setPartnerName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none" />
-              <input type="text" placeholder="Boutique *" required value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none" />
-              <input type="tel" placeholder="Téléphone *" required value={partnerPhone} onChange={(e) => setPartnerPhone(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none" />
-              <button type="submit" disabled={isSubmittingLead} className="w-full bg-gray-950 text-white font-black py-3.5 rounded-xl text-xs mt-2">
-                {isSubmittingLead ? 'Envoi...' : 'Envoyer 🚀'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 💬 7. زر الواتساب العائم للدعم السريع */}
+      <a 
+        href="https://wa.me/21655123456" 
+        target="_blank" 
+        rel="noreferrer" 
+        className="fixed bottom-20 right-4 bg-[#25d366] text-white w-12 h-12 rounded-full flex items-center justify-center shadow-2xl z-50 animate-bounce cursor-pointer active:scale-95 transition-transform"
+      >
+        <span className="text-2xl">💬</span>
+      </a>
 
-      {/* شريط التنقل السفلي */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 p-3.5 flex justify-around items-center z-40 shadow-xl">
-        <div onClick={() => { setSelectedRestaurant(null); setSearchQuery(''); }} className="flex flex-col items-center gap-0.5 text-red-600 cursor-pointer">
+      {/* 🧭 8. شريط التنقل السفلي الفخم والمتناسق */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#161f30]/95 backdrop-blur-md border-t border-gray-800/80 p-3.5 flex justify-around items-center z-50 shadow-2xl">
+        <div onClick={() => fetchRestaurants()} className="flex flex-col items-center gap-0.5 text-amber-500 cursor-pointer">
           <span className="text-base">🏠</span>
           <span className="text-[9px] font-black tracking-wide">Accueil</span>
         </div>
-        <div className="flex flex-col items-center gap-0.5 text-gray-400 cursor-pointer">
+        <div className="flex flex-col items-center gap-0.5 text-gray-500 cursor-pointer">
           <span className="text-base">🔍</span>
           <span className="text-[9px] font-black tracking-wide">Explorer</span>
         </div>
-        <div className="flex flex-col items-center gap-0.5 text-gray-400 cursor-pointer">
+        <div className="flex flex-col items-center gap-0.5 text-gray-500 cursor-pointer">
           <span className="text-base">📄</span>
           <span className="text-[9px] font-black tracking-wide">Commandes</span>
         </div>
-        <Link to="/login" className="flex flex-col items-center gap-0.5 text-gray-400 cursor-pointer">
+        <Link to="/login" className="flex flex-col items-center gap-0.5 text-gray-500 cursor-pointer">
           <span className="text-base">👤</span>
           <span className="text-[9px] font-black tracking-wide">Profil</span>
         </Link>
