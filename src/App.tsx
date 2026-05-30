@@ -263,7 +263,7 @@ export default function App() {
     } else {
       setCart({});
       alert("🎉 Commande validée avec succès !");
-      window.location.href = '/partner'; 
+      window.location.href = '/'; 
     }
   };
 
