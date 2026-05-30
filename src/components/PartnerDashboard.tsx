@@ -53,7 +53,7 @@ export default function PartnerDashboard() {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'En préparation' })
+        .update({ status: 'EN_PREPARATION' })
         .eq('id', orderId);
 
       if (error) throw error;
@@ -70,7 +70,7 @@ export default function PartnerDashboard() {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'Refusé' })
+        .update({ status: 'REFUSE' })
         .eq('id', orderId);
 
       if (error) throw error;
@@ -150,14 +150,14 @@ export default function PartnerDashboard() {
           </span>
         </div>
 
-        {orders.filter(o => o.status !== 'Refusé' && o.status !== 'Livré').length === 0 ? (
+        {orders.filter(o => o.status !== 'REFUSE' && o.status !== 'LIVRE').length === 0 ? (
           <div className="bg-[#161f30] p-6 rounded-2xl border border-gray-800/80 text-center py-10">
             <p className="text-xs text-gray-400 font-bold">Aucune commande active</p>
             <p className="text-amber-500/80 font-black text-[11px] mt-1">بانتظار طلبات جديدة حية... 🦅</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.filter(o => o.status !== 'Refusé' && o.status !== 'Livré').map((order) => (
+            {orders.filter(o => o.status !== 'REFUSE' && o.status !== 'LIVRE').map((order) => (
               <div key={order.id} className="bg-[#161f30] p-4 rounded-2xl border-2 border-amber-500/90 shadow-2xl">
                 <div className="flex justify-between items-start mb-3">
                   <div>
