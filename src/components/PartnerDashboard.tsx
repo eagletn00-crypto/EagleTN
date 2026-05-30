@@ -14,6 +14,12 @@ export default function PartnerDashboard() {
   const [editPrice, setEditPrice] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // دالة تشغيل صوت النسر عند وصول طلب جديد
+  const playEagleSound = () => {
+    const audio = new Audio("https://actions.google.com/sounds/v1/animals/bald_eagle_call.ogg");
+    audio.volume = 0.7;
+    audio.play().catch(err => console.log("Audio playback blocked by browser auto-play policy:", err));
+  };
 
   const fetchLiveAndRealData = async () => {
     try {
@@ -51,6 +57,13 @@ export default function PartnerDashboard() {
 
     const channel = supabase
       .channel('schema-db-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        // تشغيل صوت النسر فوراً إذا كان الطلب الجديد في حالة انتظار
+        if (payload.new && payload.new.status === 'en_attente') {
+          playEagleSound();
+        }
+        fetchLiveAndRealData();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         fetchLiveAndRealData();
       })
