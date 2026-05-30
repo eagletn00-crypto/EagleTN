@@ -1,3 +1,4 @@
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import PartnerDashboard from './components/PartnerDashboard';
 import LivreurDashboard from './components/LivreurDashboard';
 import React, { useState, useEffect } from 'react';
@@ -275,6 +276,7 @@ export default function App() {
         <Route path="/restaurant/am-ali" element={<ClientMenuView cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} getCartTotal={getCartTotal} getCartCount={() => cartCount} onValidate={handleCentralValidation} menuItems={menuItems} />} />
         <Route path="/partner" element={<PartnerDashboard />} />
         <Route path="/livreur" element={<LivreurDashboard />} />
+        <Route path="/admin" element={<SuperAdminDashboard />} />
       </Routes>
     </BrowserRouter>
   );
