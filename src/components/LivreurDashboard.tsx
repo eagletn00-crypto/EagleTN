@@ -42,7 +42,6 @@ export default function LivreurDashboard() {
   useEffect(() => {
     fetchLivreurData();
 
-    // التسمع اللحظي لحالة الطلبات لتحديث الشاشة فوراً عند حدوث تغيير
     const channel = supabase
       .channel('livreur-realtime-cluster')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -99,7 +98,7 @@ export default function LivreurDashboard() {
 
       <div className="px-4 space-y-6">
         
-        {/* 🔥 أولاً: قسم الطلبات المتاحة والنشطة */}
+        {/* 🔥 قسم الطلبات المتاحة والنشطة */}
         <div className="space-y-4">
           <h2 className="text-xs font-black text-gray-400 uppercase tracking-wider border-l-2 border-[#10b981] pl-2">
             Course Disponible Proche ({activeOrders.length})
@@ -115,9 +114,9 @@ export default function LivreurDashboard() {
               const isAccepted = order.status === 'en_cours';
               const isArrived = arrivedToRest[order.id] || false;
 
-              // بناء روابط ملاحة حقيقية لخرائط جوجل تفتح تطبيق الهاتف مباشرة
-              const restaurantMapUrl = `https://www.google.com/maps/search/?api=1&query=Am+Ali+Kitchen+Cite+El+Khadra+Tunis`;
-              const clientMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.delivery_address || 'Tunis')}`;
+              // روابط جغرافية حقيقية ومصححة للملاحة عبر خرائط جوجل (ابن خلدون للمطعم، وحي الخضراء للزبون)
+              const restaurantMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Cité Ibn Khaldoun, Tunis')}`;
+              const clientMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.delivery_address || 'Cité El Khadra, Tunis')}`;
 
               return (
                 <div key={order.id} className="bg-[#161f30] border border-gray-800/80 p-5 rounded-[28px] space-y-4 shadow-2xl relative overflow-hidden">
@@ -132,7 +131,7 @@ export default function LivreurDashboard() {
                     </span>
                   </div>
 
-                  {/* الخريطة التوجيهية مع زر الملاحة الحي والتفاعلي */}
+                  {/* الخريطة التوجيهية مع زر الملاحة الحقيقي المحدث جغرافيا */}
                   {isAccepted && (
                     <div className="relative rounded-2xl overflow-hidden border border-gray-800 shadow-inner h-36 bg-slate-900">
                       <img 
@@ -142,7 +141,6 @@ export default function LivreurDashboard() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#161f30] via-transparent to-transparent"></div>
                       
-                      {/* زر تشغيل نظام التوجيه الحقيقي لخرائط جوجل الجغرافية */}
                       <a 
                         href={!isArrived ? restaurantMapUrl : clientMapUrl}
                         target="_blank"
@@ -155,28 +153,30 @@ export default function LivreurDashboard() {
                       <div className="absolute bottom-2 left-2 right-2 bg-[#0b111e]/90 border border-gray-800 px-3 py-2 rounded-xl text-center">
                         <p className="text-[10px] font-black text-emerald-400 flex items-center justify-center gap-1">
                           {!isArrived 
-                            ? "🚨 ALERTE : En route vers Am Ali Kitchen (1.0 KM)" 
-                            : "📦 COLIS RÉCUPÉRÉ : En route vers le Client"}
+                            ? "🚨 ALERTE : En route vers Cité Ibn Khaldoun (Am Ali)" 
+                            : "📦 COLIS RÉCUPÉRÉ : En route vers Cité El Khadra"}
                         </p>
                       </div>
                     </div>
                   )}
 
                   <div className="space-y-3 pt-1">
+                    {/* تحديث عنوان المطعم ليصبح حي ابن خلدون */}
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-[10px] text-amber-500 font-black uppercase tracking-wider">Enlèvement (Restaurant)</p>
-                        <p className="text-xs font-bold text-gray-200 mt-0.5">Am Ali Kitchen • Cité Tunis</p>
+                        <p className="text-xs font-bold text-gray-200 mt-0.5">Am Ali Kitchen • Cité Ibn Khaldoun</p>
                       </div>
                       <a href="tel:+21655123456" className="bg-[#1e293b] text-amber-500 font-black text-[11px] px-3 py-1.5 rounded-xl border border-gray-800 flex items-center gap-1">
                         📞 Appeler
                       </a>
                     </div>
 
+                    {/* تحديث عنوان العميل ليقرأ ديناميكيا أو يعرض حي الخضراء كقيمة افتراضية */}
                     <div className="flex justify-between items-center border-t border-gray-800/60 pt-3">
                       <div>
                         <p className="text-[10px] text-blue-400 font-black uppercase tracking-wider">Destination (Client)</p>
-                        <p className="text-xs font-bold text-gray-200 mt-0.5">{order.customer_name} • {order.delivery_address || 'Tunis'}</p>
+                        <p className="text-xs font-bold text-gray-200 mt-0.5">{order.customer_name} • {order.delivery_address || 'Cité El Khadra'}</p>
                       </div>
                       <a href={`tel:${order.customer_phone || ''}`} className="bg-[#1e293b] text-blue-400 font-black text-[11px] px-3 py-1.5 rounded-xl border border-gray-800 flex items-center gap-1">
                         📞 Appeler
@@ -219,7 +219,7 @@ export default function LivreurDashboard() {
           )}
         </div>
 
-        {/* 📊 ثانياً: قسم السجل التاريخي للعمليات المكتملة اليوم (Historique Journalier) */}
+        {/* 📊 سجل العمليات اليومي */}
         <div className="space-y-3 pt-2">
           <h2 className="text-xs font-black text-gray-400 uppercase tracking-wider border-l-2 border-blue-500 pl-2">
             Historique Journalier ({historyOrders.length})
