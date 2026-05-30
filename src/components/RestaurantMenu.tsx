@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 
-export default function RestaurantMenu() {
-  const { id } = useParams(); // استقبال id المطعم من الرابط
+interface RestaurantMenuProps {
+  addToCart?: (id: any) => void;
+}
+
+export default function RestaurantMenu({ addToCart }: RestaurantMenuProps) {
+  const { id } = useParams(); // id من معطيات الرابط
   const [products, setProducts] = useState<any[]>([]);
   const [restaurant, setRestaurant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -11,7 +15,7 @@ export default function RestaurantMenu() {
   useEffect(() => {
     async function loadMenuData() {
       try {
-        // 1. جلب بيانات المطعم الحالي
+        // 1. جلب معلومات المطعم الحالي
         const { data: restData } = await supabase
           .from('restaurants')
           .select('*')
@@ -19,7 +23,7 @@ export default function RestaurantMenu() {
           .single();
         if (restData) setRestaurant(restData);
 
-        // 2. جلب الأطباق المرتبطة بهذا المطعم من جدول products
+        // 2. جلب المنتجات المرتبطة بالمطعم
         const { data: prodData } = await supabase
           .from('products')
           .select('*')
@@ -35,20 +39,25 @@ export default function RestaurantMenu() {
     loadMenuData();
   }, [id]);
 
-  // دالة الإضافة الاحترافية التي تحترم الـ Schema الخاص بك
-const handleAddToCart = (product: any) => {
+  const handleAddToCart = async (product: any) => {
+    // وضع المطور السريع: إضافة مباشرة للسلة الحرة وتحديث الواجهة فوراً
     if (localStorage.getItem("developer_bypass") === "true") {
-      addToCart(product.id);
+      if (addToCart) {
+        addToCart(product.id);
+      } else {
+        console.warn("addToCart function prop is missing");
+      }
       return;
     }
-    // بقية الكود القديم معزول للمستقبل
-      
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        if (localStorage.getItem("developer_bypass") !== "true") { alert("الرجاء تسجيل الدخول أولاً لإتمام الطلب!"); return; }
+        alert("الرجاء تسجيل الدخول أولاً لإتمام الطلب!");
         return;
       }
 
-      // أ. إنشاء الطلب الرئيسي في جدول orders
+      // إنشاء الطلب الفعلي في السيرفر للزبائن الحقيقيين
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -57,7 +66,7 @@ const handleAddToCart = (product: any) => {
             partner_id: product.restaurant_id,
             status: 'pending',
             total_price: product.price,
-            delivery_fee: 4.000 
+            delivery_fee: 4.000
           }
         ])
         .select()
@@ -65,7 +74,6 @@ const handleAddToCart = (product: any) => {
 
       if (orderError) throw orderError;
 
-      // ب. إضافة الطبق وتفاصيله في جدول order_items المربوط بالطلب الرئيسي
       if (orderData) {
         const { error: itemsError } = await supabase
           .from('order_items')
@@ -79,33 +87,31 @@ const handleAddToCart = (product: any) => {
           ]);
 
         if (itemsError) throw itemsError;
-
         alert(`تمت إضافة ${product.name} إلى السلة بنجاح! 🛒`);
       }
-
     } catch (error: any) {
-      console.error("خطأ أثناء إضافة الطلب:", error);
-      alert("عذراً، حدث خطأ: " + (error.message || error));
+      console.error("خطأ في إضافة الطلب:", error);
+      alert("خطأ: " + (error.message || error));
     }
   };
 
-  if (loading) return <div className="text-center p-10 text-white">جاري تحميل القائمة...</div>;
+  if (loading) return <div className="text-center p-10 text-white">جاري تحميل المحتوى...</div>;
 
   return (
     <div className="bg-[#0b111e] min-h-screen pb-24 font-sans text-white">
-      {/* غلاف المطعم العلوي */}
-      <div className="h-48 bg-gray-800 relative flex items-end p-4 bg-cover bg-center" style={{ backgroundImage: `url(${restaurant?.banner_url || '/default-banner.png'})` }}>
+      {/* واجهة المطعم والغلاف */}
+      <div className="h-44 bg-gray-800 relative flex items-end p-4 bg-cover bg-center" style={{ backgroundImage: `url(${restaurant?.banner_url || '/default-banner.png'})` }}>
         <div className="absolute inset-0 bg-black/50"></div>
         <div className="relative z-10 flex items-center gap-3">
           <img src={restaurant?.logo_url || "/default-logo.png"} alt="" className="w-16 h-16 rounded-xl border-2 border-yellow-400 object-cover" />
           <div>
             <h1 className="text-xl font-bold">{restaurant?.name || "Am Ali Kitchen"}</h1>
-            <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30 font-medium">● CARTE MENU LIVE</span>
+            <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30 font-medium">• CARTE MENU LIVE</span>
           </div>
         </div>
       </div>
 
-      {/* قائمة الأطباق المتاحة */}
+      {/* قائمة المأكولات */}
       <div className="px-4 mt-6">
         <h2 className="text-yellow-500 text-xs font-bold uppercase tracking-wider border-l-2 border-yellow-500 pl-2 mb-4">LES PLATS DISPONIBLES</h2>
         
@@ -119,11 +125,10 @@ const handleAddToCart = (product: any) => {
                   <p className="text-yellow-500 font-black text-xs mt-1">{product.price.toFixed(3)} DT</p>
                 </div>
               </div>
-              
-              {/* زر إضافة التفاعلي المربوط بـ Supabase */}
+
               <button 
                 onClick={() => handleAddToCart(product)}
-                className="bg-yellow-400 text-gray-950 text-xs font-black px-4 py-2 rounded-xl shadow hover:bg-yellow-500 transition-all active:scale-95"
+                className="bg-yellow-400 text-gray-950 text-xs font-black px-4 py-2 rounded-xl shadow hover:bg-yellow-500 transition-all active:scale-95 border-0 cursor-pointer"
               >
                 Ajouter +
               </button>
