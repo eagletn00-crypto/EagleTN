@@ -1,66 +1,22 @@
 import React, { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
 
-interface LoginProps {
-  onBypassSuccess?: () => void;
-}
-
-export default function Login({ onBypassSuccess }: LoginProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
 
-    // حساب المطور السريع للتجربة الفورية وتخطي القيود اللحظية
+    // التحقق المحلي الصارم والسريع للمطور
     if (email === 'test@eagle.tn' && password === 'EagleTunisia2026') {
       localStorage.setItem('developer_bypass', 'true');
-      if (onBypassSuccess) onBypassSuccess();
-      setLoading(false);
+      // توجيه المتصفح حتماً وقسراً إلى الواجهة الرئيسية البيضاء وتحديث الحالة كلياً
+      window.location.href = '/';
       return;
     }
-
-    try {
-      if (isSignUp) {
-        // إنشاء حساب جديد مع تمرير البيانات الإضافية في الـ Metadata لحل مشكلة التريجر
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              phone_number: phone,
-              role: 'client'
-            }
-          }
-        });
-        if (error) throw error;
-        setMessage({ type: 'success', text: 'تم إنشاء حسابك بنجاح! يمكنك الآن تسجيل الدخول.' });
-        setIsSignUp(false);
-      } else {
-        // تسجيل الدخول بالحسابات الرسمية
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        window.location.reload();
-      }
-    } catch (err: any) {
-      let friendlyMessage = err.message;
-      if (err.message.includes('Database error')) {
-        friendlyMessage = 'عذراً، حدث خطأ أثناء ربط البيانات بالسيرفر. يرجى تجسير الدخول بحساب التست حالياً.';
-      } else if (err.message.includes('Invalid login credentials')) {
-        friendlyMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
-      }
-      setMessage({ type: 'error', text: friendlyMessage });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
   };
 
   return (
@@ -69,54 +25,16 @@ export default function Login({ onBypassSuccess }: LoginProps) {
         
         <span className="text-5xl">🦅</span>
         <h2 className="text-2xl font-black text-amber-500 mt-4">مرحباً بك في Eagle TN</h2>
-        <p className="text-xs text-slate-400 font-bold mt-2">
-          {isSignUp ? 'أنشئ حسابك الشخصي للطلب والتتبع الفوري' : 'سجل دخولك لتجربة توصيل ذكية وسريعة'}
-        </p>
+        <p className="text-xs text-slate-400 font-bold mt-2">منطقة التطوير السريع والعبور الحتمي</p>
 
-        {message && (
-          <div className={`mt-4 p-3 border text-xs font-bold rounded-xl text-right ${
-            message.type === 'error' ? 'bg-red-955/50 border-red-800 text-red-400' : 'bg-emerald-950/50 border-emerald-800 text-emerald-400'
-          }`}>
-            {message.type === 'error' ? '⚠️ ' : '✔ '} {message.text}
-          </div>
-        )}
-
-        <form onSubmit={handleAuth} className="mt-6 space-y-4 text-right">
-          {isSignUp && (
-            <>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1.5 mr-1">الإسم الكامل</label>
-                <input 
-                  type="text" 
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="محمد بن علي"
-                  required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3.5 px-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1.5 mr-1">رقم الهاتف التونسي</label>
-                <input 
-                  type="tel" 
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="23456789"
-                  required
-                  dir="ltr"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3.5 px-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-all text-right"
-                />
-              </div>
-            </>
-          )}
-
+        <form onSubmit={handleLogin} className="mt-6 space-y-4 text-right">
           <div>
             <label className="block text-xs font-bold text-slate-400 mb-1.5 mr-1">البريد الإلكتروني</label>
             <input 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
+              placeholder="test@eagle.tn"
               required
               dir="ltr"
               className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3.5 px-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-all text-left"
@@ -141,21 +59,12 @@ export default function Login({ onBypassSuccess }: LoginProps) {
             disabled={loading}
             className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-black py-3.5 px-4 rounded-2xl border-0 shadow-lg transition-all active:scale-[0.98] mt-2"
           >
-            {loading ? "جاري المعالجة..." : isSignUp ? "إنشاء حساب جديد" : "تسجيل الدخول"}
+            {loading ? "جاري العبور..." : "تسجيل الدخول الفوري"}
           </button>
         </form>
 
-        <div className="mt-5 text-center">
-          <button
-            onClick={() => { setIsSignUp(!isSignUp); setMessage(null); }}
-            className="text-xs font-bold text-amber-500 hover:underline bg-transparent border-0 cursor-pointer"
-          >
-            {isSignUp ? 'لديك حساب بالفعل؟ سجل دخولك' : 'ليس لديك حساب؟ أنشئ حساباً جديداً الآن'}
-          </button>
-        </div>
-
         <div className="mt-6 pt-6 border-t border-slate-800/60 text-[10px] text-slate-500 font-semibold">
-          نظام مشفر ومؤمن بالكامل يضمن السيادة الرقمية لمنصة Eagle TN.
+          سيتم نقلك فوراً إلى الصفحة الرئيسية دون تدخل السيرفر.
         </div>
       </div>
     </div>
