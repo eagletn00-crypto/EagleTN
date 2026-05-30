@@ -6,11 +6,9 @@ export default function PartnerDashboard() {
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // جلب الطلبات والوجبات المرتبطة بها والمنيو بالكامل
   const fetchLiveAndRealData = async () => {
     try {
-      // جلب الطلبات مع تفاصيل الوجبات التابعة لها من جدول order_items
-      const { data: fetchedOrders, error: orderErr } = await supabase
+      const { data: fetchedOrders } = await supabase
         .from('orders')
         .select(`
           *,
@@ -18,7 +16,7 @@ export default function PartnerDashboard() {
         `)
         .order('created_at', { ascending: false });
 
-      const { data: fetchedMenu, error: menuErr } = await supabase
+      const { data: fetchedMenu } = await supabase
         .from('products')
         .select('*')
         .order('id', { ascending: true });
@@ -35,7 +33,6 @@ export default function PartnerDashboard() {
   useEffect(() => {
     fetchLiveAndRealData();
 
-    // التسمع اللحظي للتغيرات في قاعدة البيانات (Realtime)
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -48,40 +45,40 @@ export default function PartnerDashboard() {
     };
   }, []);
 
-  // 1. تفعيل زر قبول وتحضير الطلب
+  // 1. زر قبول وتحضير الطلب (إرسال 'accepte' الحقيقية)
   const handleAcceptOrder = async (orderId: string) => {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'EN_PREPARATION' })
+        .update({ status: 'accepte' })
         .eq('id', orderId);
 
       if (error) throw error;
-      alert(`🦅 تم قبول الطلب #${orderId.slice(0,4).toUpperCase()} وجاري التحضير!`);
+      alert("🦅 Eagle Partner: تم قبول الطلب وبدء التحضير بنجاح!");
       fetchLiveAndRealData();
     } catch (err: any) {
       alert(`خطأ: ${err.message}`);
     }
   };
 
-  // 2. تفعيل زر رفض الطلب
+  // 2. زر رفض الطلب (إرسال 'annule' الحقيقية)
   const handleRefuseOrder = async (orderId: string) => {
-    if (!window.confirm("هل أنت متأكد من رفض هذا الطلب؟ ⚠️")) return;
+    if (!window.confirm("هل أنت متأكد من إلغاء هذا الطلب؟ ⚠️")) return;
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'REFUSE' })
+        .update({ status: 'annule' })
         .eq('id', orderId);
 
       if (error) throw error;
-      alert(`❌ تم رفض الطلب.`);
+      alert("❌ تم إلغاء الطلب بنجاح.");
       fetchLiveAndRealData();
     } catch (err: any) {
       alert(`خطأ: ${err.message}`);
     }
   };
 
-  // 3. تفعيل زر تعديل السعر الفوري للوجبة
+  // 3. زر تعديل السعر الفوري للوجبة
   const handleEditPrice = async (productId: string, currentPrice: number) => {
     const newPrice = prompt("أدخل السعر الجديد للوجبة (DT):", currentPrice.toString());
     if (newPrice === null || newPrice === "") return;
@@ -93,14 +90,14 @@ export default function PartnerDashboard() {
         .eq('id', productId);
 
       if (error) throw error;
-      alert("🦅 تم تحديث سعر الوجبة بنجاح!");
+      alert("🦅 تم تحديث السعر بنجاح!");
       fetchLiveAndRealData();
     } catch (err: any) {
-      alert(`خطأ أثناء التحديث: ${err.message}`);
+      alert(`خطأ: ${err.message}`);
     }
   };
 
-  // 4. تفعيل زر تغيير حالة المخزن (Stock / Épuisé)
+  // 4. زر التحكم في حالة المخزن (Stock / Épuisé)
   const handleToggleStock = async (productId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -119,7 +116,7 @@ export default function PartnerDashboard() {
     return (
       <div className="min-h-screen bg-[#0b111e] flex flex-col items-center justify-center text-white">
         <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-500 mb-3"></div>
-        <p className="text-xs text-gray-400 font-bold">جاري جلب لوحة التحكم النشطة...</p>
+        <p className="text-xs text-gray-400 font-bold">جاري تحديث النظام والمفاتيح حياً...</p>
       </div>
     );
   }
@@ -139,7 +136,7 @@ export default function PartnerDashboard() {
         </div>
       </div>
 
-      {/* 1. قسم الطلبات المباشرة الديناميكي بالكامل */}
+      {/* 1. قسم الطلبات المباشرة */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-sm font-black border-l-4 border-amber-500 pl-2.5 tracking-wide text-gray-100">
@@ -150,14 +147,14 @@ export default function PartnerDashboard() {
           </span>
         </div>
 
-        {orders.filter(o => o.status !== 'REFUSE' && o.status !== 'LIVRE').length === 0 ? (
+        {orders.filter(o => o.status !== 'annule' && o.status !== 'livre').length === 0 ? (
           <div className="bg-[#161f30] p-6 rounded-2xl border border-gray-800/80 text-center py-10">
             <p className="text-xs text-gray-400 font-bold">Aucune commande active</p>
             <p className="text-amber-500/80 font-black text-[11px] mt-1">بانتظار طلبات جديدة حية... 🦅</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.filter(o => o.status !== 'REFUSE' && o.status !== 'LIVRE').map((order) => (
+            {orders.filter(o => o.status !== 'annule' && o.status !== 'livre').map((order) => (
               <div key={order.id} className="bg-[#161f30] p-4 rounded-2xl border-2 border-amber-500/90 shadow-2xl">
                 <div className="flex justify-between items-start mb-3">
                   <div>
@@ -165,11 +162,10 @@ export default function PartnerDashboard() {
                     <h3 className="text-xs font-black text-gray-200 mt-0.5">Client: {order.customer_name}</h3>
                   </div>
                   <span className="bg-amber-500 text-slate-950 font-black text-[9px] px-2.5 py-1 rounded-lg uppercase tracking-wide">
-                    {order.status || 'Nouveau 🔥'}
+                    {order.status === 'en_attente' ? 'Nouveau 🔥' : order.status === 'accepte' ? 'Accepté 🧑‍🍳' : order.status}
                   </span>
                 </div>
                 
-                {/* طباعة الوجبات الحقيقية القادمة من قاعدة البيانات لكل طلب */}
                 <div className="border-t border-gray-800/80 my-3 pt-3 text-xs text-gray-300 space-y-1.5 font-semibold">
                   {order.order_items && order.order_items.length > 0 ? (
                     order.order_items.map((item: any, idx: number) => (
@@ -188,27 +184,29 @@ export default function PartnerDashboard() {
                   <span className="text-sm font-black text-amber-500 font-mono">{Number(order.total_price).toFixed(3)} DT</span>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 mt-4">
-                  <button 
-                    onClick={() => handleAcceptOrder(order.id)}
-                    className="col-span-3 bg-[#10b981] hover:bg-[#0e9f6e] text-slate-950 font-black text-xs py-3 rounded-xl transition-all shadow-md active:scale-95"
-                  >
-                    Accepter & Préparer
-                  </button>
-                  <button 
-                    onClick={() => handleRefuseOrder(order.id)}
-                    className="col-span-1 bg-[#1e293b] hover:bg-red-950/40 text-red-400 font-black text-xs py-3 rounded-xl border border-gray-800 transition-all active:scale-95"
-                  >
-                    Refuser
-                  </button>
-                </div>
+                {order.status === 'en_attente' && (
+                  <div className="grid grid-cols-4 gap-2 mt-4">
+                    <button 
+                      onClick={() => handleAcceptOrder(order.id)}
+                      className="col-span-3 bg-[#10b981] hover:bg-[#0e9f6e] text-slate-950 font-black text-xs py-3 rounded-xl transition-all shadow-md active:scale-95"
+                    >
+                      Accepter & Préparer
+                    </button>
+                    <button 
+                      onClick={() => handleRefuseOrder(order.id)}
+                      className="col-span-1 bg-[#1e293b] hover:bg-red-950/40 text-red-400 font-black text-xs py-3 rounded-xl border border-gray-800 transition-all active:scale-95"
+                    >
+                      Refuser
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* 📋 2. قسم إدارة قائمة المأكولات التفاعلي */}
+      {/* 📋 2. قسم إدارة قائمة المأكولات */}
       <div>
         <div className="mb-4">
           <h2 className="text-sm font-black border-l-4 border-blue-500 pl-2.5 tracking-wide text-gray-100">
@@ -230,14 +228,12 @@ export default function PartnerDashboard() {
               </div>
               
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* زر التعديل الفوري للمبلغ */}
                 <button 
                   onClick={() => handleEditPrice(item.id, item.price)}
-                  className="bg-[#1e293b] hover:bg-[#334155] text-gray-300 font-black text-[11px] px-3 py-2 rounded-xl border border-gray-800 flex items-center gap-1.5 transition-all active:scale-95"
+                  className="bg-[#1e293b] hover:bg-[#334155] text-gray-300 font-black text-[11px] px-3 py-2 rounded-xl border border-gray-800 transition-all active:scale-95"
                 >
                   ✏️ Editer
                 </button>
-                {/* زر التحكم في التوفر بالمخزن */}
                 <button 
                   onClick={() => handleToggleStock(item.id, item.in_stock !== false)}
                   className={`font-black text-[11px] px-3 py-2 rounded-xl border transition-all active:scale-95 ${item.in_stock !== false ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
