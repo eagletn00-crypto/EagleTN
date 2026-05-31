@@ -2,11 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 
-interface RestaurantMenuProps {
-  addToCart?: (id: any) => void;
-}
-
-export default function RestaurantMenu({ addToCart }: RestaurantMenuProps) {
+export default function RestaurantMenu() {
   const { id } = useParams();
   const [products, setProducts] = useState<any[]>([]);
   const [restaurant, setRestaurant] = useState<any>(null);
@@ -30,10 +26,24 @@ export default function RestaurantMenu({ addToCart }: RestaurantMenuProps) {
   }, [id]);
 
   const handleAddToCart = (product: any) => {
-    // تشغيل السلة المحلية فوراً لجميع المستخدمين والمتصفح العادي بدون قيود
-    if (addToCart) {
-      addToCart(product.id);
-    }
+    // 1. جلب السلة الحالية المعتمدة في المشروع بصيغة المصفوفة الأصلية
+    const existingCart = JSON.parse(localStorage.getItem('eagle_cart') || '[]');
+    
+    // 2. إضافة المنتج بكامل بياناته لتتوافق مع معايير شريط السلة وفاتورة Cart.tsx
+    const productToOrder = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image_url: product.image_url
+    };
+    
+    existingCart.push(productToOrder);
+    
+    // 3. التخزين الصارم وإطلاق الحدث لتحديث واجهات التطبيق في نفس اللحظة
+    localStorage.setItem('eagle_cart', JSON.stringify(existingCart));
+    window.dispatchEvent(new Event('cart_updated'));
+    
+    alert(`تمت إضافة ${product.name} إلى السلة! 🛒`);
   };
 
   if (loading) return <div className="text-center p-10 text-white">جاري تحميل القائمة...</div>;
