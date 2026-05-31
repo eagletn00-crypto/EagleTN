@@ -60,7 +60,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ClientHome />} />
+        
+        {/* الربط الحتمي والمضمون للدالة مع المسار الديناميكي للمنيو */}
         <Route path="/restaurant/:id" element={<RestaurantMenu addToCart={addToCart} />} />
+        
         <Route path="/cart" element={<Cart />} />
         <Route path="/login" element={<Login />} />
         <Route path="/partner" element={<PartnerDashboard />} />
