@@ -8,7 +8,6 @@ import PartnerDashboard from './components/PartnerDashboard';
 import LivreurDashboard from './components/LivreurDashboard';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import Cart from './components/Cart';
-import Login from './components/Login';
 
 interface MenuItem {
   id: any;
@@ -47,25 +46,12 @@ export default function App() {
     });
   };
 
-  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
-
-  const getCartTotal = () => {
-    return Object.keys(cart).reduce((t, id) => {
-      const item = menuItems.find(m => String(m.id) === String(id));
-      return t + (item ? item.price * cart[id] : 0);
-    }, 0);
-  };
-
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ClientHome />} />
-        
-        {/* الربط الحتمي والمضمون للدالة مع المسار الديناميكي للمنيو */}
         <Route path="/restaurant/:id" element={<RestaurantMenu addToCart={addToCart} />} />
-        
         <Route path="/cart" element={<Cart />} />
-        <Route path="/login" element={<Login />} />
         <Route path="/partner" element={<PartnerDashboard />} />
         <Route path="/livreur" element={<LivreurDashboard />} />
         <Route path="/admin" element={<SuperAdminDashboard />} />
