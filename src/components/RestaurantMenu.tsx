@@ -19,13 +19,11 @@ interface RestaurantMenuProps {
   onAdminLogin?: () => void;
   onPartnerLogin?: () => void;
   onLivreurLogin?: () => void;
-  onBack?: () => void; // ✅ تم إضافة onBack لحل خطأ الـ Props
+  onBack?: () => void;
 }
 
-// ✅ تم وضع (_) قبل المتغيرات غير المستخدمة لتجاوز صرامة Vercel
 export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerLogin: _onPartnerLogin, onLivreurLogin: _onLivreurLogin, onBack: _onBack }: RestaurantMenuProps) {
   
-  // ✅ تم إضافة لوحات التحكم إلى قائمة الحالات المسموحة لحل خطأ TS2345
   const [appView, setAppView] = useState<'splash' | 'login' | 'hub' | 'stores_list' | 'menu' | 'cart' | 'tracking' | 'profile' | 'admin_dashboard' | 'partner_dashboard' | 'livreur_dashboard'>('splash');
   
   const [secretClickCount, setSecretClickCount] = useState(0);
@@ -79,7 +77,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const distanceInKm = calculateDistance(storeLat, storeLng, clientLat, clientLng);
   const dynamicDeliveryFee = Number((BASE_FEE + (distanceInKm * PRICE_PER_KM)).toFixed(3));
 
-  // ✅ تم وضع _ قبل الدالة غير المستخدمة
   const _triggerEagleScream = () => {
     try {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
@@ -140,7 +137,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       showToast("Demande transmise avec succès.", "success");
       setActiveModal('none');
       setFormData({ name: '', phone: '', type: '', region: '', note: '', agreed: false });
-    } catch (_err) { showToast("Erreur d'enregistrement", "error"); } // ✅ _err
+    } catch (_err) { showToast("Erreur d'enregistrement", "error"); } 
   };
 
   const handleSecretClick = () => {
@@ -187,7 +184,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       if (appView === 'splash') setTimeout(() => setAppView('login'), 4000);
     };
     fetchInitialData();
-  }, [appView]); // ✅ أضفت التبعية
+  }, [appView]); 
 
   useEffect(() => {
     if (!currentOrderId) return;
@@ -219,7 +216,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       const { data, error: _err } = await supabase.from('products').select('*').eq('restaurant_id', store.id);
       if (data) setProducts(data);
       setAppView('menu');
-    } catch (_e) { // ✅ _e
+    } catch (_e) { 
       showToast("Erreur de chargement du menu", "error");
     }
   };
@@ -245,7 +242,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           const data = await res.json();
           setDeliveryAddress(`${data.address?.road || 'Cité Nacer'}, Tunis`);
           showToast("Position synchronisée !", "success");
-        } catch (_err) { setDeliveryAddress(`Cité Nacer, Tunis`); } // ✅ _err
+        } catch (_err) { setDeliveryAddress(`Cité Nacer, Tunis`); } 
       });
     }
   };
@@ -312,7 +309,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         showToast("Échec de l'enregistrement, veuillez réessayer.", "error");
         console.error("Order Insert Error:", error);
       }
-    } catch (_err) { // ✅ _err
+    } catch (_err) { 
       showToast("Erreur de connexion serveur", "error"); 
     }
   };
@@ -420,15 +417,43 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [شاشة النجاح التامة] */}
+      {/* [شاشة النجاح التامة - ULTRA PREMIUM] */}
       {showSuccessOverlay && (
-        <div className="absolute inset-0 bg-[#0a0a0a]/95 z-[600] flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
-          <div className="bg-[#121620] border border-amber-500/30 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-2xl relative overflow-hidden">
-            <div className="w-24 h-24 bg-amber-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(245,158,11,0.3)]">
-              <CheckCircle size={48} className="text-slate-950" />
+        <div className="absolute inset-0 z-[999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
+          {/* Background Blur & Overlay */}
+          <div className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-xl"></div>
+
+          {/* Content Container */}
+          <div className="relative bg-gradient-to-b from-[#121620] to-[#0A0A0A] border border-amber-500/20 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-[0_0_50px_rgba(245,158,11,0.15)] animate-breathe">
+
+            {/* Top Decorative Element */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-amber-500 rounded-b-full shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
+
+            {/* Success Icon / Image */}
+            <div className="relative w-28 h-28 mx-auto">
+              <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping"></div>
+              <div className="relative bg-gradient-to-br from-amber-400 to-amber-600 w-full h-full rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.4)] border-4 border-[#121620]">
+                <CheckCircle size={56} className="text-[#0A0A0A]" />
+              </div>
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">Succès ! 🎉</h2>
-            <button onClick={resetEcosystemFlow} className="w-full bg-amber-500 text-slate-950 font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-xl">ACCUEIL</button>
+
+            {/* Typography */}
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-white uppercase tracking-widest">Livraison Réussie</h2>
+              <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Merci pour votre confiance</p>
+            </div>
+
+            {/* Message */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-inner">
+              <p className="text-xs font-bold text-slate-300 leading-relaxed text-center">
+                Votre commande a été livrée avec succès. Nous espérons que ce repas sera à la hauteur de vos attentes. <br/><br/><span className="text-amber-500 font-black text-sm">Bon appétit ! 🦅</span>
+              </p>
+            </div>
+
+            {/* Action Button */}
+            <button onClick={resetEcosystemFlow} className="w-full bg-white text-slate-950 hover:bg-amber-500 hover:text-slate-950 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 shadow-[0_10px_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2">
+              <Home size={16} /> Accueil Eagle.tn
+            </button>
           </div>
         </div>
       )}
