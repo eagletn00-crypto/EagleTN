@@ -42,7 +42,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
 
   const [fullName, setFullName] = useState(() => localStorage.getItem('eagle_name') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('eagle_phone') || '');
-  const [deliveryAddress, setDeliveryAddress] = useState(() => localStorage.getItem('eagle_address') || 'Cité Nacer, Tunis');
+  // مسح العنوان الافتراضي لإجبار العميل على استخدام الـ GPS
+  const [deliveryAddress, setDeliveryAddress] = useState(() => localStorage.getItem('eagle_address') || '');
   const [clientNote, setClientNote] = useState('');
 
   const [clientLat, setClientLat] = useState<number>(36.8065);
@@ -177,6 +178,16 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           setCurrentOrderId(activeOrder.id);
           setCurrentOrderStatus(activeOrder.status);
           setOrderPinCode(activeOrder.pin_code);
+          
+          // جلب الإحداثيات الحقيقية للطلب لمنع ظهور حي النصر دائماً
+          if (activeOrder.delivery_lat && activeOrder.delivery_lng) {
+            setClientLat(activeOrder.delivery_lat);
+            setClientLng(activeOrder.delivery_lng);
+          }
+          if (activeOrder.delivery_address) {
+            setDeliveryAddress(activeOrder.delivery_address);
+          }
+          
           setAppView('tracking');
           return;
         }
@@ -240,10 +251,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
           const data = await res.json();
-          setDeliveryAddress(`${data.address?.road || 'Cité Nacer'}, Tunis`);
+          setDeliveryAddress(`${data.address?.road || ''}, Tunis`);
           showToast("Position synchronisée !", "success");
-        } catch (_err) { setDeliveryAddress(`Cité Nacer, Tunis`); } 
+        } catch (_err) { setDeliveryAddress(``); } 
       });
+    } else {
+      showToast("Le GPS n'est pas supporté par votre navigateur.", "error");
     }
   };
 
@@ -266,7 +279,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
 
   const handleConfirmOrder = async () => {
     if (!fullName || !phone || !deliveryAddress || !legalAccepted || totalItems === 0) {
-      return showToast("Données ou panier invalides", "error");
+      return showToast("Veuillez remplir tous les champs et activer le GPS", "error");
     }
     if (!isValidTunisianPhone(phone)) {
       return showToast("Le numéro de téléphone doit comporter exactement 8 chiffres", "error");
@@ -420,37 +433,24 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       {/* [شاشة النجاح التامة - ULTRA PREMIUM] */}
       {showSuccessOverlay && (
         <div className="absolute inset-0 z-[999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
-          {/* Background Blur & Overlay */}
           <div className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-xl"></div>
-
-          {/* Content Container */}
           <div className="relative bg-gradient-to-b from-[#121620] to-[#0A0A0A] border border-amber-500/20 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-[0_0_50px_rgba(245,158,11,0.15)] animate-breathe">
-
-            {/* Top Decorative Element */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-amber-500 rounded-b-full shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
-
-            {/* Success Icon / Image */}
             <div className="relative w-28 h-28 mx-auto">
               <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping"></div>
               <div className="relative bg-gradient-to-br from-amber-400 to-amber-600 w-full h-full rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.4)] border-4 border-[#121620]">
                 <CheckCircle size={56} className="text-[#0A0A0A]" />
               </div>
             </div>
-
-            {/* Typography */}
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-white uppercase tracking-widest">Livraison Réussie</h2>
               <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Merci pour votre confiance</p>
             </div>
-
-            {/* Message */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-inner">
               <p className="text-xs font-bold text-slate-300 leading-relaxed text-center">
                 Votre commande a été livrée avec succès. Nous espérons que ce repas sera à la hauteur de vos attentes. <br/><br/><span className="text-amber-500 font-black text-sm">Bon appétit ! 🦅</span>
               </p>
             </div>
-
-            {/* Action Button */}
             <button onClick={resetEcosystemFlow} className="w-full bg-white text-slate-950 hover:bg-amber-500 hover:text-slate-950 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 shadow-[0_10px_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2">
               <Home size={16} /> Accueil Eagle.tn
             </button>
@@ -670,8 +670,10 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nom et Prénom *" className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300" />
             <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Numéro de Téléphone (8 chiffres) *" className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300" />
             
-            <button onClick={triggerLocationRequest} className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 py-3 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-transform active:scale-98">localisation automatique</button>
-            <input type="text" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Zone text (Ex: Cité Nacer)..." className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300" />
+            <button onClick={triggerLocationRequest} className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 py-3 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-transform active:scale-98 flex justify-center items-center gap-2">
+               <LocateFixed size={16}/> Localisation Automatique (GPS)
+            </button>
+            <input type="text" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Zone (Ex: Cité Nacer)... *" className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300" />
             
             <input type="text" value={clientNote} onChange={e => setClientNote(e.target.value)} placeholder="Note client ou remarques pour la livraison..." className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300" />
           </div>
@@ -719,7 +721,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [7] TRACKING PLATFORM - التتبع اللحظي المؤتمت الذكي مع إخفاء الكارت */}
+      {/* [7] TRACKING PLATFORM - التتبع اللحظي المؤتمت الذكي بالبيانات الحقيقية */}
       {appView === 'tracking' && (
         <div className="p-4 space-y-4 max-w-md mx-auto pb-32 animate-fade-in">
           <div className="bg-[#121824] text-white p-6 rounded-[2.5rem] text-center space-y-4 shadow-2xl border border-slate-800 relative overflow-hidden">
@@ -759,11 +761,24 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             )}
           </div>
 
+          {/* خريطة البيانات الحقيقية والمسافة وأيقونة التوصيل المخصصة */}
           <div className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-slate-100 h-52 overflow-hidden relative group">
+            {/* إطار الخريطة بدون دبوس مركزي لإضافة الدراجة */}
             <iframe
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${clientLng-0.01},${clientLat-0.01},${clientLng+0.01},${clientLat+0.01}&layer=mapnik&marker=${clientLat},${clientLng}`}
-              width="100%" height="100%" style={{ border: 0, borderRadius: '2rem' }} loading="lazy"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${clientLng-0.005},${clientLat-0.005},${clientLng+0.005},${clientLat+0.005}&layer=mapnik`}
+              width="100%" height="100%" style={{ border: 0, borderRadius: '2rem', pointerEvents: 'none' }} loading="lazy"
             ></iframe>
+            
+            {/* أيقونة الدراجة النارية المجسمة في المركز */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl drop-shadow-xl z-20 animate-bounce">
+              🛵
+            </div>
+
+            {/* شريحة المسافة الحقيقية بالكيلومتر */}
+            <div className="absolute bottom-4 right-4 bg-[#121620]/90 backdrop-blur-md text-white px-3 py-1.5 rounded-xl border border-amber-500/30 flex items-center gap-1.5 shadow-lg z-20">
+              <LocateFixed size={12} className="text-amber-500 animate-pulse"/>
+              <span className="text-[10px] font-black font-mono tracking-widest">{distanceInKm.toFixed(1)} KM</span>
+            </div>
           </div>
 
           {/* ظهور ذكي لبطاقة السائق فقط عندما يقبل الطلب */}
