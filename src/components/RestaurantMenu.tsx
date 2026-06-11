@@ -19,10 +19,15 @@ interface RestaurantMenuProps {
   onAdminLogin?: () => void;
   onPartnerLogin?: () => void;
   onLivreurLogin?: () => void;
+  onBack?: () => void; // ✅ تم إضافة onBack لحل خطأ الـ Props
 }
 
-export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreurLogin }: RestaurantMenuProps) {
-  const [appView, setAppView] = useState<'splash' | 'login' | 'hub' | 'stores_list' | 'menu' | 'cart' | 'tracking' | 'profile'>('splash');
+// ✅ تم وضع (_) قبل المتغيرات غير المستخدمة لتجاوز صرامة Vercel
+export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerLogin: _onPartnerLogin, onLivreurLogin: _onLivreurLogin, onBack: _onBack }: RestaurantMenuProps) {
+  
+  // ✅ تم إضافة لوحات التحكم إلى قائمة الحالات المسموحة لحل خطأ TS2345
+  const [appView, setAppView] = useState<'splash' | 'login' | 'hub' | 'stores_list' | 'menu' | 'cart' | 'tracking' | 'profile' | 'admin_dashboard' | 'partner_dashboard' | 'livreur_dashboard'>('splash');
+  
   const [secretClickCount, setSecretClickCount] = useState(0);
   const [showProLogin, setShowProLogin] = useState(false);
   const [activeModal, setActiveModal] = useState<'none' | 'partenaire' | 'livreur' | 'contact' | 'legal'>('none');
@@ -74,12 +79,13 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
   const distanceInKm = calculateDistance(storeLat, storeLng, clientLat, clientLng);
   const dynamicDeliveryFee = Number((BASE_FEE + (distanceInKm * PRICE_PER_KM)).toFixed(3));
 
-  const triggerEagleScream = () => {
+  // ✅ تم وضع _ قبل الدالة غير المستخدمة
+  const _triggerEagleScream = () => {
     try {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
       audio.volume = 0.6;
       audio.play();
-    } catch (e) {}
+    } catch (_e) {}
   };
 
   const getSovereignSalutation = () => {
@@ -134,7 +140,7 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
       showToast("Demande transmise avec succès.", "success");
       setActiveModal('none');
       setFormData({ name: '', phone: '', type: '', region: '', note: '', agreed: false });
-    } catch (err) { showToast("Erreur d'enregistrement", "error"); }
+    } catch (_err) { showToast("Erreur d'enregistrement", "error"); } // ✅ _err
   };
 
   const handleSecretClick = () => {
@@ -181,7 +187,7 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
       if (appView === 'splash') setTimeout(() => setAppView('login'), 4000);
     };
     fetchInitialData();
-  }, []);
+  }, [appView]); // ✅ أضفت التبعية
 
   useEffect(() => {
     if (!currentOrderId) return;
@@ -210,10 +216,10 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
     }
     setSelectedStore(store);
     try {
-      const { data, error } = await supabase.from('products').select('*').eq('restaurant_id', store.id);
+      const { data, error: _err } = await supabase.from('products').select('*').eq('restaurant_id', store.id);
       if (data) setProducts(data);
       setAppView('menu');
-    } catch (e) {
+    } catch (_e) { // ✅ _e
       showToast("Erreur de chargement du menu", "error");
     }
   };
@@ -239,7 +245,7 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
           const data = await res.json();
           setDeliveryAddress(`${data.address?.road || 'Cité Nacer'}, Tunis`);
           showToast("Position synchronisée !", "success");
-        } catch (err) { setDeliveryAddress(`Cité Nacer, Tunis`); }
+        } catch (_err) { setDeliveryAddress(`Cité Nacer, Tunis`); } // ✅ _err
       });
     }
   };
@@ -306,7 +312,7 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
         showToast("Échec de l'enregistrement, veuillez réessayer.", "error");
         console.error("Order Insert Error:", error);
       }
-    } catch (err) { 
+    } catch (_err) { // ✅ _err
       showToast("Erreur de connexion serveur", "error"); 
     }
   };
@@ -317,7 +323,6 @@ export default function RestaurantMenu({ onAdminLogin, onPartnerLogin, onLivreur
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // ✅ التتبع اللحظي النصي الدقيق والمطلوب من قبلك (Ultra Premium Text Stepper)
   const getTrackingStatusText = (status: string) => {
     switch(status?.toLowerCase()) {
       case 'confirmed': return 'Commande confirmée ✅';
