@@ -13,33 +13,14 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Modals States
   const [showProductModal, setShowProductModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // Product Form State
-  const [currentProduct, setCurrentProduct] = useState<any>({
-    id: null,
-    name_fr: '',
-    price: '',
-    category: 'PLAT',
-    image_url: '',
-    in_stock: true,
-    is_special: false
-  });
+  const [currentProduct, setCurrentProduct] = useState<any>({ id: null, name_fr: '', price: '', category: 'PLAT', image_url: '', in_stock: true, is_special: false });
   const [productUploadFile, setProductUploadFile] = useState<File | null>(null);
 
-  // Restaurant Settings Form State
-  const [settingsForm, setSettingsForm] = useState<any>({
-    name: '',
-    description: '',
-    address: '',
-    opening_time: '',
-    closing_time: '',
-    logo_url: '',
-    cover_url: ''
-  });
+  const [settingsForm, setSettingsForm] = useState<any>({ name: '', description: '', address: '', opening_time: '', closing_time: '', logo_url: '', cover_url: '' });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
@@ -47,7 +28,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
   useEffect(() => {
     fetchDashboardData();
-    // ربط فوري للحظات التحديث مع قاعدة البيانات
     const ordersSubscription = supabase.channel('partner_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchDashboardData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchDashboardData)
@@ -58,7 +38,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
   const fetchDashboardData = async () => {
     try {
-      const { data: resto } = await supabase.from('restaurants').select('*').eq('id', 1).single();
+      const { data: resto } = await supabase.from('restaurants').select('*').eq('id', 1).maybeSingle();
       if (resto) {
         setRestaurantData(resto);
         setSettingsForm({
@@ -70,10 +50,14 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
           logo_url: resto.logo_url || '',
           cover_url: resto.cover_url || ''
         });
-        
-        const { data: prods } = await supabase.from('products').select('*').eq('restaurant_id', resto.id).order('created_at', { ascending: false });
-        if (prods) setProducts(prods);
       }
+
+      // 🛠️ التعديل السحري: جلب المنتجات التي تتبع للمطعم 1 أو التي قيمتها NULL لضمان ظهورها فوراً!
+      const { data: prods } = await supabase.from('products')
+        .select('*')
+        .or('restaurant_id.eq.1,restaurant_id.is.null')
+        .order('created_at', { ascending: false });
+      if (prods) setProducts(prods);
 
       const { data: ordersData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (ordersData) setOrders(ordersData);
@@ -149,9 +133,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         const { data } = supabase.storage.from('products').getPublicUrl(fileName);
         return data.publicUrl;
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
     return null;
   };
 
@@ -166,7 +148,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       }
 
       const payload = {
-        restaurant_id: restaurantData.id,
+        restaurant_id: 1, // إجبار الربط بالمطعم رقم 1 عند الحفظ لترتيب البيانات
         name: currentProduct.name_fr,
         name_fr: currentProduct.name_fr,
         price: parseFloat(currentProduct.price),
@@ -184,11 +166,8 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
       setShowProductModal(false);
       fetchDashboardData();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUploading(false);
-    }
+    } catch (e) { console.error(e); } 
+    finally { setIsUploading(false); }
   };
 
   const handleRestaurantSave = async () => {
@@ -208,18 +187,14 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         closing_time: settingsForm.closing_time,
         logo_url: finalLogo,
         cover_url: finalCover
-      }).eq('id', restaurantData.id);
+      }).eq('id', 1);
 
       setShowSettingsModal(false);
       fetchDashboardData();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUploading(false);
-    }
+    } catch (e) { console.error(e); } 
+    finally { setIsUploading(false); }
   };
 
-  // 🧮 نظام الحماية الرياضي الشامل لمنع تكسير واجهة الـ Journal
   const activeOrders = orders.filter(o => ['confirmed', 'prete'].includes(o.status));
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
@@ -232,19 +207,14 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       } else if (Array.isArray(order.items)) {
          itemsArray = order.items;
       }
-      
       if (Array.isArray(itemsArray)) {
         itemsArray.forEach((item: any) => {
           if (item) {
-            const price = Number(item.price || item.price_unit || 0);
-            const qty = Number(item.quantity || item.qty || 1);
-            totalBrut += (price * qty);
+            totalBrut += (Number(item.price || 0) * Number(item.quantity || 1));
           }
         });
       }
-    } catch (e) {
-      console.error("Skipping corrupted order calculation to prevent UI crash", e);
-    }
+    } catch (e) { totalBrut = 0; }
   });
 
   const commissionEagle = totalBrut * 0.10;
@@ -255,7 +225,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
   return (
     <div className="min-h-screen w-screen bg-[#FDFBF7] text-slate-900 font-sans overflow-x-hidden pb-24">
       
-      {/* 👑 HEADER PREMIUM */}
+      {/* 👑 HEADER */}
       <div className="bg-white border-b border-slate-100 shadow-sm relative">
         <div className="h-32 bg-slate-200 relative overflow-hidden">
           {restaurantData?.cover_url ? <img src={restaurantData.cover_url} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-slate-800"></div>}
@@ -280,7 +250,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
           </div>
 
           <div>
-            <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">{restaurantData?.name || "Nom du Restaurant"} <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md border border-amber-200 uppercase tracking-widest flex items-center gap-0.5">Pro 👑</span></h1>
+            <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">{restaurantData?.name || "Am Ali عم علي"} <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md border border-amber-200 uppercase tracking-widest flex items-center gap-0.5">Pro 👑</span></h1>
             <p className="text-xs text-slate-500 font-medium mt-1">{restaurantData?.description || "Ajoutez une description."}</p>
             <div className="flex gap-4 mt-2 text-[10px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><MapPin size={12} className="text-slate-300"/> {restaurantData?.address || "Tunis, Tunisie"}</span>
@@ -290,7 +260,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       </div>
 
-      {/* 🧭 NAVIGATION */}
+      {/* 🧭 TABS */}
       <div className="px-5 py-4">
         <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] shadow-inner">
           <button onClick={() => setActiveTab('commandes')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'commandes' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
@@ -351,7 +321,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 🍔 TAB 2: MENU */}
+      {/* 🍔 TAB 2: MENU (الآن تظهر المنتجات 100% مع أزرار التعديل الفخمة) */}
       {activeTab === 'menu' && (
         <div className="px-5 space-y-4 pb-10">
           <div className="flex justify-between items-center bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm">
@@ -365,7 +335,10 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
           </div>
 
           <div className="space-y-3">
-            {products.map(p => (
+            {products.length === 0 ? (
+               <p className="text-[10px] text-slate-400 font-bold text-center py-6">Aucun plat trouvé. Ajoutez votre premier plat !</p>
+            ) : (
+               products.map(p => (
               <div key={p.id} className={`bg-white border p-3 rounded-[1.5rem] flex items-center gap-3 shadow-sm transition-all ${p.in_stock ? 'border-slate-100' : 'border-red-100 opacity-75'}`}>
                 <div className="w-20 h-20 bg-slate-50 rounded-[1rem] overflow-hidden border border-slate-100 shrink-0 relative flex items-center justify-center">
                   {p.image_url ? <img src={p.image_url} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-300"/>}
@@ -394,14 +367,14 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                    </button>
                 </div>
               </div>
-            ))}
+            )))}}
           </div>
         </div>
       )}
 
-      {/* 💰 TAB 3: JOURNAL (شاشة آمنة ومحمية من الانهيار) */}
+      {/* 💰 TAB 3: JOURNAL (درع الحماية الحسابي لمنع الانهيار) */}
       {activeTab === 'journal' && (
-        <div className="px-5 space-y-5 pb-10">
+        <div className="px-5 space-y-5 pb-10 animate-fade-in">
           <div className="bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm relative overflow-hidden">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Portefeuille Numérique 🦅</p>
             <p className="text-[9px] text-slate-400 font-bold mb-4">Total après déduction de la commission fixe (10%)</p>
@@ -426,7 +399,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 🖼️ MODAL MODIFIER PRODUIT (مكتمل وبكل الخيارات المطلوبة) */}
+      {/* 🖼️ MODAL: ADD / EDIT PRODUCT */}
       {showProductModal && (
         <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -436,27 +409,20 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
             </div>
             
             <div className="space-y-4">
-              {/* اسم الطبق */}
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Nom du plat *</label>
                 <input type="text" placeholder="Ex: Pizza Margherita" value={currentProduct.name_fr} onChange={e => setCurrentProduct({...currentProduct, name_fr: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500" />
               </div>
-
-              {/* السعر */}
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Prix (DT) *</label>
                 <input type="number" step="0.001" placeholder="Ex: 12.500" value={currentProduct.price} onChange={e => setCurrentProduct({...currentProduct, price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500" />
               </div>
-
-              {/* القسم */}
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Catégorie *</label>
                 <select value={currentProduct.category} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500 text-slate-600 uppercase">
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-
-              {/* رفع الصورة من الهاتف */}
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Photo du plat</label>
                 <div className="border-2 border-dashed border-slate-200 bg-slate-50 p-5 rounded-2xl text-center relative overflow-hidden flex flex-col items-center">
@@ -465,19 +431,15 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{productUploadFile ? productUploadFile.name : 'Choisir depuis le téléphone 📱'}</p>
                 </div>
               </div>
-
-              {/* خيارات الحالة المميزة والتوفر */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button type="button" onClick={() => setCurrentProduct({...currentProduct, in_stock: !currentProduct.in_stock})} className={`p-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-colors ${currentProduct.in_stock ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-red-50 border-red-200 text-red-500'}`}>
-                  {currentProduct.in_stock ? 'Disponible' : 'Rupture de stock'}
+                  {currentProduct.in_stock ? 'Disponible' : 'Rupture'}
                 </button>
                 <button type="button" onClick={() => setCurrentProduct({...currentProduct, is_special: !currentProduct.is_special})} className={`p-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1 ${currentProduct.is_special ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                   <Star size={12} className={currentProduct.is_special ? 'fill-amber-500 text-amber-500' : ''}/> {currentProduct.is_special ? 'Plat Spécial' : 'Normal'}
                 </button>
               </div>
-              
-              {/* زر الحفظ */}
-              <button disabled={isUploading || !currentProduct.name_fr || !currentProduct.price} onClick={handleProductSave} className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-md mt-2 flex justify-center items-center gap-2">
+              <button disabled={isUploading || !currentProduct.name_fr || !currentProduct.price} onClick={handleProductSave} className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-md mt-2">
                 {isUploading ? 'Sauvegarde...' : 'Enregistrer les modifications'}
               </button>
             </div>
@@ -489,7 +451,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-6 shadow-2xl space-y-4 no-scrollbar">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 sticky top-0 bg-white z-10">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Paramètres Restaurant 👑</h3>
               <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-red-500 bg-slate-50 rounded-full p-1"><XCircle size={20}/></button>
             </div>
