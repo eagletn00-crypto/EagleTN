@@ -39,7 +39,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const [products, setProducts] = useState<any[]>([]);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   
-  // 🦅 توحيد الفئات وإضافة Supplément
   const [selectedCategory, setSelectedCategory] = useState('TOUS');
   const categoriesList = ['TOUS', 'PLAT', 'SANDWICH', 'BOISSON', 'SUPPLÉMENT'];
 
@@ -244,7 +243,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
           const data = await res.json();
-          // تنظيف العنوان ليكون احترافياً
           const cleanAddress = data.address?.neighbourhood || data.address?.suburb || data.address?.city || '';
           setDeliveryAddress(`${cleanAddress ? cleanAddress + ', ' : ''}Tunis`);
           showToast("Position synchronisée !", "success");
@@ -294,6 +292,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     try {
       const finalDeliveryAddress = clientNote ? `${deliveryAddress} | Note: ${clientNote}` : deliveryAddress;
 
+      // 🚨 تم حذف حقل restaurant_id هنا لحل مشكلة Échec de l'enregistrement نهائياً
       const { data, error } = await supabase.from('orders').insert([{ 
         customer_name: fullName, 
         customer_phone: phone, 
@@ -303,8 +302,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         status: 'confirmed', 
         pin_code: generatedPin, 
         delivery_lat: clientLat, 
-        delivery_lng: clientLng,
-        restaurant_id: selectedStore?.id || 1 // ربط بالمطعم
+        delivery_lng: clientLng
       }]).select();
       
       if (!error && data && data.length > 0) { 
@@ -375,8 +373,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           <div className="bg-white p-8 rounded-[2.5rem] text-center max-w-sm shadow-2xl space-y-4 border-t-4 border-amber-500 animate-fade-in">
             <ShieldCheck size={40} className="text-amber-500 mx-auto" />
             <h2 className="text-lg font-black uppercase">Autorisation GPS</h2>
-            <p className="text-xs text-slate-600 font-bold leading-relaxed text-justify" dir="rtl">
-              "يستخدم Eagle.tn موقعك الجغرافي لمرة واحدة فقط لتحديد مكان التوصيل بدقة وحساب المسافة القانونية للشحنة. هل توافق؟"
+            <p className="text-xs text-slate-600 font-bold leading-relaxed text-justify" dir="ltr">
+              L'application requiert l'accès à votre localisation pour optimiser l'acheminement de la commande. Conformément à la loi INPDP. Acceptez-vous ?
             </p>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowGoogleDisclosure(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-black text-[10px] uppercase transition-all active:scale-95">Refuser</button>
@@ -392,14 +390,33 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           <div className="bg-[#121620] border border-white/10 w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative flex flex-col max-h-[90%] animate-fade-in text-white">
             <button onClick={() => setActiveModal('none')} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 p-2 rounded-full text-slate-300 z-10 transition-colors"><ArrowRight size={18} className="rotate-180" /></button>
 
+            {/* ⚖️ إدراج النصوص القانونية والخصوصية الفخمة هنا */}
             {activeModal === 'legal' ? (
-              <div className="space-y-4 text-right overflow-y-auto pr-1 pt-4" dir="rtl">
-                <div className="flex items-center justify-end gap-2 text-amber-500 mb-2">
-                  <Scale size={24} /> <h3 className="text-xl font-black">الشروط والخصوصية القانونية للمنصة</h3>
+              <div className="space-y-4 text-left overflow-y-auto pr-1 pt-4 pb-6" dir="ltr">
+                <div className="flex items-center justify-start gap-2 text-amber-500 mb-4 border-b border-white/10 pb-3">
+                  <Scale size={24} /> <h3 className="text-lg font-black uppercase tracking-widest">Mentions Légales & INPDP</h3>
                 </div>
-                <div className="space-y-4 text-xs font-bold text-slate-300 leading-relaxed text-justify">
-                  <p className="text-amber-400">**تنبيه: نسخة تجريبية وحماية المعطيات الشخصية (INPDP)**</p>
-                  <p>"هذا التطبيق متاح حالياً في نسخته التجريبية (Bêta) لغرض الاختبار والتطوير. بضغطكم على 'تأكيد الطلب'، توافقون على أن الخدمة قد تواجه بعض الأعطال التقنية أو التأخير في التوصيل. توافقون على مشاركة موقعكم الجغرافي لغرض تحسين نظام التتبع الفني، وتلتزم المنصة بمعالجة هذه البيانات بشكل مؤقت وسري وفق المبادئ العامة لـقانون حماية المعطيات الشخصية بتونس."</p>
+                
+                <div className="space-y-3">
+                  <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
+                    <h4 className="text-xs font-black text-white uppercase mb-1">1. Utilisateurs (Clients)</h4>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">La Plateforme agit comme intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande. La Plateforme décline toute responsabilité pour les retards dus à la force majeure.</p>
+                  </div>
+                  
+                  <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
+                    <h4 className="text-xs font-black text-white uppercase mb-1">2. Partenaires (Commerçants)</h4>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictement exigée.</p>
+                  </div>
+                  
+                  <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
+                    <h4 className="text-xs font-black text-white uppercase mb-1">3. Livreurs (Indépendants)</h4>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">Le Livreur est un prestataire indépendant sans lien de subordination. Il est responsable des marchandises transportées et s'engage à protéger les données personnelles des clients.</p>
+                  </div>
+
+                  <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl">
+                    <h4 className="text-xs font-black text-amber-500 uppercase mb-1 flex items-center gap-1"><ShieldCheck size={12}/> 4. Politique INPDP</h4>
+                    <p className="text-[9px] text-amber-500/80 leading-relaxed font-medium">Conformément à la Loi n° 2004-63, nous collectons les données pour l'acheminement exclusif des commandes. Ces données ne sont ni vendues ni cédées. Droit d'accès et de suppression garanti.</p>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -416,7 +433,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                 <textarea placeholder="Note..." value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors h-20 resize-none" />
                 <label className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/10 cursor-pointer select-none">
                   <input type="checkbox" required checked={formData.agreed} onChange={e => setFormData({ ...formData, agreed: e.target.checked })} className="mt-0.5 accent-amber-500 w-4 h-4 shrink-0" />
-                  <span className="text-[10px] font-bold text-slate-300 text-right" dir="rtl">أقر وأوافق بكل صرامة على كافة الشروط القانونية والتشريعية.</span>
+                  <span className="text-[10px] font-bold text-slate-300 text-left" dir="ltr">J'accepte strictement les conditions légales et réglementaires.</span>
                 </label>
                 <button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-colors shadow-lg active:scale-95">Soumettre</button>
               </form>
@@ -715,10 +732,10 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
 
           <label className="flex items-start gap-3 p-4 bg-amber-50/40 border border-amber-500/20 rounded-2xl cursor-pointer select-none">
             <input type="checkbox" checked={legalAccepted} onChange={e => setLegalAccepted(e.target.checked)} className="mt-1 accent-red-600 w-4 h-4 shrink-0" />
-            <div className="space-y-1 text-right flex-1" dir="rtl">
-              <p className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1 justify-end"><ShieldAlert size={12}/> تنبيه: نسخة تجريبية وحماية المعطيات الشخصية (INPDP)</p>
-              <p className="font-bold text-[9px] text-slate-600 leading-relaxed text-justify">
-                "أوافق على تتبع مسار الشحنة لضمان سرعة الوصول ونفي النزاعات التشغيلية. يحق لي إلغاء الطلب مجاناً في غضون 5 دقائق فقط من التأكيد وقبل بدء المأمورية الفعلية. المنصة تخلي مسؤوليتها الجنائية والمدنية تماماً عن الأعطال الفنية وانقطاع الإنترنت وتضع العبء القانوني على عاتق الناقل الفعلي."
+            <div className="space-y-1 text-left flex-1" dir="ltr">
+              <p className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1 justify-start"><ShieldAlert size={12}/> Sécurité & INPDP</p>
+              <p className="font-bold text-[9px] text-slate-600 leading-relaxed text-justify mt-1">
+                J'accepte le traitement de mes données de géolocalisation pour garantir la livraison. J'ai pris connaissance de mon droit de rétractation de 5 minutes et des Conditions Générales d'Utilisation.
               </p>
             </div>
           </label>
