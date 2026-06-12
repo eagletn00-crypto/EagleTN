@@ -18,7 +18,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // Product Form State 
+  // Product Form State (مطابق 100% لأعمدة جدول Supabase الحقيقية)
   const [currentProduct, setCurrentProduct] = useState<any>({
     id: null,
     name: '',
@@ -50,7 +50,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
   useEffect(() => {
     fetchDashboardData();
-    const subscription = supabase.channel('partner_secure_stream')
+    const subscription = supabase.channel('partner_secure_stream_v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchDashboardData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchDashboardData)
       .subscribe();
@@ -63,13 +63,12 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. جلب المتجر المربوط بجلسة الحريف الحالية لتفادي الخلط
+      // 1. جلب بيانات المتجر بناء على البريد أو الجلسة لمنع تداخل الشركاء
       const { data: restos } = await supabase.from('restaurants').select('*');
       let currentStore = null;
 
       if (restos && restos.length > 0) {
         const userEmail = user.email || '';
-        // مطابقة ذكية بناءً على الحساب والبريد لمنع تداخل عم علي مع البوتيكات والأصناف الأخرى
         currentStore = restos.find(r => 
           (r.restaurant_url && userEmail.includes(r.restaurant_url)) ||
           (r.store_type && userEmail.toLowerCase().includes(r.store_type.toLowerCase())) ||
@@ -89,25 +88,23 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
           cover_url: currentStore.cover_url || ''
         });
 
-        // 🛠️ جلب معزول وصارم: جلب المنتجات الخاصة بمعرف هذا المتجر الحالي فقط
+        // 🛠️ جلب معزول وصارم للمنتجات التابعة لهذا المعرف فقط لحل مشكلة ظهور عم علي للبقية
         const { data: prods } = await supabase.from('products')
           .select('*')
           .eq('restaurant_id', currentStore.id)
           .order('created_at', { ascending: false });
         
-        // إذا كان المتجر بوتيك جديد ولم يربط منتجاته بعد، نظهر مصفوفة فارغة مخصصة له دون جلب مأكولات عم علي
         setProducts(prods || []);
 
-        // جلب الطلبات
+        // جلب الطلبات وفلترتها محاسبياً للـ Journal
         const { data: ordersData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
         if (ordersData) {
-          // فلترة المحاسبة التابعة لمنتجات هذا الشريك حصراً لحماية تقارير الـ Journal
-          const filteredPartnerOrders = ordersData.filter(order => {
+          const partnerOrders = ordersData.filter(order => {
             let itemsArray = [];
             try { itemsArray = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []); } catch(e) { itemsArray = []; }
             return itemsArray.some((item: any) => (prods || []).some(p => p.name === item.name));
           });
-          setOrders(filteredPartnerOrders.length > 0 ? filteredPartnerOrders : ordersData);
+          setOrders(partnerOrders.length > 0 ? partnerOrders : ordersData);
         }
       }
       
@@ -208,7 +205,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       }
 
       const payload: any = {
-        restaurant_id: restaurantData.id, // الربط الديناميكي الصارم بمعرف المتجر الحالي الحالي
+        restaurant_id: restaurantData.id,
         name: currentProduct.name,
         name_ar: currentProduct.name_ar,
         price: parseFloat(currentProduct.price),
@@ -258,7 +255,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
     finally { setIsUploading(false); }
   };
 
-  // معالجة حسابية آمنة ومحمية من الانهيار للـ Journal
   const isBoutique = restaurantData?.store_type === 'boutique';
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
@@ -289,7 +285,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
   return (
     <div className="min-h-screen w-screen bg-[#FDFBF7] text-slate-900 font-sans overflow-x-hidden pb-24">
       
-      {/* 👑 PREMIUM DYNAMIC HEADER */}
+      {/* 👑 PREMIUM HEADER */}
       <div className="bg-white border-b border-slate-100 shadow-sm relative">
         <div className="h-32 bg-slate-200 relative overflow-hidden">
           {restaurantData?.cover_url ? <img src={restaurantData.cover_url} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-slate-800"></div>}
@@ -339,7 +335,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       </div>
 
-      {/* 🍔 TAB 2: MENU (تخصيص كامل للهوية بناء على نوع المتجر) */}
+      {/* 🍔 TAB 2: MENU */}
       {activeTab === 'menu' && (
         <div className="px-5 space-y-4 pb-10">
           <div className="flex justify-between items-center bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm">
@@ -358,7 +354,8 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
           <div className="space-y-3">
             {products.length === 0 ? (
-              <div className="bg-white border border-slate-100 p-8 rounded-[2rem] text-center shadow-sm">
+              <div className="bg-white border border-slate-100 p-8 rounded-[2rem] text-center shadow-sm flex flex-col items-center justify-center gap-2">
+                {isBoutique ? <Shirt size={32} className="text-slate-300"/> : <span>🍽️</span>}
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   {isBoutique ? 'Aucun article disponible pour votre établissement.' : 'Aucun plat disponible pour votre établissement.'}
                 </p>
@@ -387,7 +384,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                         {p.in_stock ? 'En Stock' : 'Rupture'}
                       </button>
                       <button onClick={() => toggleProductSpecial(p)} className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border flex items-center gap-0.5 ${p.is_special ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
-                        <Star size={8} className={p.is_special ? 'fill-amber-500 text-amber-500' : ''}/> {isBoutique ? 'Vedette' : 'Spécial'}
+                        <Star size={8} className={p.is_special ? 'fill-amber-500 text-amber-500' : ''}/> {isBoutique ? 'En Vedette' : 'Spécial'}
                       </button>
                       <button onClick={() => toggleProductPromo(p)} className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border flex items-center gap-0.5 ${p.is_promo ? 'bg-red-50 text-red-600 border-red-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
                         <Percent size={8}/> Promo
