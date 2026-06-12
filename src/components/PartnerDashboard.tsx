@@ -73,7 +73,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         });
       }
 
-      // جلب المنتجات بشكل مباشر ومطابقتها مع حقل name الصحيح لحل مشكلة الواجهة البيضاء
+      // جلب المنتجات ومطابقتها مع حقل name الصحيح لحل مشكلة الواجهة البيضاء
       const { data: prods } = await supabase.from('products').select('*').order('created_at', { ascending: false });
       if (prods) {
         setProducts(prods);
@@ -84,7 +84,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       
     } catch (error) {
       console.error("Erreur de chargement", error);
-    } font-mono {
+    } finally {
       setIsLoading(false);
     }
   };
@@ -169,7 +169,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         if (uploadedUrl) finalImageUrl = uploadedUrl;
       }
 
-      // إعداد البيانات بناءً على الهيكلية الحقيقية لجدولك في Supabase
       const payload: any = {
         name: currentProduct.name,
         name_ar: currentProduct.name_ar,
@@ -222,7 +221,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
     finally { setIsUploading(false); }
   };
 
-  // حماية المحاسبة المالية وضمان عدم حدوث الشاشات البيضاء التالفة
   const activeOrders = orders.filter(o => ['confirmed', 'prete'].includes(o.status));
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
@@ -349,7 +347,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 🍔 TAB 2: MENU (الحل النهائي لظهور البيانات الحية) */}
+      {/* 🍔 TAB 2: MENU */}
       {activeTab === 'menu' && (
         <div className="px-5 space-y-4 pb-10">
           <div className="flex justify-between items-center bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm">
@@ -373,7 +371,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                 </div>
                 
                 <div className="flex-1 flex flex-col justify-between py-1">
-                  {/* الربط مع حقل name الصحيح كما يظهر في الـ Schema البنيوية للمطعم */}
                   <h4 className="text-sm font-black text-slate-900 leading-tight">{p.name || p.name_ar}</h4>
                   <div className="text-amber-600 text-xs font-black mt-0.5">{Number(p.price || 0).toFixed(3)} DT</div>
                   
@@ -480,7 +477,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
           <div className="bg-white w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-6 shadow-2xl space-y-4 no-scrollbar">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Paramètres Restaurant 👑</h3>
-              <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 bg-slate-50 rounded-full p-1"><XCircle size={20}/></button>
+              <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-red-500 bg-slate-50 rounded-full p-1"><XCircle size={20}/></button>
             </div>
             <div className="space-y-4">
               <input type="text" placeholder="Nom du restaurant" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none" />
