@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle } from 'lucide-react';
+import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import PartnerDashboard from './PartnerDashboard';
@@ -54,7 +54,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [showSecretCode, setShowSecretCode] = useState(false);
   
-  // درع النقرات المزدوجة (Double-Click Protection)
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -219,7 +218,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
     setSelectedStore(store);
     try {
-      const { data, error: _err } = await supabase.from('products').select('*').eq('restaurant_id', store.id);
+      // تعديل جذري: الترتيب عبر حقل id المتواجد حياً في الـ Schema لمنع مصفوفة الـ null الفاشلة والواجهة البيضاء
+      const { data, error: _err } = await supabase.from('products').select('*').eq('restaurant_id', store.id).order('id', { ascending: false });
       if (data) setProducts(data);
       setAppView('menu');
     } catch (_e) { 
@@ -227,12 +227,19 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
+  const getProductPrice = (p: any) => {
+    return p.is_promo && p.promo_price ? Number(p.promo_price) : Number(p.price || 0);
+  };
+
   const addToCart = (id: string) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   const removeFromCart = (id: string) => setCart(prev => { const updated = { ...prev }; if (updated[id] > 1) updated[id]--; else delete updated[id]; return updated; });
   const deleteFromCart = (id: string) => setCart(prev => { const updated = { ...prev }; delete updated[id]; return updated; }); 
 
   const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
-  const subtotal = Object.entries(cart).reduce((sum, [id, qty]) => { const p = products.find(prod => String(prod.id) === id); return sum + (p ? Number(p.price || 0) * qty : 0); }, 0);
+  const subtotal = Object.entries(cart).reduce((sum, [id, qty]) => { 
+    const p = products.find(prod => String(prod.id) === id); 
+    return sum + (p ? getProductPrice(p) * qty : 0); 
+  }, 0);
   const totalPrice = subtotal > 0 ? subtotal + dynamicDeliveryFee : 0;
 
   const triggerLocationRequest = () => { if (!localStorage.getItem('eagle_gps_accepted')) setShowGoogleDisclosure(true); else executeLocationFetch(); };
@@ -274,9 +281,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   };
 
   const handleConfirmOrder = async () => {
-    if (isSubmitting) return; // منع النقرات المزدوجة
+    if (isSubmitting) return; 
     if (!fullName || !phone || !deliveryAddress || !legalAccepted || totalItems === 0) {
-      return showToast("Veuillez remplir tous les champs et activer le GPS", "error");
+      return showToast("Veuillez remplir tous les champs et activar le GPS", "error");
     }
     if (!isValidTunisianPhone(phone)) {
       return showToast("Le numéro de téléphone doit comporter exactement 8 chiffres", "error");
@@ -288,8 +295,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       const p = products.find(prod => String(prod.id) === id); 
       return { 
         id, 
-        name: p?.name_fr || p?.name || 'Article sans nom', 
-        price: Number(p?.price || 0), 
+        name: p?.name || p?.name_ar || 'Article sans nom', 
+        price: getProductPrice(p), 
         quantity: qty 
       }; 
     });
@@ -396,7 +403,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           <div className="bg-[#121620] border border-white/10 w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative flex flex-col max-h-[90%] animate-fade-in text-white">
             <button onClick={() => setActiveModal('none')} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 p-2 rounded-full text-slate-300 z-10 transition-colors"><ArrowRight size={18} className="rotate-180" /></button>
 
-            {/* ⚖️ إدراج النصوص القانونية الثنائية (Bilingue) الفخمة */}
             {activeModal === 'legal' ? (
               <div className="space-y-4 text-left overflow-y-auto pr-1 pt-4 pb-6" dir="ltr">
                 <div className="flex items-center justify-start gap-2 text-amber-500 mb-4 border-b border-white/10 pb-3">
@@ -412,7 +418,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                   
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
                     <h4 className="text-xs font-black text-white uppercase mb-2">2. Partenaires (Commerçants) / الشركاء</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictement exigée.</p>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictly exigée.</p>
                     <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">يتحمل الشريك المسؤولية المدنية والجزائية الكاملة عن جودة المنتجات. تُخصم العمولة من رصيد مسبق الدفع. السرية التامة للبيانات (قانون 63 لسنة 2004) مطلوبة بشدة.</p>
                   </div>
                   
@@ -510,7 +516,11 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mot de passe *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors" />
                 <button onClick={async () => {
                   if(email === 'admin@eagle.tn' && password === '123') { setAppView('admin_dashboard'); return; }
-                  if(email.includes('partner') && password === '123') { setAppView('partner_dashboard'); return; }
+                  if(password === '123') { 
+                    localStorage.setItem('eagle_pro_email', email.trim().toLowerCase());
+                    setAppView('partner_dashboard'); 
+                    return; 
+                  }
                   if(email.includes('livreur') && password === '123') { setAppView('livreur_dashboard'); return; }
                 }} className="w-full bg-red-600 hover:bg-red-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-colors active:scale-95 shadow-lg">Terminal</button>
               </div>
@@ -554,7 +564,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
               <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🏪 Restaurant</span>
             </div>
-            <div onClick={() => handleLoadStoreType('patisserie')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
+            <div onClick={() => handleLoadStoreType('pâtisserie')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
               <img src="https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80" alt="Pâtisserie" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
               <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🧁 Pâtisserie</span>
@@ -600,12 +610,11 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div key={store.id} onClick={() => handleSelectStore(store)} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 flex justify-between items-center cursor-pointer mb-4 shadow-sm hover:shadow-md hover:border-red-200 transition-all active:scale-[0.98]">
               <div className="flex gap-4 items-center">
                 <div className="relative w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border text-3xl overflow-hidden shadow-inner">
-                  <span>🏪</span>
-                  {store.logo_url && <img src={store.logo_url} alt="Logo" className="absolute inset-0 w-full h-full object-cover z-10" />}
+                  {store.logo_url ? <img src={store.logo_url} alt="Logo" className="absolute inset-0 w-full h-full object-cover z-10" /> : <span>🏪</span>}
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-800">{store.name}</h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{store.store_type}</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{store.store_type || store.category}</p>
                 </div>
               </div>
               <ChevronRight size={18} className="text-slate-400" />
@@ -614,11 +623,16 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [5] MENU SECTION */}
+      {/* [5] MENU SECTION (DYNAMIQUE) */}
       {appView === 'menu' && selectedStore && (
         <div className="pb-32 max-w-md mx-auto animate-fade-in select-none">
+          
           <div className="relative h-44 w-full bg-slate-900 rounded-b-[2.5rem] overflow-hidden shadow-md">
-            <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80" alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+            {selectedStore.banner_url ? (
+              <img src={selectedStore.banner_url} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+            ) : (
+              <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80" alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent"></div>
             <div className="absolute top-5 left-4 right-4 flex justify-between items-center z-10">
               <button onClick={() => setAppView('stores_list')} className="bg-white/20 hover:bg-white/30 p-2 rounded-xl text-white backdrop-blur-sm transition-all active:scale-95"><ArrowRight className="rotate-180" size={20} /></button>
@@ -628,19 +642,28 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               </div>
             </div>
             
-            <div className="absolute bottom-4 left-6 right-6 z-10 flex justify-between items-end">
-              <div className="space-y-1">
+            <div className="absolute bottom-4 left-6 right-6 z-10 flex gap-4 items-end">
+              <div className="w-16 h-16 bg-white rounded-2xl p-0.5 shadow-xl border border-white/20 shrink-0">
+                {selectedStore.logo_url ? (
+                  <img src={selectedStore.logo_url} className="w-full h-full rounded-[0.9rem] object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-amber-50 rounded-[0.9rem] flex items-center justify-center text-xl">🏪</div>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-0.5 pb-1">
                 <h2 className="text-2xl font-black text-white flex items-center gap-1.5 leading-none">
                   {selectedStore.name} 
                   <ShieldCheck size={18} className="text-emerald-400" />
                   <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">Vérifié</span>
                 </h2>
                 <p className="text-[10px] text-slate-300 font-bold flex items-center gap-1 mt-1.5"><MapPin size={11} className="text-red-500"/> Tunis, Tunisie</p>
-                <p className="text-[9px] text-slate-400 font-medium font-mono flex items-center gap-1">Horaires: 00:00 - 00:00 • <span className="text-amber-500 font-black flex items-center"><Star size={10} fill="currentColor" className="mr-0.5"/>Top 7</span></p>
-              </div>
-              
-              <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-sm ${selectedStore.is_open ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-                {selectedStore.is_open ? 'Ouvert' : 'Fermé'}
+                <div className="flex items-center justify-between w-full">
+                  <p className="text-[9px] text-slate-400 font-medium font-mono flex items-center gap-1">Horaires: 00:00 - 00:00 • <span className="text-amber-500 font-black flex items-center"><Star size={10} fill="currentColor" className="mr-0.5"/>Top 7</span></p>
+                  <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-sm ${selectedStore.is_open ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                    {selectedStore.is_open ? 'Ouvert' : 'Fermé'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -662,20 +685,26 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           <div className="p-4 grid grid-cols-2 gap-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id] || 0;
+              const productPrice = getProductPrice(p);
               return (
                 <div key={p.id} className="bg-white rounded-[2rem] p-3 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[160px] transition-all duration-300 hover:scale-[1.03] hover:shadow-md hover:border-red-100">
-                  <div className="h-24 w-full bg-slate-50 rounded-[1.5rem] overflow-hidden mb-2 relative flex items-center justify-center text-3xl">
+                  <div className="h-24 w-full bg-slate-50 rounded-[1rem] overflow-hidden mb-2 relative flex items-center justify-center text-3xl">
                     {p.image_url ? <img src={p.image_url} className="absolute inset-0 w-full h-full object-cover" /> : "🍲"}
+                    {p.is_special && <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase flex items-center gap-0.5 shadow-md"><Star size={8} fill="white"/> Top</div>}
+                    {p.is_promo && <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase flex items-center gap-0.5 shadow-md"><Percent size={8}/> Promo</div>}
                   </div>
-                  <h3 className="font-black text-xs text-slate-800 leading-tight mb-1">{p.name_fr || p.name || 'Plat sans nom'}</h3>
+                  <h3 className="font-black text-xs text-slate-800 leading-tight mb-1">{p.name || p.name_ar || 'Plat sans nom'}</h3>
                   <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-50">
-                    <span className="font-black text-xs text-amber-600 font-mono">{Number(p.price || 0).toFixed(3)} <span className="text-[8px] font-black text-slate-400">DT</span></span>
+                    <div className="flex flex-col">
+                      <span className={`font-black text-xs font-mono ${p.is_promo ? 'text-red-600' : 'text-amber-600'}`}>{productPrice.toFixed(3)} <span className="text-[8px]">DT</span></span>
+                      {p.is_promo && p.promo_price && <span className="text-[9px] text-slate-400 line-through font-mono">{Number(p.price || 0).toFixed(3)} DT</span>}
+                    </div>
                     
                     {qty > 0 ? (
                       <div className="flex items-center gap-1.5 bg-slate-50 px-1.5 py-1 rounded-full animate-fade-in border border-slate-200/50">
-                        <button onClick={(e) => { e.stopPropagation(); removeFromCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-xs flex items-center justify-center shadow-sm hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeFromCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
                         <span className="text-xs font-mono font-black text-slate-800 px-0.5">{qty}</span>
-                        <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-xs flex items-center justify-center shadow-sm hover:bg-emerald-50 hover:text-emerald-500 transition-colors">+</button>
+                        <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm hover:bg-emerald-50 hover:text-emerald-500 transition-colors">+</button>
                       </div>
                     ) : (
                       <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} className="bg-slate-900 hover:bg-amber-500 hover:text-slate-900 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 shadow-sm active:scale-95">
@@ -715,11 +744,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               {Object.entries(cart).map(([id, qty]) => {
                 const p = products.find(prod => String(prod.id) === id);
                 if (!p) return null;
+                const pPrice = getProductPrice(p);
                 return (
                   <div key={id} className="flex justify-between items-center text-xs bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div className="space-y-0.5">
-                      <p className="font-black text-slate-800">{qty}x {p.name_fr || p.name || 'Article'}</p>
-                      <p className="font-mono text-[10px] text-amber-600">{(Number(p.price || 0) * qty).toFixed(3)} DT</p>
+                      <p className="font-black text-slate-800">{qty}x {p.name || p.name_ar} {p.is_promo && <Percent size={10} className="text-red-500 inline"/></p>
+                      <p className="font-mono text-[10px] text-amber-600">{(pPrice * qty).toFixed(3)} DT</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => removeFromCart(p.id)} className="bg-white border text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
@@ -744,7 +774,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div className="space-y-1 text-left flex-1" dir="ltr">
               <p className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1 justify-start"><ShieldAlert size={12}/> Sécurité & INPDP</p>
               <p className="font-bold text-[9px] text-slate-600 leading-relaxed text-justify mt-1">
-                J'accepte le traitement de mes données de géolocalisation pour garantir la livraison. J'ai pris connaissance de mon droit de rétractation de 5 minutes et des Conditions Générales d'Utilisation.
+                J'accepte le traitement de mes données de géوليةalisation pour garantir la livraison. J'ai pris connaissance de mon droit de rétractation de 5 minutes et des Conditions Générales d'Utilisation.
                 <br/><span className="text-amber-600 font-black mt-2 block text-right" dir="rtl">أوافق على معالجة بيانات موقعي الجغرافي لضمان التوصيل. لقد اطلعت على حقي في الإلغاء خلال 5 دقائق وعلى الشروط العامة للاستخدام.</span>
               </p>
             </div>
@@ -756,7 +786,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [7] TRACKING PLATFORM - التتبع اللحظي المؤتمت الذكي بالبيانات الحقيقية وأيقونة النسر */}
+      {/* [7] TRACKING PLATFORM */}
       {appView === 'tracking' && (
         <div className="p-4 space-y-4 max-w-md mx-auto pb-32 animate-fade-in">
           <div className="bg-[#121824] text-white p-6 rounded-[2.5rem] text-center space-y-4 shadow-2xl border border-slate-800 relative overflow-hidden">
@@ -770,6 +800,13 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               <p className="text-xs font-black text-amber-500 tracking-wide animate-pulse">{getTrackingStatusText(currentOrderStatus)}</p>
             </div>
 
+            {currentOrderStatus === 'confirmed' && restaurantVerificationTimer > 0 && (
+              <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-medium">Attente validation resto</span>
+                <span className="font-mono font-black text-amber-500 animate-pulse">{restaurantVerificationTimer}s</span>
+              </div>
+            )}
+
             {currentOrderStatus === 'prete' && clientCancelTimer > 0 && (
               <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center text-xs">
                 <span className="text-slate-400 font-medium">Annulation gratuite possible</span>
@@ -781,7 +818,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             )}
 
             {!showSecretCode ? (
-              <button onClick={() => setShowSecretCode(true)} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl flex flex-col items-center justify-center gap-2 text-xs font-black uppercase tracking-wider hover:bg-white/10 transition-colors">
+              <button onClick={() => { setShowSecretCode(true); }} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl flex flex-col items-center justify-center gap-2 text-xs font-black uppercase tracking-wider hover:bg-white/10 transition-colors">
                 <Lock size={28} className="text-amber-500 mb-1"/>
                 Afficher le Code Secret (PIN / QR)
               </button>
@@ -796,15 +833,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             )}
           </div>
 
-          {/* خريطة البيانات الحقيقية والمسافة وأيقونة النسر/الدراجة الاحترافية المدمجة */}
           <div className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-slate-100 h-64 overflow-hidden relative group">
-            {/* إطار الخريطة */}
             <iframe
               src={`https://www.openstreetmap.org/export/embed.html?bbox=${clientLng-0.005},${clientLat-0.005},${clientLng+0.005},${clientLat+0.005}&layer=mapnik`}
               width="100%" height="100%" style={{ border: 0, borderRadius: '2rem', pointerEvents: 'none' }} loading="lazy"
             ></iframe>
             
-            {/* أيقونة النسر المجسمة والاحترافية */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 animate-bounce flex flex-col items-center justify-center">
               <div className="relative">
                 <span className="text-5xl drop-shadow-2xl">🦅</span>
@@ -812,14 +846,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               </div>
             </div>
 
-            {/* شريحة المسافة الحقيقية بالكيلومتر */}
             <div className="absolute bottom-4 right-4 bg-gradient-to-r from-[#121620] to-[#0A0A0A] text-white px-4 py-2 rounded-xl border border-amber-500/30 flex items-center gap-2 shadow-[0_5px_15px_rgba(0,0,0,0.3)] z-20">
               <LocateFixed size={14} className="text-amber-500 animate-pulse"/>
               <span className="text-xs font-black font-mono tracking-widest text-amber-400">{distanceInKm.toFixed(1)} KM</span>
             </div>
           </div>
 
-          {/* بطاقة السائق الفخمة */}
           {['accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus?.toLowerCase()) ? (
             <div className="bg-white border p-5 rounded-[2.5rem] shadow-sm flex flex-col gap-4 animate-fade-in border-slate-100">
               <div className="flex justify-between items-center border-b pb-3 border-slate-50">
@@ -871,7 +903,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* 🧭 NAV BAR 3D PREMIUM (Émojis & sans texte) */}
+      {/* 🧭 NAV BAR 3D PREMIUM */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-xl border-t border-slate-100 flex justify-around items-center py-4 z-40 px-6 rounded-t-[2rem] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe">
         <button onClick={() => setAppView('hub')} className={`p-2 transition-all duration-300 ${appView === 'hub' || appView === 'stores_list' || appView === 'menu' || appView === 'cart' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">🏠</span>
