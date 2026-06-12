@@ -53,6 +53,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [showSecretCode, setShowSecretCode] = useState(false);
+  
+  // درع النقرات المزدوجة (Double-Click Protection)
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [currentOrderStatus, setCurrentOrderStatus] = useState<string>('');
@@ -271,6 +274,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   };
 
   const handleConfirmOrder = async () => {
+    if (isSubmitting) return; // منع النقرات المزدوجة
     if (!fullName || !phone || !deliveryAddress || !legalAccepted || totalItems === 0) {
       return showToast("Veuillez remplir tous les champs et activer le GPS", "error");
     }
@@ -278,6 +282,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       return showToast("Le numéro de téléphone doit comporter exactement 8 chiffres", "error");
     }
 
+    setIsSubmitting(true);
     const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
     const itemsArrayPayload = Object.entries(cart).map(([id, qty]) => { 
       const p = products.find(prod => String(prod.id) === id); 
@@ -292,7 +297,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     try {
       const finalDeliveryAddress = clientNote ? `${deliveryAddress} | Note: ${clientNote}` : deliveryAddress;
 
-      // 🚨 تم حذف حقل restaurant_id هنا لحل مشكلة Échec de l'enregistrement نهائياً
       const { data, error } = await supabase.from('orders').insert([{ 
         customer_name: fullName, 
         customer_phone: phone, 
@@ -317,6 +321,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       }
     } catch (_err) { 
       showToast("Erreur de connexion", "error"); 
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -384,38 +390,42 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* MODAL LEGAL & CONDITIONS */}
+      {/* MODAL LEGAL & CONDITIONS BILINGUE */}
       {activeModal !== 'none' && (
         <div className="absolute inset-0 z-[400] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-[#121620] border border-white/10 w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative flex flex-col max-h-[90%] animate-fade-in text-white">
             <button onClick={() => setActiveModal('none')} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 p-2 rounded-full text-slate-300 z-10 transition-colors"><ArrowRight size={18} className="rotate-180" /></button>
 
-            {/* ⚖️ إدراج النصوص القانونية والخصوصية الفخمة هنا */}
+            {/* ⚖️ إدراج النصوص القانونية الثنائية (Bilingue) الفخمة */}
             {activeModal === 'legal' ? (
               <div className="space-y-4 text-left overflow-y-auto pr-1 pt-4 pb-6" dir="ltr">
                 <div className="flex items-center justify-start gap-2 text-amber-500 mb-4 border-b border-white/10 pb-3">
-                  <Scale size={24} /> <h3 className="text-lg font-black uppercase tracking-widest">Mentions Légales & INPDP</h3>
+                  <Scale size={24} /> <h3 className="text-lg font-black uppercase tracking-widest">Légal & INPDP / قانوني</h3>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-white uppercase mb-1">1. Utilisateurs (Clients)</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">La Plateforme agit comme intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande. La Plateforme décline toute responsabilité pour les retards dus à la force majeure.</p>
+                    <h4 className="text-xs font-black text-white uppercase mb-2">1. Utilisateurs (Clients) / المستخدمون</h4>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">La Plateforme agit comme intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande. La Plateforme décline toute responsabilité pour les retards dus à la force majeure.</p>
+                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">تعتبر المنصة وسيطاً رقمياً. يوافق المستخدم على معالجة بيانات موقعه الجغرافي. الإلغاء مجاني خلال 5 دقائق. تخلي المنصة مسؤوليتها عن التأخير الناتج عن القوة القاهرة.</p>
                   </div>
                   
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-white uppercase mb-1">2. Partenaires (Commerçants)</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictement exigée.</p>
+                    <h4 className="text-xs font-black text-white uppercase mb-2">2. Partenaires (Commerçants) / الشركاء</h4>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictement exigée.</p>
+                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">يتحمل الشريك المسؤولية المدنية والجزائية الكاملة عن جودة المنتجات. تُخصم العمولة من رصيد مسبق الدفع. السرية التامة للبيانات (قانون 63 لسنة 2004) مطلوبة بشدة.</p>
                   </div>
                   
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-white uppercase mb-1">3. Livreurs (Indépendants)</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">Le Livreur est un prestataire indépendant sans lien de subordination. Il est responsable des marchandises transportées et s'engage à protéger les données personnelles des clients.</p>
+                    <h4 className="text-xs font-black text-white uppercase mb-2">3. Livreurs (Indépendants) / عمال التوصيل</h4>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Livreur est un prestataire indépendant sans lien de subordination. Il est responsable des marchandises transportées et s'engage à protéger les données personnelles.</p>
+                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">الناقل هو مقدم خدمة مستقل دون رابطة تبعية. يتحمل مسؤولية البضائع المنقولة ويلتزم بحماية المعطيات الشخصية.</p>
                   </div>
 
                   <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-amber-500 uppercase mb-1 flex items-center gap-1"><ShieldCheck size={12}/> 4. Politique INPDP</h4>
-                    <p className="text-[9px] text-amber-500/80 leading-relaxed font-medium">Conformément à la Loi n° 2004-63, nous collectons les données pour l'acheminement exclusif des commandes. Ces données ne sont ni vendues ni cédées. Droit d'accès et de suppression garanti.</p>
+                    <h4 className="text-xs font-black text-amber-500 uppercase mb-2 flex items-center gap-1"><ShieldCheck size={12}/> 4. Politique INPDP / حماية البيانات</h4>
+                    <p className="text-[9px] text-amber-500/80 leading-relaxed font-medium mb-2">Conformément à la Loi n° 2004-63, nous collectons les données pour l'acheminement exclusif des commandes. Droit d'accès et de suppression garanti.</p>
+                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-amber-500/10 pt-2" dir="rtl">وفقاً للقانون عدد 63 لسنة 2004، نجمع البيانات حصرياً لتوصيل الطلبات. حق النفاذ والحذف مضمون.</p>
                   </div>
                 </div>
               </div>
@@ -635,7 +645,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             </div>
           </div>
 
-          {/* الفئات (Catégories) المحدثة بتصميم تفاعلي */}
           <div className="sticky top-0 bg-[#FDFBF7]/90 backdrop-blur-xl z-30 py-4 px-4 border-b border-slate-100">
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               {categoriesList.map(cat => (
@@ -736,10 +745,14 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               <p className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1 justify-start"><ShieldAlert size={12}/> Sécurité & INPDP</p>
               <p className="font-bold text-[9px] text-slate-600 leading-relaxed text-justify mt-1">
                 J'accepte le traitement de mes données de géolocalisation pour garantir la livraison. J'ai pris connaissance de mon droit de rétractation de 5 minutes et des Conditions Générales d'Utilisation.
+                <br/><span className="text-amber-600 font-black mt-2 block text-right" dir="rtl">أوافق على معالجة بيانات موقعي الجغرافي لضمان التوصيل. لقد اطلعت على حقي في الإلغاء خلال 5 دقائق وعلى الشروط العامة للاستخدام.</span>
               </p>
             </div>
           </label>
-          <button onClick={handleConfirmOrder} className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl transform active:scale-95 transition-all font-sans text-xs">CONFIRMER LA COMMANDE</button>
+          
+          <button disabled={isSubmitting} onClick={handleConfirmOrder} className={`w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl transform transition-all font-sans text-xs flex justify-center items-center gap-2 ${isSubmitting ? 'opacity-75 scale-95 cursor-not-allowed' : 'active:scale-95'}`}>
+            {isSubmitting ? <><RefreshCw size={16} className="animate-spin"/> TRAITEMENT...</> : 'CONFIRMER LA COMMANDE'}
+          </button>
         </div>
       )}
 
