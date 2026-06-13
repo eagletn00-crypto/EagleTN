@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent, Shirt, Sparkles, HeartPulse, Utensils } from 'lucide-react';
+import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent, Shirt, Sparkles, HeartPulse, Utensils, MessageSquare } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import PartnerDashboard from './PartnerDashboard';
@@ -151,6 +151,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
+  // 💡 المراقبة الصارمة للطلبات: تجاهل الطلبات المسلمة عند بدء التطبيق
   useEffect(() => {
     const fetchInitialData = async () => {
       const { data: storesData } = await supabase.from('restaurants').select('*').eq('id', 1).maybeSingle();
@@ -181,7 +182,10 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             setClientLng(activeOrder.delivery_lng);
           }
           if (activeOrder.delivery_address) {
-            setDeliveryAddress(activeOrder.delivery_address);
+            const rawAddr = activeOrder.delivery_address;
+            const parts = rawAddr.split('| Note:');
+            setDeliveryAddress(parts[0].trim());
+            if(parts.length > 1) setClientNote(parts[1].trim());
           }
           
           setAppView('tracking');
@@ -339,15 +343,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     ? products.filter(p => p.restaurant_id === selectedStore?.id)
     : products.filter(p => p.restaurant_id === selectedStore?.id && p.category?.toUpperCase() === selectedCategory.toUpperCase());
 
-  const trackingLevel = () => {
-    if (['delivered'].includes(currentOrderStatus)) return 5;
-    if (['route'].includes(currentOrderStatus)) return 4;
-    if (['accepted_livreur'].includes(currentOrderStatus)) return 3;
-    if (['prete'].includes(currentOrderStatus)) return 2;
-    if (['confirmed'].includes(currentOrderStatus)) return 1;
-    return 0;
-  };
-
   if (appView === 'partner_dashboard') return <PartnerDashboard onLogout={() => setAppView('login')} />;
   if (appView === 'livreur_dashboard') return <LivreurDashboard onLogout={() => setAppView('login')} />;
   if (appView === 'admin_dashboard') return <SuperAdminDashboard onLogout={() => setAppView('login')} />;
@@ -360,8 +355,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         ::-webkit-scrollbar { display: none; }
-        .glass-8k-shadow { filter: drop-shadow(0 4px 12px rgba(220, 38, 38, 0.25)); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .glass-8k-shadow:active { transform: scale(0.92); }
       `}} />
 
       {toast.show && (
@@ -394,32 +387,13 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             {activeModal === 'legal' ? (
               <div className="space-y-4 text-left overflow-y-auto pr-1 pt-4 pb-6" dir="ltr">
                 <div className="flex items-center justify-start gap-2 text-amber-500 mb-4 border-b border-white/10 pb-3">
-                  <Scale size={24} /> <h3 className="text-lg font-black uppercase tracking-widest">Légal & INPDP / قانوني</h3>
+                  <Scale size={24} /> <h3 className="text-lg font-black uppercase tracking-widest">Légal & INPDP</h3>
                 </div>
-                
                 <div className="space-y-3">
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
                     <h4 className="text-xs font-black text-white uppercase mb-2">1. Utilisateurs (Clients) / المستخدمون</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">La Plateforme acts come intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande. La Plateforme décline toute responsabilité pour les retards dus à la force majeure.</p>
-                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">تعتبر المنصة وسيطاً رقمياً. يوافق المستخدم على معالجة بيانات موقعه الجغرافي. الإلغاء مجاني خلال 5 دقائق. تخلي المنصة مسؤوليتها عن التأخير الناتج عن القوة القاهرة.</p>
-                  </div>
-                  
-                  <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-white uppercase mb-2">2. Partenaires (Commerçants) / الشركاء</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictement exigée.</p>
-                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">يتحمل الشريك المسؤولية المدنية والجزائية الكاملة عن جودة المنتجات. تُخصم العمولة من رصيد مسبق الدفع. السرية التامة للبيانات (قانون 63 لسنة 2004) مطلوبة بشدة.</p>
-                  </div>
-                  
-                  <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-white uppercase mb-2">3. Livreurs (Indépendants) / عمال التوصيل</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Livreur est un prestataire indépendant sans lien de subordination. Il est responsable des marchandises transportées et s'engage à protéger les données personnelles.</p>
-                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">الناقل هو مقدم خدمة مستقل دون رابطة تبعية. يتحمل مسؤولية البضائع المنقولة ويلتزم بحماية المعطيات الشخصية.</p>
-                  </div>
-
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl">
-                    <h4 className="text-xs font-black text-amber-500 uppercase mb-2 flex items-center gap-1"><ShieldCheck size={12}/> 4. Politique INPDP / حماية البيانات</h4>
-                    <p className="text-[9px] text-amber-500/80 leading-relaxed font-medium mb-2">Conformément à la Loi n° 2004-63, nous collectons les données pour l'acheminement exclusif des commandes. Droit d'accès et de suppression garanti.</p>
-                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-amber-500/10 pt-2" dir="rtl">وفقاً للقانون عدد 63 لسنة 2004، نجمع البيانات حصرياً لتوصيل الطلبات. حق النفاذ والحذف مضمون.</p>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">La Plateforme agit comme intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande.</p>
+                    <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">تعتبر المنصة وسيطاً رقمياً. يوافق المستخدم على معالجة بيانات موقعه الجغرافي. الإلغاء مجاني خلال 5 دقائق.</p>
                   </div>
                 </div>
               </div>
@@ -432,41 +406,39 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                     {activeModal === 'contact' && 'Service Client 📞'}
                   </h3>
                 </div>
-                <input type="text" required placeholder="Nom et Prénom *" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors" />
-                <input type="tel" required placeholder="Numéro de Téléphone (8 chiffres) *" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors" />
-                <textarea placeholder="Note..." value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors h-20 resize-none" />
+                <input type="text" required placeholder="Nom et Prénom *" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50" />
+                <input type="tel" required placeholder="Numéro de Téléphone (8 chiffres) *" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50" />
+                <textarea placeholder="Note..." value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white h-20 resize-none focus:outline-none focus:border-amber-500/50" />
                 <label className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/10 cursor-pointer select-none">
                   <input type="checkbox" required checked={formData.agreed} onChange={e => setFormData({ ...formData, agreed: e.target.checked })} className="mt-0.5 accent-amber-500 w-4 h-4 shrink-0" />
                   <span className="text-[10px] font-bold text-slate-300 text-left" dir="ltr">J'accepte strictement les conditions légales et réglementaires.</span>
                 </label>
-                <button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-colors shadow-lg active:scale-95">Soumettre</button>
+                <button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95">Soumettre</button>
               </form>
             )}
           </div>
         </div>
       )}
 
+      {/* 🦅 شاشة النجاح المزدوجة الفاخرة (Congratulations) */}
       {showSuccessOverlay && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
           <div className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-xl"></div>
           <div className="relative bg-gradient-to-b from-[#121620] to-[#0A0A0A] border border-amber-500/20 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-[0_0_50px_rgba(245,158,11,0.15)] animate-breathe">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-amber-500 rounded-b-full shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
-            <div className="relative w-28 h-28 mx-auto">
-              <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping"></div>
-              <div className="relative bg-gradient-to-br from-amber-400 to-amber-600 w-full h-full rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.4)] border-4 border-[#121620]">
-                <CheckCircle size={56} className="text-[#0A0A0A]" />
-              </div>
-            </div>
+            <div className="text-6xl animate-bounce mb-2 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">🦅</div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-black text-white uppercase tracking-widest">Livraison Réussie</h2>
-              <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Merci pour votre confiance</p>
+              <h2 className="text-2xl font-black text-white uppercase tracking-widest">Félicitations !</h2>
+              <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Livraison Réussie</p>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-inner">
               <p className="text-xs font-bold text-slate-300 leading-relaxed text-center">
-                Votre commande a été livrée avec succès. Nous espérons que ce repas sera à la hauteur de vos attentes. <br/><br/><span className="text-amber-500 font-black text-sm">Bon appétit ! 🦅</span>
+                Merci pour votre confiance. Nous espérons que la qualité de notre service a été à la hauteur de vos attentes.
+                <br/><br/>
+                <span className="text-amber-500 font-black text-sm" dir="rtl">شكراً على ثقتكم، نتمنى أن تكون الخدمة قد نالت رضاكم. 🦅</span>
               </p>
             </div>
-            <button onClick={resetEcosystemFlow} className="w-full bg-white text-slate-950 hover:bg-amber-500 hover:text-slate-950 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 shadow-[0_10px_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2">
+            <button onClick={resetEcosystemFlow} className="w-full bg-white text-slate-950 hover:bg-amber-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 shadow-[0_10px_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2">
               <Home size={16} /> Accueil Eagle.tn
             </button>
           </div>
@@ -497,28 +469,24 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             {showProLogin ? (
               <div className="space-y-4 animate-fade-in">
                 <div className="text-center"><h3 className="text-white font-black uppercase tracking-widest text-sm">Zone Souveraine</h3></div>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Professionnel *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors" />
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mot de passe *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50 transition-colors" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Professionnel *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50" />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mot de passe *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-amber-500/50" />
                 <button onClick={async () => {
                   if(email === 'admin@eagle.tn' && password === '123') { setAppView('admin_dashboard'); return; }
-                  if(password === '123') { 
-                    localStorage.setItem('eagle_pro_email', email.trim().toLowerCase());
-                    setAppView('partner_dashboard'); 
-                    return; 
-                  }
+                  if(password === '123') { localStorage.setItem('eagle_pro_email', email.trim().toLowerCase()); setAppView('partner_dashboard'); return; }
                   if(email.includes('livreur') && password === '123') { setAppView('livreur_dashboard'); return; }
-                }} className="w-full bg-red-600 hover:bg-red-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-colors active:scale-95 shadow-lg">Terminal</button>
+                }} className="w-full bg-red-600 hover:bg-red-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 shadow-lg">Terminal</button>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="text-center" onClick={handleSecretClick}><h3 className="text-white font-black uppercase tracking-widest text-sm">Espace Client</h3></div>
-                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nom et Prénom *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-red-500/50 transition-colors" />
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Numéro de Téléphone (8 chiffres) *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nom et Prénom *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-red-500/50" />
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Numéro de Téléphone (8 chiffres) *" className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-red-500/50" />
                 <button onClick={() => { 
                   if(!fullName || !phone) return showToast("Champs requis", "error"); 
                   if(!isValidTunisianPhone(phone)) return showToast("Le numéro doit comporter 8 chiffres", "error");
                   setAppView('hub'); 
-                }} className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg">Accéder</button>
+                }} className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 shadow-lg">Accéder</button>
               </div>
             )}
           </div>
@@ -569,7 +537,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div onClick={() => setActiveModal('partenaire')} className="bg-slate-900 hover:bg-slate-800 text-white p-5 rounded-[2rem] flex justify-between items-center cursor-pointer shadow-lg transition-all duration-300 active:scale-[0.98]">
               <div><h4 className="text-xs font-black uppercase tracking-wider">Devenir Partenaire</h4></div><Store size={18} className="text-red-500" />
             </div>
-            <div onClick={() => setActiveModal('livreur')} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white p-5 rounded-[2rem] flex justify-between items-center cursor-pointer shadow-lg transition-all duration-300 active:scale-[0.98]">
+            <div onClick={() => setActiveModal('livreur')} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 text-white p-5 rounded-[2rem] flex justify-between items-center cursor-pointer shadow-lg transition-all duration-300 active:scale-[0.98]">
               <div><h4 className="text-xs font-black uppercase tracking-wider">Devenir Coursier</h4></div><Bike size={18} className="text-white" />
             </div>
             <div onClick={() => setActiveModal('contact')} className="bg-white border border-slate-200 p-5 rounded-[2rem] flex items-center justify-between cursor-pointer transition-all duration-300 active:scale-[0.98] hover:shadow-md">
@@ -578,10 +546,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div className="text-center pt-4">
               <button onClick={() => setActiveModal('legal')} className="text-[11px] font-black text-red-600/80 hover:text-red-600 underline uppercase tracking-wider transition-colors"> Conditions Générales & INPDP ⚖️</button>
             </div>
-          </div>
-          
-          <div className="text-center pt-8 pb-4 text-[10px] text-slate-400 font-medium font-sans border-t border-slate-100/60">
-            © 2026 Eagle.tn. Tous droits réservés. Déposé auprès de l'OTDAV.
           </div>
         </div>
       )}
@@ -714,6 +678,13 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <input type="text" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Zone (Ex: Cité Nacer)... *" className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300 transition-colors" />
             
             <input type="text" value={clientNote} onChange={e => setClientNote(e.target.value)} placeholder="Note client ou remarques pour la livraison..." className="w-full bg-slate-50 p-4 rounded-2xl text-xs font-bold border border-slate-100 focus:outline-none focus:border-red-300 transition-colors" />
+            {/* 💡 Note Card Preview in Cart */}
+            {clientNote && (
+               <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 rounded-r-xl mt-3 animate-fade-in">
+                  <p className="text-[10px] font-black text-amber-600 uppercase flex items-center gap-1"><MessageSquare size={12}/> Note du client</p>
+                  <p className="text-xs font-bold text-slate-800 mt-1 leading-relaxed">{clientNote}</p>
+               </div>
+            )}
           </div>
 
           <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
@@ -772,6 +743,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               src={`https://www.openstreetmap.org/export/embed.html?bbox=${clientLng-0.005},${clientLat-0.005},${clientLng+0.005},${clientLat+0.005}&layer=mapnik`}
               width="100%" height="100%" style={{ border: 0, pointerEvents: 'none' }} loading="lazy"
             ></iframe>
+            {/* 🦅 النسر السيادي يحلق فوق الخريطة بدلاً من الدبوس العادي */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+               <span className="text-5xl animate-bounce drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]">🦅</span>
+               <div className="w-8 h-8 bg-amber-500/40 rounded-full animate-ping absolute top-6"></div>
+               <div className="w-3 h-3 bg-red-600 rounded-full absolute top-8 shadow-[0_0_10px_rgba(220,38,38,1)]"></div>
+            </div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#121620] via-[#121620]/60 to-[#121620]/20 z-10"></div>
           </div>
 
@@ -853,6 +830,13 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                      </div>
 
                  </div>
+                 {/* 💡 Note Card in Tracking */}
+                 {clientNote && (
+                    <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 rounded-r-xl mt-6">
+                        <p className="text-[10px] font-black text-amber-600 uppercase flex items-center gap-1"><MessageSquare size={12}/> Note du client</p>
+                        <p className="text-xs font-bold text-slate-300 mt-1 leading-relaxed">{clientNote}</p>
+                    </div>
+                 )}
              </div>
           </div>
         </div>
