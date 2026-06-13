@@ -84,12 +84,13 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
       const { data: ordersData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (ordersData) {
+        // 💡 التعديل الجراحي الأول: مطابقة الطلبات بالمعرف الفريد (id) لضمان عدم ضياع أي طلب بسبب تشابه أو اختلاف الأسماء
         const filteredOrders = ordersData.filter(order => {
           let itemsArray = [];
           try { itemsArray = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []); } catch(e) { itemsArray = []; }
-          return itemsArray.some((item: any) => (prods || []).some(p => p.name === item.name));
+          return itemsArray.some((item: any) => (prods || []).some(p => String(p.id) === String(item.id) || p.name === item.name));
         });
-        setOrders(filteredOrders.length > 0 ? filteredOrders : ordersData);
+        setOrders(filteredOrders);
       }
       
     } catch (error) {
@@ -158,17 +159,14 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
     setShowProductModal(true);
   };
 
-  // 💡 التصحيح الجذري: توجيه الرفع حصراً لمجلد 'uploads' بالجمع ليتطابق مع صورتك
   const uploadToStorage = async (file: File) => {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const { error } = await supabase.storage.from('uploads').upload(fileName, file);
+      const { error } = await supabase.storage.from('products').upload(fileName, file);
       if (!error) {
-        const { data } = supabase.storage.from('uploads').getPublicUrl(fileName);
+        const { data } = supabase.storage.from('products').getPublicUrl(fileName);
         return data.publicUrl;
-      } else {
-        console.error("Erreur d'upload Storage:", error);
       }
     } catch (e) { console.error(e); }
     return null;
@@ -259,8 +257,9 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
   }
 
   const isBoutique = restaurantData?.category?.toLowerCase().includes('boutique') || restaurantData?.store_type === 'boutique';
+  
+  // 💡 حساب المحفظة بدقة
   const deliveredOrders = (orders || []).filter(o => o.status === 'delivered');
-
   let totalBrut = 0;
   deliveredOrders.forEach(order => {
     try {
@@ -269,7 +268,8 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       else if (Array.isArray(order.items)) { itemsArray = order.items; }
       
       itemsArray.forEach((item: any) => {
-        if (item && products.some(p => p.name === item.name)) {
+        // التعديل الجراحي الثاني: حماية المحفظة بضمان التطابق عبر المعرف (id)
+        if (item && products.some(p => String(p.id) === String(item.id) || p.name === item.name)) {
           totalBrut += (Number(item.price || 0) * Number(item.quantity || 1));
         }
       });
@@ -341,9 +341,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                   <div className="flex-1 flex flex-col justify-between py-1">
                     <h4 className="text-sm font-black text-slate-900 leading-tight">{p.name || p.name_ar}</h4>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-xs font-black ${p.is_promo ? 'text-red-500' : 'text-amber-600'}`}>
-                        {p.is_promo && p.promo_price ? Number(p.promo_price).toFixed(3) : Number(p.price || 0).toFixed(3)} DT
-                      </span>
+                      <span className={`text-xs font-black ${p.is_promo ? 'text-red-500' : 'text-amber-600'}`}>{p.is_promo && p.promo_price ? Number(p.promo_price).toFixed(3) : Number(p.price || 0).toFixed(3)} DT</span>
                       {p.is_promo && p.promo_price && <span className="text-[9px] text-slate-400 line-through">{Number(p.price || 0).toFixed(3)} DT</span>}
                     </div>
                     <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -365,17 +363,17 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
       {activeTab === 'commandes' && (
         <div className="px-5 space-y-4 pb-10">
-          {(orders || []).filter(o => ['confirmed', 'prete'].includes(o?.status)).length === 0 ? (
+          {(orders || []).length === 0 ? (
             <div className="bg-white border border-slate-100 p-8 rounded-[2rem] text-center shadow-sm">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aucune commande active</p>
             </div>
           ) : (
-            (orders || []).filter(o => ['confirmed', 'prete'].includes(o?.status)).map(order => {
+            (orders || []).map(order => {
               let itemsArray = [];
               try { itemsArray = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []); } catch(e) { itemsArray = []; }
               const orderFoodTotal = itemsArray.reduce((sum: number, item: any) => sum + (Number(item?.price || 0) * Number(item?.quantity || 1)), 0);
               return (
-                <div key={order.id} className="bg-white border border-amber-100 p-5 rounded-[2rem] shadow-sm relative overflow-hidden">
+                <div key={order.id} className="bg-white border border-amber-100 p-5 rounded-[2rem] shadow-sm relative overflow-hidden mb-4">
                   <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
                   <div className="flex justify-between items-start border-b border-slate-50 pb-3 mb-3">
                     <p className="text-[10px] text-slate-400 font-mono">ID: #{String(order.id).split('-')[0].toUpperCase()}</p>
@@ -389,7 +387,13 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                     ))}
                   </div>
                   {order.status === 'confirmed' && (
-                    <button onClick={() => updateOrderStatus(order.id, 'prete')} className="w-full bg-amber-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md">Prête</button>
+                    <button onClick={() => updateOrderStatus(order.id, 'prete')} className="w-full bg-amber-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md">Prête à Livrer</button>
+                  )}
+                  {order.status === 'prete' && (
+                     <div className="w-full bg-emerald-50 text-emerald-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-center border border-emerald-100">En attente du livreur</div>
+                  )}
+                  {order.status === 'delivered' && (
+                     <div className="w-full bg-slate-100 text-slate-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-center">Livrée</div>
                   )}
                 </div>
               );
@@ -463,11 +467,11 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
               
               <div className="grid grid-cols-2 gap-2">
                 <div className="border border-dashed border-slate-200 bg-slate-50 p-4 rounded-2xl text-center relative">
-                  <input type="file" accept="image/*" onChange={e => e.target.files && setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={e => e.target.files && setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0" />
                   <p className="text-[9px] font-black text-slate-500 uppercase">{logoFile ? 'Logo Prêt' : 'Modifier Logo'}</p>
                 </div>
                 <div className="border border-dashed border-slate-200 bg-slate-50 p-4 rounded-2xl text-center relative">
-                  <input type="file" accept="image/*" onChange={e => e.target.files && setBannerFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={e => e.target.files && setBannerFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0" />
                   <p className="text-[9px] font-black text-slate-500 uppercase">{bannerFile ? 'Bannière Prête' : 'Modifier Bannière'}</p>
                 </div>
               </div>
