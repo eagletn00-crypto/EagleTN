@@ -151,16 +151,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
-  // 💡 المراقبة الصارمة للطلبات: تجاهل الطلبات المسلمة عند بدء التطبيق
   useEffect(() => {
     const fetchInitialData = async () => {
-      const { data: storesData } = await supabase.from('restaurants').select('*').eq('id', 1).maybeSingle();
-      if (storesData) { setStores([storesData]); } 
-      else {
-        const { data: allStores } = await supabase.from('restaurants').select('*').limit(1);
-        if (allStores) setStores(allStores);
-      }
-
+      // 💡 تم إزالة جلب id:1 لتصبح المنصة Multi-Vendor 100%
       const savedPhone = localStorage.getItem('eagle_phone');
       if (savedPhone) {
         const { data: activeOrder } = await supabase
@@ -213,10 +206,19 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     return () => { supabase.removeChannel(channel); };
   }, [currentOrderId]);
 
+  // 💡 الحل الجراحي: البحث الدكي وتفريغ القائمة
   const handleLoadStoreType = async (type: string) => {
-    const { data } = await supabase.from('restaurants').select('*').eq('store_type', type);
-    if (data && data.length > 0) setStores(data);
+    setStores([]); // تفريغ الذاكرة فوراً لعدم عرض متاجر قديمة
     setAppView('stores_list');
+    
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('*')
+      .or(`store_type.eq.${type},category.ilike.%${type}%`);
+      
+    if (!error && data) {
+      setStores(data);
+    }
   };
 
   const handleSelectStore = async (store: any) => {
@@ -553,20 +555,29 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       {appView === 'stores_list' && (
         <div className="p-4 space-y-4 max-w-md mx-auto pb-24 animate-fade-in">
           <button onClick={() => setAppView('hub')} className="text-slate-400 hover:text-slate-600 text-sm font-black mb-4 flex items-center gap-1 transition-colors"><ArrowRight className="rotate-180" size={16} /> Retour</button>
-          {stores.map(store => (
-            <div key={store.id} onClick={() => handleSelectStore(store)} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 flex justify-between items-center cursor-pointer mb-4 shadow-sm hover:shadow-md hover:border-red-200 transition-all active:scale-[0.98]">
-              <div className="flex gap-4 items-center">
-                <div className="relative w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border text-3xl overflow-hidden shadow-inner">
-                  {store.logo_url ? <img src={store.logo_url} alt="Logo" className="absolute inset-0 w-full h-full object-cover z-10" /> : <span>🏪</span>}
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-800">{store.name}</h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{store.store_type || store.category}</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-slate-400" />
+          
+          {stores.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 opacity-70">
+              <Store size={48} className="text-slate-300 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aucun partenaire disponible</p>
+              <p className="text-[9px] font-bold text-slate-500 mt-2">Bientôt dans votre région 🦅</p>
             </div>
-          ))}
+          ) : (
+            stores.map(store => (
+              <div key={store.id} onClick={() => handleSelectStore(store)} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 flex justify-between items-center cursor-pointer mb-4 shadow-sm hover:shadow-md hover:border-red-200 transition-all active:scale-[0.98]">
+                <div className="flex gap-4 items-center">
+                  <div className="relative w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border text-3xl overflow-hidden shadow-inner">
+                    {store.logo_url ? <img src={store.logo_url} alt="Logo" className="absolute inset-0 w-full h-full object-cover z-10" /> : <span>🏪</span>}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-800">{store.name}</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{store.store_type || store.category}</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-400" />
+              </div>
+            ))
+          )}
         </div>
       )}
 
