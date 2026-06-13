@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-// 💡 الإصلاح الجراحي 2: استخدام QrCode لإنقاذ الشاشة من الانهيار الأبيض عند حالة Route
 import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent, Shirt, Sparkles, HeartPulse, Utensils } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -14,6 +13,12 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};
+
+const formatTimeMinutes = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
 interface RestaurantMenuProps {
@@ -395,7 +400,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                 <div className="space-y-3">
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
                     <h4 className="text-xs font-black text-white uppercase mb-2">1. Utilisateurs (Clients) / المستخدمون</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">La Plateforme agit comme intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande. La Plateforme décline toute responsabilité pour les retards dus à la force majeure.</p>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">La Plateforme acts come intermédiaire numérique. L'utilisateur accepte le traitement de ses données de géolocalisation. L'annulation est gratuite dans les 5 minutes suivant la commande. La Plateforme décline toute responsabilité pour les retards dus à la force majeure.</p>
                     <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">تعتبر المنصة وسيطاً رقمياً. يوافق المستخدم على معالجة بيانات موقعه الجغرافي. الإلغاء مجاني خلال 5 دقائق. تخلي المنصة مسؤوليتها عن التأخير الناتج عن القوة القاهرة.</p>
                   </div>
                   
