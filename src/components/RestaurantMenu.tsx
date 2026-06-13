@@ -218,7 +218,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
     setSelectedStore(store);
     try {
-      // تعديل جذري: الترتيب عبر حقل id المتواجد حياً في الـ Schema لمنع مصفوفة الـ null الفاشلة والواجهة البيضاء
+      // 💡 التعديل الجراحي الأول: الترتيب بحقل id المتواجد حياً
       const { data, error: _err } = await supabase.from('products').select('*').eq('restaurant_id', store.id).order('id', { ascending: false });
       if (data) setProducts(data);
       setAppView('menu');
@@ -227,6 +227,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
+  // 💡 التعديل الجراحي الثاني: دالة السعر الترويجي
   const getProductPrice = (p: any) => {
     return p.is_promo && p.promo_price ? Number(p.promo_price) : Number(p.price || 0);
   };
@@ -236,10 +237,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const deleteFromCart = (id: string) => setCart(prev => { const updated = { ...prev }; delete updated[id]; return updated; }); 
 
   const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
-  const subtotal = Object.entries(cart).reduce((sum, [id, qty]) => { 
-    const p = products.find(prod => String(prod.id) === id); 
-    return sum + (p ? getProductPrice(p) * qty : 0); 
-  }, 0);
+  // 💡 التعديل الجراحي الثالث: حقن دالة السعر في حساب المجموع
+  const subtotal = Object.entries(cart).reduce((sum, [id, qty]) => { const p = products.find(prod => String(prod.id) === id); return sum + (p ? getProductPrice(p) * qty : 0); }, 0);
   const totalPrice = subtotal > 0 ? subtotal + dynamicDeliveryFee : 0;
 
   const triggerLocationRequest = () => { if (!localStorage.getItem('eagle_gps_accepted')) setShowGoogleDisclosure(true); else executeLocationFetch(); };
@@ -283,7 +282,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const handleConfirmOrder = async () => {
     if (isSubmitting) return; 
     if (!fullName || !phone || !deliveryAddress || !legalAccepted || totalItems === 0) {
-      return showToast("Veuillez remplir tous les champs et activar le GPS", "error");
+      return showToast("Veuillez remplir tous les champs et activer le GPS", "error");
     }
     if (!isValidTunisianPhone(phone)) {
       return showToast("Le numéro de téléphone doit comporter exactement 8 chiffres", "error");
@@ -295,8 +294,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       const p = products.find(prod => String(prod.id) === id); 
       return { 
         id, 
-        name: p?.name || p?.name_ar || 'Article sans nom', 
-        price: getProductPrice(p), 
+        name: p?.name_fr || p?.name || 'Article sans nom', 
+        price: getProductPrice(p), // 💡 حقن السعر في الفاتورة
         quantity: qty 
       }; 
     });
@@ -373,14 +372,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         ::-webkit-scrollbar { display: none; }
       `}} />
 
-      {/* TOAST SYSTEM */}
       {toast.show && (
         <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[300] px-4 py-3 rounded-2xl flex items-center gap-2 shadow-xl border w-11/12 max-w-sm bg-slate-900 text-white border-white/15 animate-fade-in">
           <p className="text-xs font-black tracking-wider truncate">{toast.message}</p>
         </div>
       )}
 
-      {/* 🛑 GOOGLE DISCLOSURE MODAL (Légal) */}
       {showGoogleDisclosure && (
         <div className="absolute inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white p-8 rounded-[2.5rem] text-center max-w-sm shadow-2xl space-y-4 border-t-4 border-amber-500 animate-fade-in">
@@ -397,7 +394,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* MODAL LEGAL & CONDITIONS BILINGUE */}
       {activeModal !== 'none' && (
         <div className="absolute inset-0 z-[400] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-[#121620] border border-white/10 w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative flex flex-col max-h-[90%] animate-fade-in text-white">
@@ -418,7 +414,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                   
                   <div className="bg-black/40 border border-white/5 p-4 rounded-2xl">
                     <h4 className="text-xs font-black text-white uppercase mb-2">2. Partenaires (Commerçants) / الشركاء</h4>
-                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictly exigée.</p>
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium mb-2">Le Partenaire assume l'entière responsabilité civile et pénale de la qualité des produits. La commission est déduite d'un solde prépayé. La confidentialité des données (Loi 2004-63) est strictement exigée.</p>
                     <p className="text-[10px] text-amber-500/90 leading-relaxed font-bold text-right border-t border-white/5 pt-2" dir="rtl">يتحمل الشريك المسؤولية المدنية والجزائية الكاملة عن جودة المنتجات. تُخصم العمولة من رصيد مسبق الدفع. السرية التامة للبيانات (قانون 63 لسنة 2004) مطلوبة بشدة.</p>
                   </div>
                   
@@ -458,7 +454,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [شاشة النجاح التامة - ULTRA PREMIUM] */}
       {showSuccessOverlay && (
         <div className="absolute inset-0 z-[999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
           <div className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-xl"></div>
@@ -486,7 +481,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [1] SPLASH SCREEN */}
       {appView === 'splash' && (
         <div className="absolute inset-0 bg-gradient-to-b from-[#0e0f12] via-[#050608] to-[#000000] z-50 flex flex-col items-center justify-center p-6 select-none animate-fade-in">
           <div className="relative w-full max-w-xs h-80 flex items-center justify-center mb-2 animate-breathe">
@@ -505,7 +499,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [2] LOGIN PORTAL */}
       {appView === 'login' && (
         <div className="absolute inset-0 bg-[#0a0a0a] flex flex-col justify-center p-6 z-40">
           <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] w-full max-w-sm mx-auto space-y-6">
@@ -540,7 +533,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [3] SUPER APP ECOSYSTEM (HUB) */}
       {appView === 'hub' && (
         <div className="p-5 space-y-6 animate-fade-in pt-8 pb-32">
           {fullName && (
@@ -564,7 +556,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
               <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🏪 Restaurant</span>
             </div>
-            <div onClick={() => handleLoadStoreType('pâtisserie')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
+            <div onClick={() => handleLoadStoreType('patisserie')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
               <img src="https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80" alt="Pâtisserie" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
               <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🧁 Pâtisserie</span>
@@ -602,7 +594,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [4] STORES LIST */}
       {appView === 'stores_list' && (
         <div className="p-4 space-y-4 max-w-md mx-auto pb-24 animate-fade-in">
           <button onClick={() => setAppView('hub')} className="text-slate-400 hover:text-slate-600 text-sm font-black mb-4 flex items-center gap-1 transition-colors"><ArrowRight className="rotate-180" size={16} /> Retour</button>
@@ -623,11 +614,10 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [5] MENU SECTION (DYNAMIQUE) */}
       {appView === 'menu' && selectedStore && (
         <div className="pb-32 max-w-md mx-auto animate-fade-in select-none">
-          
           <div className="relative h-44 w-full bg-slate-900 rounded-b-[2.5rem] overflow-hidden shadow-md">
+            {/* 💡 التعديل الجراحي 1: حقن غلاف المطعم ديناميكياً */}
             {selectedStore.banner_url ? (
               <img src={selectedStore.banner_url} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-80" />
             ) : (
@@ -644,11 +634,10 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             
             <div className="absolute bottom-4 left-6 right-6 z-10 flex gap-4 items-end">
               <div className="w-16 h-16 bg-white rounded-2xl p-0.5 shadow-xl border border-white/20 shrink-0">
-                {selectedStore.logo_url ? (
-                  <img src={selectedStore.logo_url} className="w-full h-full rounded-[0.9rem] object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-amber-50 rounded-[0.9rem] flex items-center justify-center text-xl">🏪</div>
-                )}
+                <div className="w-full h-full bg-amber-50 rounded-[0.9rem] flex items-center justify-center text-xl overflow-hidden">
+                  {/* 💡 التعديل الجراحي 2: حقن اللوغو ديناميكياً */}
+                  {selectedStore.logo_url ? <img src={selectedStore.logo_url} className="w-full h-full object-cover" /> : "🏪"}
+                </div>
               </div>
 
               <div className="flex-1 space-y-0.5 pb-1">
@@ -685,18 +674,19 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           <div className="p-4 grid grid-cols-2 gap-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id] || 0;
+              // 💡 التعديل الجراحي 3: حساب السعر الفعلي لاستخدامه بأمان
               const productPrice = getProductPrice(p);
               return (
                 <div key={p.id} className="bg-white rounded-[2rem] p-3 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[160px] transition-all duration-300 hover:scale-[1.03] hover:shadow-md hover:border-red-100">
                   <div className="h-24 w-full bg-slate-50 rounded-[1rem] overflow-hidden mb-2 relative flex items-center justify-center text-3xl">
                     {p.image_url ? <img src={p.image_url} className="absolute inset-0 w-full h-full object-cover" /> : "🍲"}
-                    {p.is_special && <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase flex items-center gap-0.5 shadow-md"><Star size={8} fill="white"/> Top</div>}
-                    {p.is_promo && <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase flex items-center gap-0.5 shadow-md"><Percent size={8}/> Promo</div>}
                   </div>
-                  <h3 className="font-black text-xs text-slate-800 leading-tight mb-1">{p.name || p.name_ar || 'Plat sans nom'}</h3>
+                  <h3 className="font-black text-xs text-slate-800 leading-tight mb-1">{p.name_fr || p.name || 'Plat sans nom'}</h3>
                   <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-50">
+                    
+                    {/* 💡 التعديل الجراحي 4: عرض السعر القديم والجديد بأمان تام وبدون أيقونات متداخلة تكسر الكود */}
                     <div className="flex flex-col">
-                      <span className={`font-black text-xs font-mono ${p.is_promo ? 'text-red-600' : 'text-amber-600'}`}>{productPrice.toFixed(3)} <span className="text-[8px]">DT</span></span>
+                      <span className={`font-black text-xs font-mono ${p.is_promo ? 'text-red-600' : 'text-amber-600'}`}>{productPrice.toFixed(3)} <span className="text-[8px] text-slate-400">DT</span></span>
                       {p.is_promo && p.promo_price && <span className="text-[9px] text-slate-400 line-through font-mono">{Number(p.price || 0).toFixed(3)} DT</span>}
                     </div>
                     
@@ -744,11 +734,12 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               {Object.entries(cart).map(([id, qty]) => {
                 const p = products.find(prod => String(prod.id) === id);
                 if (!p) return null;
+                // 💡 التعديل الجراحي 5: حقن السعر الترويجي في سلة المشتريات
                 const pPrice = getProductPrice(p);
                 return (
                   <div key={id} className="flex justify-between items-center text-xs bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div className="space-y-0.5">
-                      <p className="font-black text-slate-800">{qty}x {p.name || p.name_ar} {p.is_promo && <Percent size={10} className="text-red-500 inline"/></p>
+                      <p className="font-black text-slate-800">{qty}x {p.name_fr || p.name || 'Article'} {p.is_promo ? '⭐' : ''}</p>
                       <p className="font-mono text-[10px] text-amber-600">{(pPrice * qty).toFixed(3)} DT</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -774,7 +765,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div className="space-y-1 text-left flex-1" dir="ltr">
               <p className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1 justify-start"><ShieldAlert size={12}/> Sécurité & INPDP</p>
               <p className="font-bold text-[9px] text-slate-600 leading-relaxed text-justify mt-1">
-                J'accepte le traitement de mes données de géوليةalisation pour garantir la livraison. J'ai pris connaissance de mon droit de rétractation de 5 minutes et des Conditions Générales d'Utilisation.
+                J'accepte le traitement de mes données de géolocalisation pour garantir la livraison. J'ai pris connaissance de mon droit de rétractation de 5 minutes et des Conditions Générales d'Utilisation.
                 <br/><span className="text-amber-600 font-black mt-2 block text-right" dir="rtl">أوافق على معالجة بيانات موقعي الجغرافي لضمان التوصيل. لقد اطلعت على حقي في الإلغاء خلال 5 دقائق وعلى الشروط العامة للاستخدام.</span>
               </p>
             </div>
@@ -903,15 +894,15 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* 🧭 NAV BAR 3D PREMIUM */}
+      {/* 🧭 NAV BAR */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-xl border-t border-slate-100 flex justify-around items-center py-4 z-40 px-6 rounded-t-[2rem] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe">
-        <button onClick={() => setAppView('hub')} className={`p-2 transition-all duration-300 ${appView === 'hub' || appView === 'stores_list' || appView === 'menu' || appView === 'cart' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+        <button onClick={() => setAppView('hub')} className={`p-2 transition-all duration-300 ${appView === 'hub' || appView === 'stores_list' || appView === 'menu' || appView === 'cart' ? 'scale-125 opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">🏠</span>
         </button>
-        <button onClick={() => { if(currentOrderId) setAppView('tracking'); else showToast("Aucune commande active", "info"); }} className={`p-2 transition-all duration-300 ${appView === 'tracking' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+        <button onClick={() => { if(currentOrderId) setAppView('tracking'); else showToast("Aucune commande active", "info"); }} className={`p-2 transition-all duration-300 ${appView === 'tracking' ? 'scale-125 opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">🛵</span>
         </button>
-        <button onClick={() => setAppView('profile')} className={`p-2 transition-all duration-300 ${appView === 'profile' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+        <button onClick={() => setAppView('profile')} className={`p-2 transition-all duration-300 ${appView === 'profile' ? 'scale-125 opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">👤</span>
         </button>
       </div>

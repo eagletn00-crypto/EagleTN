@@ -7,7 +7,6 @@ interface PartnerDashboardProps {
 }
 
 export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboardProps) {
-  // 🔐 نظام التحقق من الإيميل الديناميكي
   const [authEmail, setAuthEmail] = useState<string | null>(localStorage.getItem('eagle_pro_email'));
   const [accessDenied, setAccessDenied] = useState(false);
 
@@ -17,18 +16,15 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Modals UI
   const [showProductModal, setShowProductModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // Product Form State
   const [currentProduct, setCurrentProduct] = useState<any>({
     id: null, name: '', name_ar: '', price: '', promo_price: '', is_promo: false, category: 'PLAT', image_url: '', in_stock: true, is_special: false
   });
   const [productUploadFile, setProductUploadFile] = useState<File | null>(null);
 
-  // Settings Form State
   const [settingsForm, setSettingsForm] = useState<any>({
     name: '', category: '', logo_url: '', banner_url: ''
   });
@@ -54,7 +50,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
     setIsLoading(true);
     setAccessDenied(false);
     try {
-      // 1. الاستعلام الصارم
       const { data: currentStore, error: storeError } = await supabase
         .from('restaurants')
         .select('*')
@@ -75,7 +70,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         banner_url: currentStore.banner_url || ''
       });
 
-      // 2. جلب المنتجات: تم التعديل الجذري من created_at إلى id لحل مشكلة اختفاء البيانات
       let query = supabase.from('products').select('*');
       if (currentStore.id === 1) {
         query = query.or(`restaurant_id.eq.${currentStore.id},restaurant_id.is.null`);
@@ -88,7 +82,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
       
       setProducts(prods || []);
 
-      // 3. جلب الطلبات
       const { data: ordersData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (ordersData) {
         const filteredOrders = ordersData.filter(order => {
@@ -165,14 +158,17 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
     setShowProductModal(true);
   };
 
+  // 💡 التصحيح الجذري: توجيه الرفع حصراً لمجلد 'uploads' بالجمع ليتطابق مع صورتك
   const uploadToStorage = async (file: File) => {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const { error } = await supabase.storage.from('products').upload(fileName, file);
+      const { error } = await supabase.storage.from('uploads').upload(fileName, file);
       if (!error) {
-        const { data } = supabase.storage.from('products').getPublicUrl(fileName);
+        const { data } = supabase.storage.from('uploads').getPublicUrl(fileName);
         return data.publicUrl;
+      } else {
+        console.error("Erreur d'upload Storage:", error);
       }
     } catch (e) { console.error(e); }
     return null;
@@ -227,7 +223,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
     finally { setIsUploading(false); }
   };
 
-  // 🛡️ بوابة الأمان
   if (!authEmail) {
     return (
       <div className="min-h-screen bg-[#121620] flex flex-col items-center justify-center p-6 font-sans">
@@ -244,7 +239,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
           <button onClick={() => {
             const val = (document.getElementById('pro_auth_input') as HTMLInputElement).value;
             if(val) { localStorage.setItem('eagle_pro_email', val.trim().toLowerCase()); setAuthEmail(val.trim().toLowerCase()); }
-          }} className="w-full bg-amber-500 text-slate-900 py-4 rounded-2xl font-black uppercase text-xs">Valider l'accès</button>
+          }} className="w-full bg-amber-500 text-slate-950 py-4 rounded-2xl font-black uppercase text-xs">Valider l'accès</button>
         </div>
       </div>
     );
@@ -286,7 +281,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
 
   return (
     <div className="min-h-screen w-screen bg-[#FDFBF7] text-slate-900 font-sans overflow-x-hidden pb-24">
-      {/* 👑 HEADER */}
       <div className="bg-white border-b border-slate-100 shadow-sm relative">
         <div className="h-32 bg-slate-200 relative overflow-hidden">
           {restaurantData?.banner_url ? <img src={restaurantData.banner_url} className="w-full h-full object-cover opacity-90" /> : <div className="w-full h-full bg-slate-800"></div>}
@@ -317,31 +311,19 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       </div>
 
-      {/* 🧭 TABS */}
       <div className="px-5 py-4">
         <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] shadow-inner">
-          <button onClick={() => setActiveTab('commandes')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'commandes' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
-             Commandes
-          </button>
-          <button onClick={() => setActiveTab('menu')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'menu' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
-             {isBoutique ? 'Catalogue' : 'Menu'}
-          </button>
-          <button onClick={() => setActiveTab('journal')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'journal' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
-             Journal
-          </button>
+          <button onClick={() => setActiveTab('commandes')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'commandes' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Commandes</button>
+          <button onClick={() => setActiveTab('menu')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'menu' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>{isBoutique ? 'Catalogue' : 'Menu'}</button>
+          <button onClick={() => setActiveTab('journal')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'journal' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Journal</button>
         </div>
       </div>
 
-      {/* 🍔 MENU / CATALOGUE */}
       {activeTab === 'menu' && (
         <div className="px-5 space-y-4 pb-10">
           <div className="flex justify-between items-center bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm">
-            <div>
-              <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">{isBoutique ? 'Catalogue 🛍️' : 'Menu 🍽️'}</h2>
-            </div>
-            <button onClick={() => openProductModal()} className="bg-slate-900 text-white px-4 py-3 rounded-[1rem] flex items-center gap-1.5 text-xs font-black uppercase tracking-widest">
-              <Plus size={16} /> Ajouter
-            </button>
+            <div><h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">{isBoutique ? 'Catalogue 🛍️' : 'Menu 🍽️'}</h2></div>
+            <button onClick={() => openProductModal()} className="bg-slate-900 text-white px-4 py-3 rounded-[1rem] flex items-center gap-1.5 text-xs font-black uppercase tracking-widest"><Plus size={16} /> Ajouter</button>
           </div>
 
           <div className="space-y-3">
@@ -372,7 +354,7 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
                   </div>
                   <div className="flex flex-col gap-2">
                      <button onClick={() => openProductModal(p)} className="bg-slate-900 text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase shadow-sm">Modifier</button>
-                     <button onClick={() => deleteProduct(p.id)} className="text-red-400 text-[9px] font-black uppercase flex items-center justify-center"><Trash2 size={12}/></button>
+                     <button onClick={() => deleteProduct(p.id)} className="text-red-400 text-[9px] font-black uppercase flex items-center justify-center gap-1"><Trash2 size={12}/></button>
                   </div>
                 </div>
               ))
@@ -381,7 +363,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 📦 COMMANDES */}
       {activeTab === 'commandes' && (
         <div className="px-5 space-y-4 pb-10">
           {(orders || []).filter(o => ['confirmed', 'prete'].includes(o?.status)).length === 0 ? (
@@ -417,7 +398,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 💰 JOURNAL */}
       {activeTab === 'journal' && (
         <div className="px-5 space-y-5 pb-10">
           <div className="bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm relative overflow-hidden">
@@ -435,7 +415,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 🖼️ MODAL PRODUCT */}
       {showProductModal && (
         <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -444,41 +423,23 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
               <button onClick={() => setShowProductModal(false)} className="text-slate-400 bg-slate-50 rounded-full p-1"><XCircle size={20}/></button>
             </div>
             <div className="space-y-4">
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Nom (Français) *</label>
-                <input type="text" value={currentProduct.name} onChange={e => setCurrentProduct({...currentProduct, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500" />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Nom (Arabe)</label>
-                <input type="text" value={currentProduct.name_ar} onChange={e => setCurrentProduct({...currentProduct, name_ar: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500 text-right" dir="rtl" />
-              </div>
+              <input type="text" placeholder="Nom (Français) *" value={currentProduct.name} onChange={e => setCurrentProduct({...currentProduct, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none" />
+              <input type="text" placeholder="Nom (Arabe)" value={currentProduct.name_ar} onChange={e => setCurrentProduct({...currentProduct, name_ar: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold text-right" dir="rtl" />
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Prix (DT) *</label>
-                  <input type="number" step="0.001" value={currentProduct.price} onChange={e => setCurrentProduct({...currentProduct, price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500" />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Promo (DT)</label>
-                  <input type="number" step="0.001" value={currentProduct.promo_price} onChange={e => setCurrentProduct({...currentProduct, promo_price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500" />
-                </div>
+                <input type="number" step="0.001" placeholder="Prix (DT) *" value={currentProduct.price} onChange={e => setCurrentProduct({...currentProduct, price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none" />
+                <input type="number" step="0.001" placeholder="Promo (DT)" value={currentProduct.promo_price} onChange={e => setCurrentProduct({...currentProduct, promo_price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold focus:outline-none" />
               </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Catégorie *</label>
-                <select value={currentProduct.category} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold uppercase">
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Photo</label>
-                <div className="border-2 border-dashed border-slate-200 bg-slate-50 p-4 rounded-2xl text-center relative flex flex-col items-center">
-                  <input type="file" accept="image/*" onChange={e => e.target.files && setProductUploadFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 z-10" />
-                  <Camera size={20} className="mb-1 text-amber-500"/>
-                  <p className="text-[9px] font-black text-slate-500 uppercase">{productUploadFile ? productUploadFile.name : 'Choisir image'}</p>
-                </div>
+              <select value={currentProduct.category} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs font-bold uppercase">
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div className="border-2 border-dashed border-slate-200 bg-slate-50 p-4 rounded-2xl text-center relative flex flex-col items-center">
+                <input type="file" accept="image/*" onChange={e => e.target.files && setProductUploadFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer" />
+                <Camera size={20} className="mb-1 text-amber-500"/>
+                <p className="text-[9px] font-black text-slate-500 uppercase">{productUploadFile ? productUploadFile.name : 'Choisir image'}</p>
               </div>
               <div className="grid grid-cols-3 gap-1.5 pt-1">
                 <button type="button" onClick={() => setCurrentProduct({...currentProduct, in_stock: !currentProduct.in_stock})} className={`py-2 px-1 rounded-xl border text-[9px] font-black uppercase ${currentProduct.in_stock ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-500 border-red-200'}`}>{currentProduct.in_stock ? 'En Stock' : 'Rupture'}</button>
-                <button type="button" onClick={() => setCurrentProduct({...currentProduct, is_special: !currentProduct.is_special})} className={`py-2 px-1 rounded-xl border text-[9px] font-black uppercase ${currentProduct.is_special ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>Spécial</button>
+                <button type="button" onClick={() => setCurrentProduct({...currentProduct, is_special: !currentProduct.is_special})} className={`py-2 px-1 rounded-xl border text-[9px] font-black uppercase ${currentProduct.is_special ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>Spécial</button>
                 <button type="button" onClick={() => setCurrentProduct({...currentProduct, is_promo: !currentProduct.is_promo})} className={`py-2 px-1 rounded-xl border text-[9px] font-black uppercase ${currentProduct.is_promo ? 'bg-red-50 text-red-600 border-red-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>Promo</button>
               </div>
               <button disabled={isUploading || !currentProduct.name || !currentProduct.price} onClick={handleProductSave} className="w-full bg-slate-900 disabled:opacity-50 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest">
@@ -489,7 +450,6 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
         </div>
       )}
 
-      {/* 🖼️ MODAL RESTAURANT SETTINGS */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-6 shadow-2xl space-y-4 no-scrollbar">
@@ -503,11 +463,11 @@ export default function PartnerDashboard({ onLogout: _onLogout }: PartnerDashboa
               
               <div className="grid grid-cols-2 gap-2">
                 <div className="border border-dashed border-slate-200 bg-slate-50 p-4 rounded-2xl text-center relative">
-                  <input type="file" accept="image/*" onChange={e => e.target.files && setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0" />
+                  <input type="file" accept="image/*" onChange={e => e.target.files && setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <p className="text-[9px] font-black text-slate-500 uppercase">{logoFile ? 'Logo Prêt' : 'Modifier Logo'}</p>
                 </div>
                 <div className="border border-dashed border-slate-200 bg-slate-50 p-4 rounded-2xl text-center relative">
-                  <input type="file" accept="image/*" onChange={e => e.target.files && setBannerFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0" />
+                  <input type="file" accept="image/*" onChange={e => e.target.files && setBannerFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <p className="text-[9px] font-black text-slate-500 uppercase">{bannerFile ? 'Bannière Prête' : 'Modifier Bannière'}</p>
                 </div>
               </div>
