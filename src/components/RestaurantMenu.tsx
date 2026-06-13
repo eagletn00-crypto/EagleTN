@@ -145,7 +145,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
-  // 💡 المراقبة الصارمة للطلبات لتأمين شاشة النجاح
+  // 💡 التعديل الجراحي: جلب الطلبات النشطة فقط وتجاهل الطلبات المسلمة لتجنب احتجاز الزبون
   useEffect(() => {
     const fetchInitialData = async () => {
       const { data: storesData } = await supabase.from('restaurants').select('*').eq('id', 1).maybeSingle();
@@ -157,16 +157,16 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
 
       const savedPhone = localStorage.getItem('eagle_phone');
       if (savedPhone) {
-        // نأتي بآخر طلب حتى لو كان مسلماً لمعالجة شاشة النجاح
         const { data: activeOrder } = await supabase
           .from('orders')
           .select('*')
           .eq('customer_phone', savedPhone)
+          .in('status', ['confirmed', 'prete', 'accepted_livreur', 'route']) // نبحث عن النشط فقط
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (activeOrder && !['refused', 'cancelled_timeout', 'cancelled_client'].includes(activeOrder.status)) {
+        if (activeOrder) {
           setCurrentOrderId(activeOrder.id);
           setCurrentOrderStatus(activeOrder.status);
           setOrderPinCode(activeOrder.pin_code);
@@ -179,11 +179,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             setDeliveryAddress(activeOrder.delivery_address);
           }
           
-          if (activeOrder.status === 'delivered') {
-            setShowSuccessOverlay(true);
-          } else {
-            setAppView('tracking');
-          }
+          setAppView('tracking');
           return;
         }
       }
@@ -192,6 +188,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     fetchInitialData();
   }, [appView]); 
 
+  // المراقبة الحية (Realtime) هي المسؤولة الوحيدة عن إظهار شاشة النجاح
   useEffect(() => {
     if (!currentOrderId) return;
     const channel = supabase
@@ -338,7 +335,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     ? products.filter(p => p.restaurant_id === selectedStore?.id)
     : products.filter(p => p.restaurant_id === selectedStore?.id && p.category?.toUpperCase() === selectedCategory.toUpperCase());
 
-  // 💡 حساب مستوى التتبع (Tracking Progress Level)
   const trackingLevel = () => {
     if (['delivered'].includes(currentOrderStatus)) return 5;
     if (['route'].includes(currentOrderStatus)) return 4;
@@ -765,11 +761,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* 🚀 [7] TRACKING PLATFORM (8K BOTTOM SHEET TIMELINE) */}
       {appView === 'tracking' && (
         <div className="h-screen w-full relative bg-[#0A0A0A] animate-fade-in overflow-hidden">
           
-          {/* MAP BACKGROUND */}
           <div className="absolute inset-0 z-0">
             <iframe
               src={`https://www.openstreetmap.org/export/embed.html?bbox=${clientLng-0.005},${clientLat-0.005},${clientLng+0.005},${clientLat+0.005}&layer=mapnik`}
@@ -778,7 +772,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div className="absolute inset-0 bg-gradient-to-t from-[#121620] via-[#121620]/60 to-[#121620]/20 z-10"></div>
           </div>
 
-          {/* TOP FLOATING CONTROLS (PIN & CANCEL) */}
           <div className="relative z-20 p-6 pt-10 flex justify-between items-start">
             <div className="bg-[#121620]/80 backdrop-blur-xl border border-white/10 p-3 px-5 rounded-2xl text-center shadow-2xl flex flex-col items-center justify-center">
               <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest block mb-0.5">Code de réception</span>
@@ -808,7 +801,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             </div>
           )}
 
-          {/* BOTTOM SHEET TIMELINE (The Eagle Tracking UX) */}
           <div className="absolute bottom-[80px] left-0 w-full px-4 z-30 pb-4">
              <div className="bg-[#121620] border border-white/10 rounded-[2.5rem] p-6 shadow-2xl w-full">
                  <h3 className="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-white/10 pb-3">
@@ -818,7 +810,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                  <div className="space-y-0 relative ml-2">
                      <div className="absolute left-[15px] top-4 bottom-8 w-0.5 bg-slate-800 z-0"></div>
 
-                     {/* Step 1: Confirmed */}
                      <div className="flex gap-4 items-center relative z-10 mb-5">
                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['confirmed', 'prete', 'accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>📝</div>
                          <div>
@@ -827,7 +818,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                          </div>
                      </div>
 
-                     {/* Step 2: Préparée */}
                      <div className="flex gap-4 items-center relative z-10 mb-5">
                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['prete', 'accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>👨‍🍳</div>
                          <div>
@@ -836,7 +826,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                          </div>
                      </div>
 
-                     {/* Step 3: Livreur Assigné */}
                      <div className="flex gap-4 items-center relative z-10 mb-5">
                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>🤝</div>
                          <div className="flex-1">
@@ -845,7 +834,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                          </div>
                      </div>
 
-                     {/* Step 4: En Route */}
                      <div className="flex gap-4 items-center relative z-10 mb-5">
                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>🛵</div>
                          <div>
@@ -854,7 +842,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                          </div>
                      </div>
 
-                     {/* Step 5: Livré */}
                      <div className="flex gap-4 items-center relative z-10">
                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['delivered'].includes(currentOrderStatus) ? 'bg-[#10b981] text-white' : 'bg-slate-800 text-slate-500'}`}>🎉</div>
                          <div>
@@ -868,7 +855,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [8] PROFILE SECTION */}
       {appView === 'profile' && (
         <div className="p-6 space-y-6 max-w-md mx-auto pb-24 animate-fade-in">
           <div className="text-center space-y-2 pt-4">
@@ -891,7 +877,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* 🧭 NAV BAR 3D PREMIUM (Émojis & sans texte) */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-xl border-t border-slate-100 flex justify-around items-center py-4 z-40 px-6 rounded-t-[2rem] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe">
         <button onClick={() => setAppView('hub')} className={`p-2 transition-all duration-300 ${appView === 'hub' || appView === 'stores_list' || appView === 'menu' || appView === 'cart' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">🏠</span>
