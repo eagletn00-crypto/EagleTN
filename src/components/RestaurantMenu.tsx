@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
+// 💡 الإصلاح الجراحي 2: استخدام QrCode لإنقاذ الشاشة من الانهيار الأبيض عند حالة Route
 import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent, Shirt, Sparkles, HeartPulse, Utensils } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -145,7 +146,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
-  // 💡 التعديل الجراحي: جلب الطلبات النشطة فقط وتجاهل الطلبات المسلمة لتجنب احتجاز الزبون
   useEffect(() => {
     const fetchInitialData = async () => {
       const { data: storesData } = await supabase.from('restaurants').select('*').eq('id', 1).maybeSingle();
@@ -161,7 +161,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           .from('orders')
           .select('*')
           .eq('customer_phone', savedPhone)
-          .in('status', ['confirmed', 'prete', 'accepted_livreur', 'route']) // نبحث عن النشط فقط
+          .in('status', ['confirmed', 'prete', 'accepted_livreur', 'route'])
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -188,7 +188,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     fetchInitialData();
   }, [appView]); 
 
-  // المراقبة الحية (Realtime) هي المسؤولة الوحيدة عن إظهار شاشة النجاح
   useEffect(() => {
     if (!currentOrderId) return;
     const channel = supabase
@@ -442,7 +441,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [شاشة النجاح التامة - ULTRA PREMIUM - Z-INDEX MAX] */}
       {showSuccessOverlay && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
           <div className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-xl"></div>
@@ -779,7 +777,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             </div>
             <div className="flex flex-col gap-2 items-end">
               <button onClick={() => setShowSecretCode(!showSecretCode)} className="bg-amber-500 text-black p-3 rounded-2xl shadow-lg active:scale-95 transition-transform flex items-center justify-center">
-                <QrCodeIcon size={20} />
+                <QrCode size={20} />
               </button>
               {currentOrderStatus === 'prete' && clientCancelTimer > 0 && (
                 <button onClick={handleClientCancellation} className="bg-red-600/90 backdrop-blur text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg active:scale-95 transition-transform border border-red-500 flex items-center gap-1">

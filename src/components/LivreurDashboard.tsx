@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-// 💡 تم إصلاح وتدقيق الاستيراد الكامل لجميع الأيقونات المستخدمة لمنع الشاشة البيضاء نهائياً
 import { Bike, MapPin, CheckCircle, Package, ArrowRight, Phone, ShieldCheck, XCircle, RefreshCw, Navigation, Wallet, MessageCircle, AlertTriangle, Radio, Compass, Clock, Activity, Radar, Power, Store, User } from 'lucide-react';
 
 interface LivreurDashboardProps {
@@ -53,9 +52,10 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
     fetchLiveOrders();
   };
 
+  // 💡 الإصلاح الجراحي 1: إنهاء الطلب بـ delivered بدلاً من الوقوع في حلقة route المفرغة!
   const handleVerifyPin = async () => {
     if (inputPin === selectedOrder?.pin_code) {
-      await supabase.from('orders').update({ status: 'route' }).eq('id', selectedOrder.id);
+      await supabase.from('orders').update({ status: 'delivered' }).eq('id', selectedOrder.id);
       setShowHandoffModal(false);
       setInputPin('');
       fetchLiveOrders();
@@ -75,12 +75,10 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
     return addressStr.split('| Note:')[0].trim();
   };
 
-  // تصفية دقيقة للمهمات بناءً على الـ Schema الحقيقي المرفق في صورك
   const availableCourses = orders.filter(o => o.status === 'prete');
   const activeMissions = orders.filter(o => ['accepted_livreur', 'route'].includes(o.status));
   const completedOrders = orders.filter(o => o.status === 'delivered');
 
-  // حساب المحفظة الفاخرة بالدينار التونسي
   const walletTotal = completedOrders.length * 4.500; 
 
   return (
@@ -93,7 +91,6 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}} />
 
-      {/* HEADER - EAGLE.RIDER PRO */}
       <div className="bg-[#121826] p-4 pt-8 border-b border-white/5 shadow-md">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
@@ -117,7 +114,6 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
           </div>
         </div>
 
-        {/* TOP LEVEL THREE TABS */}
         <div className="grid grid-cols-3 gap-2 bg-black/40 p-1 rounded-xl border border-white/5 mt-4">
           <button onClick={() => setActiveTab('missions')} className={`py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all relative ${activeTab === 'missions' ? 'bg-amber-500 text-slate-950 shadow-lg font-black' : 'text-slate-400'}`}>
             MISSIONS
@@ -128,14 +124,9 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
         </div>
       </div>
 
-      {/* TAB Content Area */}
       <div className="p-4 space-y-4">
-        
-        {/* MISSIONS TAB */}
         {activeTab === 'missions' && (
           <div className="space-y-4 animate-fade-in">
-            
-            {/* 1. Courses Actives SECTION */}
             {activeMissions.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-amber-500 mb-1">
@@ -145,7 +136,7 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
                 {activeMissions.map(order => (
                   <div key={order.id} className="bg-amber-500 text-slate-950 p-5 rounded-[2rem] shadow-xl space-y-4 border border-amber-400">
                     <div className="flex justify-between items-center border-b border-slate-950/10 pb-2">
-                      <span className="text-xs font-black uppercase tracking-widest flex items-center gap-1">📍 Am Ali Kitchen</span>
+                      <span className="text-xs font-black uppercase tracking-widest flex items-center gap-1">📍 Point Collecte</span>
                       <span className="font-mono font-black text-sm">{Number(order.total_price || 0).toFixed(3)} DT</span>
                     </div>
 
@@ -159,7 +150,6 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
                       <p className="text-xs font-black mt-0.5">{extractNote(order.delivery_address)}</p>
                     </div>
 
-                    {/* OpenStreetMap Overlay */}
                     <div className="w-full h-32 bg-slate-900 rounded-xl overflow-hidden border border-black/10 shadow-inner relative">
                       <iframe
                         src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(order.delivery_lng || 10.1815)-0.003},${Number(order.delivery_lat || 36.8065)-0.003},${Number(order.delivery_lng || 10.1815)+0.003},${Number(order.delivery_lat || 36.8065)+0.003}&layer=mapnik`}
@@ -186,7 +176,6 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
               </div>
             )}
 
-            {/* 2. Courses Disponibles SECTION */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-2 text-slate-400 mb-1">
                 <Radio size={14} className="text-emerald-400 animate-pulse"/> 
@@ -212,7 +201,7 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
                     <div className="space-y-2 border-t border-b border-white/5 py-3 text-xs">
                       <div>
                         <span className="text-[9px] font-black text-amber-500 uppercase tracking-wider block">Enlèvement (Restaurant)</span>
-                        <p className="font-bold text-slate-300">Am Ali Kitchen • Cité Tunis</p>
+                        <p className="font-bold text-slate-300">Point Partenaire</p>
                       </div>
                       <div className="pt-1">
                         <span className="text-[9px] font-black text-sky-400 uppercase tracking-wider block">Destination (Client)</span>
@@ -227,11 +216,9 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
                 ))
               )}
             </div>
-
           </div>
         )}
 
-        {/* PORTEFEUILLE TAB */}
         {activeTab === 'portefeuille' && (
           <div className="bg-[#121826] p-6 rounded-[2.5rem] border border-white/5 space-y-4 animate-fade-in">
             <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase block">SOLDE PORTEFEUILLE</span>
@@ -243,7 +230,6 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
           </div>
         )}
 
-        {/* JOURNAL TAB */}
         {activeTab === 'journal' && (
           <div className="space-y-3 animate-fade-in">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2">Historique des courses validées</h3>
@@ -262,10 +248,8 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
             )}
           </div>
         )}
-
       </div>
 
-      {/* HANDOFF SECURITY MODAL */}
       {showHandoffModal && (
         <div className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#121826] border border-white/10 w-full max-w-sm rounded-[2.5rem] p-6 text-center space-y-4">
@@ -291,7 +275,6 @@ export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
           </div>
         </div>
       )}
-
     </div>
   );
 }
