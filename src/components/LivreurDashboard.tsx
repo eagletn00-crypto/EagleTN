@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { MapPin, Navigation, MessageCircle, Lock, Wallet, CheckCircle, XCircle, Clock, PlayCircle, PauseCircle, Store, LifeBuoy, FileText, ShieldAlert, Activity, Star } from 'lucide-react';
+import { Bike, MapPin, CheckCircle, Package, ArrowRight, Phone, ShieldCheck, XCircle, RefreshCw, Radar, Navigation, QrCode as QrCodeIcon, MessageCircle, Wallet, User, Clock, AlertTriangle } from 'lucide-react';
 
 interface LivreurDashboardProps {
   onLogout: () => void;
@@ -8,406 +8,283 @@ interface LivreurDashboardProps {
 
 export default function LivreurDashboard({ onLogout }: LivreurDashboardProps) {
   const [orders, setOrders] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'route' | 'wallet' | 'history'>('route');
-  const [driverStatus, setDriverStatus] = useState<'online' | 'pause'>('online');
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'radar' | 'active' | 'wallet'>('radar');
   
-  // PIN Modal
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
+  const [showHandoffModal, setShowHandoffModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [pinCode, setPinCode] = useState('');
 
-  // Driver Profile
-  const driverProfile = {
-    name: "Ahmed Ben Ali",
-    id: "EAGLE-902",
-    rating: 4.9
-  };
-
+  // 💡 جلب الطلبات الحية
   useEffect(() => {
-    fetchDriverEcosystem();
-    
-    const channel = supabase
-      .channel('livreur_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        fetchDriverEcosystem();
-        if (payload.eventType === 'UPDATE' && payload.new.status === 'prete') {
-          playNotificationSound();
-        }
-      }).subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    fetchDriverOrders();
+    const sub = supabase.channel('livreur_orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchDriverOrders)
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
   }, []);
 
-  const fetchDriverEcosystem = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .in('status', ['prete', 'route', 'delivered', 'refused'])
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setOrders(data);
-      }
-    } catch (e) {
-      console.error("Erreur logistique");
-    }
-  };
-
-  const playNotificationSound = () => {
-    try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
-      audio.volume = 1.0;
-      audio.play();
-    } catch(e){}
-  };
-
-  const acceptOrder = async (orderId: string) => {
-    const { error } = await supabase.from('orders').update({ status: 'route' }).eq('id', orderId);
-    if (!error) fetchDriverEcosystem();
-  };
-
-  const refuseOrder = async (orderId: string) => {
-    const { error } = await supabase.from('orders').update({ status: 'refused' }).eq('id', orderId);
-    if (!error) fetchDriverEcosystem();
-  };
-
-  const handleOpenPinModal = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setPinInput('');
-    setPinError(false);
-    setShowPinModal(true);
-  };
-
-  const verifyAndCloseOrder = async () => {
-    if (!selectedOrderId || !pinInput) return;
+  const fetchDriverOrders = async () => {
+    setIsLoading(true);
+    // جلب الطلبات الجاهزة، والتي قبلها السائق، والتي في الطريق
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .in('status', ['prete', 'accepted_livreur', 'route', 'delivered'])
+      .order('created_at', { ascending: false });
     
-    try {
-      const { data: orderData } = await supabase.from('orders').select('pin_code').eq('id', selectedOrderId).single();
-      
-      if (orderData && orderData.pin_code === pinInput) {
-        const { error } = await supabase.from('orders').update({ status: 'delivered' }).eq('id', selectedOrderId);
-        if (!error) {
-          setShowPinModal(false);
-          fetchDriverEcosystem();
-        }
-      } else {
-        setPinError(true);
-        setPinInput('');
-      }
-    } catch (e) {
-      setPinError(true);
+    if (!error && data) {
+      setOrders(data);
+    }
+    setIsLoading(false);
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+    fetchDriverOrders();
+  };
+
+  const handleAcceptMission = (orderId: string) => {
+    updateOrderStatus(orderId, 'accepted_livreur');
+    setActiveTab('active');
+  };
+
+  const verifyHandoff = () => {
+    if (pinCode === selectedOrder?.pin_code) {
+      updateOrderStatus(selectedOrder.id, 'route');
+      setShowHandoffModal(false);
+      setPinCode('');
+    } else {
+      alert("Code PIN incorrect. Veuillez vérifier avec le restaurant.");
     }
   };
 
-  // Safe Math calculations to prevent White Screen Crash
-  const activeOrders = orders.filter(o => o.status === 'prete' || o.status === 'route');
-  const historyOrders = orders.filter(o => o.status === 'delivered' || o.status === 'refused');
-  const deliveredTodayCount = orders.filter(o => o.status === 'delivered').length;
-  const todaysEarnings = deliveredTodayCount * 2.500; 
+  const activeDeliveries = orders.filter(o => ['accepted_livreur', 'route'].includes(o.status));
+  const availableMissions = orders.filter(o => o.status === 'prete');
+  const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
-  const extractNoteAndAddress = (fullAddress: string) => {
-    if (!fullAddress) return { address: 'Adresse non spécifiée', note: null };
-    const parts = fullAddress.split('| Note:');
-    return {
-      address: parts[0].trim(),
-      note: parts.length > 1 ? parts[1].trim() : null
-    };
-  };
+  // حساب أرباح السائق (مثلاً 2 دينار على كل توصيلة)
+  const driverEarnings = deliveredOrders.length * 2.000;
 
   return (
-    <div className="h-screen w-screen bg-[#0B0F19] text-slate-100 font-sans overflow-x-hidden overflow-y-auto max-w-md mx-auto relative pb-24 border-x border-slate-800">
-      
-      {/* 🦅 HEADER EAGLE RIDER PRO */}
-      <div className="bg-[#121824] p-6 rounded-b-[2.5rem] shadow-2xl border-b border-white/5 sticky top-0 z-40 backdrop-blur-xl bg-opacity-95">
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-[#0A0A0A] text-white font-sans overflow-x-hidden pb-24">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes radar { 0% { transform: scale(0.5); opacity: 0.8; } 100% { transform: scale(2.5); opacity: 0; } }
+        .animate-radar::before, .animate-radar::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #10b981; animation: radar 3s linear infinite; }
+        .animate-radar::after { animation-delay: 1.5s; }
+      `}} />
+
+      {/* 👑 HEADER */}
+      <div className="bg-[#121620] border-b border-white/10 p-6 pt-10 sticky top-0 z-40 shadow-xl">
+        <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-2xl shadow-[0_0_15px_rgba(245,158,11,0.4)]">
-              🦅
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 flex items-center justify-center">
+              <Bike size={24} className="text-emerald-500" />
             </div>
             <div>
-              <h1 className="text-sm font-black text-white tracking-tight uppercase">Eagle.Rider Pro</h1>
-              <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">{driverProfile.name}</p>
+              <h1 className="text-xl font-black uppercase tracking-widest text-white flex items-center gap-2">Eagle Fleet <span className="bg-emerald-500 text-slate-900 text-[8px] px-2 py-0.5 rounded-full">PRO</span></h1>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Activity size={10} className="text-emerald-500"/> Connecté & Actif</p>
             </div>
           </div>
-          
-          <button 
-            onClick={() => setDriverStatus(driverStatus === 'online' ? 'pause' : 'online')} 
-            className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg ${driverStatus === 'online' ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/20' : 'bg-amber-500 text-slate-950 shadow-amber-500/20'}`}
-          >
-            {driverStatus === 'online' ? <PlayCircle size={14} className="animate-pulse"/> : <PauseCircle size={14}/>}
-            {driverStatus === 'online' ? 'Disponible' : 'En Pause'}
-          </button>
-        </div>
-
-        {/* 📑 TAB NAVIGATION */}
-        <div className="flex gap-2 p-1.5 bg-[#0A0E17] rounded-2xl border border-white/5 shadow-inner">
-          <button onClick={() => setActiveTab('route')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'route' ? 'bg-amber-500 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'text-slate-400 hover:text-white'}`}>
-            Missions
-          </button>
-          <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'wallet' ? 'bg-[#1C2438] text-white border border-white/10 shadow-lg' : 'text-slate-400 hover:text-white'}`}>
-            Portefeuille
-          </button>
-          <button onClick={() => setActiveTab('history')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-[#1C2438] text-white border border-white/10 shadow-lg' : 'text-slate-400 hover:text-white'}`}>
-            Journal
+          <button onClick={onLogout} className="bg-white/5 border border-white/10 p-2.5 rounded-xl hover:bg-red-500/20 hover:text-red-500 transition-colors">
+            <Power size={18} />
           </button>
         </div>
       </div>
 
-      {/* 🚀 TAB 1: ACTIVE ROUTES */}
-      {activeTab === 'route' && (
-        <div className="p-4 space-y-5 animate-fade-in">
-          {driverStatus === 'pause' ? (
-            <div className="text-center py-20 opacity-60">
-              <span className="text-5xl block mb-4 filter grayscale">☕</span>
-              <p className="text-xs font-black uppercase tracking-widest text-amber-500">Mode Pause Activé</p>
-              <p className="text-[10px] text-slate-500 mt-2">Reprenez le service pour recevoir des commandes.</p>
-            </div>
-          ) : activeOrders.length === 0 ? (
-            <div className="bg-[#121824] border border-dashed border-white/10 p-10 rounded-[2rem] text-center animate-pulse shadow-sm mt-4">
-              <span className="text-4xl block mb-4 opacity-70">📡</span>
-              <p className="text-[11px] font-black uppercase tracking-widest text-emerald-400">Recherche d'interventions...</p>
+      {/* 🧭 NAVIGATION TABS */}
+      <div className="p-5">
+        <div className="flex bg-[#121620] p-1.5 rounded-[1.5rem] shadow-inner border border-white/5 relative">
+          <button onClick={() => setActiveTab('radar')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all relative ${activeTab === 'radar' ? 'bg-emerald-500 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}>
+            <Radar size={14}/> Radar
+            {availableMissions.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[8px] animate-pulse">{availableMissions.length}</span>}
+          </button>
+          <button onClick={() => setActiveTab('active')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all relative ${activeTab === 'active' ? 'bg-emerald-500 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}>
+            <Navigation size={14}/> Missions
+            {activeDeliveries.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-[8px] font-black">{activeDeliveries.length}</span>}
+          </button>
+          <button onClick={() => setActiveTab('wallet')} className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'wallet' ? 'bg-emerald-500 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}>
+            <Wallet size={14}/> Gains
+          </button>
+        </div>
+      </div>
+
+      {/* 📡 TAB 1: RADAR (Missions Disponibles) */}
+      {activeTab === 'radar' && (
+        <div className="px-5 space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center py-20"><RefreshCw size={32} className="text-emerald-500 animate-spin"/></div>
+          ) : availableMissions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-6">
+              <div className="relative w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center animate-radar">
+                <Radar size={40} className="text-emerald-500" />
+              </div>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest text-center">Recherche de nouvelles<br/>missions de livraison...</p>
             </div>
           ) : (
-            activeOrders.map(order => {
-              const { address, note } = extractNoteAndAddress(order.delivery_address);
-              const isEnRoute = order.status === 'route';
-              
-              return (
-              <div key={order.id} className={`rounded-[2rem] p-1 shadow-2xl relative overflow-hidden transition-all duration-300 ${isEnRoute ? 'bg-amber-400' : 'bg-slate-800'}`}>
-                <div className={`${isEnRoute ? 'bg-amber-400 text-slate-900' : 'bg-[#1C2438] text-white'} p-5 rounded-[1.8rem] space-y-4`}>
-                  
-                  {/* Header */}
-                  <div className={`flex justify-between items-start border-b pb-3 ${isEnRoute ? 'border-slate-900/10' : 'border-white/10'}`}>
-                    <div className="space-y-1 text-left">
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${isEnRoute ? 'text-slate-700' : 'text-slate-400'}`}>Facture Numérique</span>
-                      <h4 className="text-xs font-black font-mono">#{order.id?.toString().substring(0,8).toUpperCase()}</h4>
-                    </div>
-                    <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black flex items-center gap-1.5 shadow-md ${isEnRoute ? 'bg-slate-900 text-amber-500' : 'bg-white/10 text-slate-300'}`}>
-                      <Clock size={12} />
-                      {order.created_at ? new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                    </div>
-                  </div>
-
-                  {/* Body */}
-                  <div className="space-y-3">
-                    <div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${isEnRoute ? 'text-slate-700' : 'text-slate-400'}`}>Point d'Enlèvement</span>
-                      <h3 className="text-base font-black leading-tight flex items-center gap-2 mt-0.5">
-                        <Store size={16} className={isEnRoute ? "text-slate-900" : "text-amber-500"}/>
-                        Am Ali Kitchen
-                      </h3>
-                    </div>
-
-                    <div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${isEnRoute ? 'text-slate-700' : 'text-slate-400'}`}>Destination Client</span>
-                      <h3 className="text-base font-black leading-tight flex items-start gap-2 mt-0.5">
-                        <MapPin size={18} className="text-red-500 shrink-0"/>
-                        {address}
-                      </h3>
-                    </div>
-                    
-                    {note && (
-                      <div className={`p-3 rounded-xl border flex items-start gap-2 ${isEnRoute ? 'bg-white/40 border-white/50 text-slate-900' : 'bg-amber-500/10 border-amber-500/20 text-amber-100'}`}>
-                        <FileText size={16} className={isEnRoute ? "text-slate-900 shrink-0" : "text-amber-500 shrink-0"}/>
-                        <div>
-                          <span className={`text-[8px] font-black uppercase tracking-widest block mb-0.5 ${isEnRoute ? 'text-slate-700' : 'text-amber-500'}`}>Note du Client:</span>
-                          <p className="text-xs font-bold leading-snug">{note}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Map (Shows only when EN ROUTE) */}
-                  {isEnRoute && (
-                    <div className="h-32 w-full bg-slate-900/10 rounded-2xl overflow-hidden border border-slate-900/20 relative shadow-inner">
-                      <iframe
-                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${(Number(order.delivery_lng) || 10.1815)-0.01},${(Number(order.delivery_lat) || 36.8065)-0.01},${(Number(order.delivery_lng) || 10.1815)+0.01},${(Number(order.delivery_lat) || 36.8065)+0.01}&layer=mapnik&marker=${order.delivery_lat || 36.8065},${order.delivery_lng || 10.1815}`}
-                        width="100%" height="100%" style={{ border: 0 }} loading="lazy"
-                      ></iframe>
-                    </div>
-                  )}
-
-                  <div className={`flex justify-between items-end border-t pt-3 ${isEnRoute ? 'border-slate-900/10' : 'border-white/10'}`}>
-                    <div className="space-y-0.5">
-                      <span className={`text-[9px] font-black uppercase tracking-widest block ${isEnRoute ? 'text-slate-700' : 'text-slate-400'}`}>À encaisser (Cash)</span>
-                      <span className={`text-2xl font-black tracking-tight ${!isEnRoute && 'text-emerald-400'}`}>{Number(order.total_price || 0).toFixed(3)} <span className="text-sm font-bold">DT</span></span>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-[10px] font-bold truncate block ${isEnRoute ? 'text-slate-800' : 'text-slate-300'}`}>
-                        📦 {Array.isArray(order.items) ? order.items.reduce((sum, i) => sum + i.quantity, 0) : 0} Articles
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* ACTION BUTTONS */}
-                  {order.status === 'prete' ? (
-                    <div className="flex gap-2 pt-2">
-                      <button onClick={() => acceptOrder(order.id)} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 transition-transform active:scale-95">
-                        <CheckCircle size={16}/> Accepter
-                      </button>
-                      <button onClick={() => refuseOrder(order.id)} className="px-6 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/30 py-4 rounded-2xl text-xs font-black uppercase shadow-sm transition-all active:scale-95">
-                        Refuser
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 pt-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${order.delivery_lat},${order.delivery_lng}`} target="_blank" rel="noopener noreferrer" className="bg-slate-900 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 hover:bg-black transition-transform active:scale-95">
-                          <Navigation size={14} className="text-blue-400"/> GPS Map
-                        </a>
-                        <button className="bg-red-600 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                          <LifeBuoy size={14}/> SOS
-                        </button>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <a href={`https://wa.me/${order.customer_phone}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#10b981] text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform">
-                          <MessageCircle size={14}/> WhatsApp Client
-                        </a>
-                        <a href="https://wa.me/21658050693" target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#121824] text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform border border-white/10">
-                          <Store size={14} className="text-amber-500"/> Am Ali Resto
-                        </a>
-                      </div>
-
-                      <button onClick={() => handleOpenPinModal(order.id)} className="w-full bg-slate-900 border-2 border-slate-900 text-emerald-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 mt-2 active:scale-95 transition-transform">
-                        <Lock size={16}/> Confirmer (PIN Client)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-            })
-          )}
-        </div>
-      )}
-
-      {/* 💰 TAB 2: PORTEFEUILLE (Wallet) */}
-      {activeTab === 'wallet' && (
-        <div className="p-4 space-y-4 animate-fade-in">
-          <div className="bg-gradient-to-br from-[#1C2438] to-[#121824] p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden border border-white/5">
-            <div className="absolute -right-4 -top-4 opacity-10 text-amber-500"><Wallet size={120}/></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Gains du jour (Estimés)</span>
-            <h2 className="text-4xl font-black text-amber-500">{todaysEarnings.toFixed(3)} <span className="text-lg text-white">DT</span></h2>
-            
-            <div className="mt-6 flex justify-between items-end border-t border-white/10 pt-4">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Missions Livrées</span>
-                <span className="text-xl font-black text-white">{deliveredTodayCount}</span>
-              </div>
-              <button className="bg-amber-500 text-slate-950 px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-transform active:scale-95">
-                Retirer
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[#121824] border border-white/5 rounded-[2rem] p-5">
-            <h3 className="text-xs font-black uppercase text-white mb-4 flex items-center gap-2"><Activity size={14} className="text-amber-500"/> Statistiques Pro</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-xs border-b border-white/5 pb-3">
-                <span className="text-slate-400">Taux d'acceptation</span>
-                <span className="font-black text-emerald-400">100%</span>
-              </div>
-              <div className="flex justify-between items-center text-xs border-b border-white/5 pb-3">
-                <span className="text-slate-400">Note globale</span>
-                <span className="font-black text-amber-500 flex items-center gap-1">{driverProfile.rating} <Star size={10} fill="currentColor"/></span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">Commandes refusées</span>
-                <span className="font-black text-red-500">{orders.filter(o=>o.status==='refused').length}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 📜 TAB 3: JOURNAL (History) */}
-      {activeTab === 'history' && (
-        <div className="p-4 space-y-3 animate-fade-in">
-          {historyOrders.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-xs font-bold uppercase tracking-widest">Aucun historique disponible</div>
-          ) : (
-            historyOrders.map(order => (
-              <div key={order.id} className="bg-[#121824] p-4 rounded-2xl border border-white/5 flex justify-between items-center shadow-md transition-all hover:bg-[#1C2438]">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${order.status === 'delivered' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-                    {order.status === 'delivered' ? <CheckCircle size={18}/> : <XCircle size={18}/>}
-                  </div>
+            availableMissions.map(order => (
+              <div key={order.id} className="bg-[#121620] border border-emerald-500/30 p-5 rounded-[2rem] shadow-[0_5px_20px_rgba(16,185,129,0.1)] relative overflow-hidden transition-all duration-300">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
+                
+                <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
                   <div>
-                    <h4 className="text-xs font-black text-white font-mono">#{order.id?.toString().substring(0,6).toUpperCase()}</h4>
-                    <span className="text-[9px] text-slate-400 font-medium">
-                      {order.created_at ? new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'}) : ''}
-                    </span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Nouvelle Mission</span>
+                    <span className="text-lg font-black text-white">#{String(order.id).split('-')[0].toUpperCase()}</span>
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm">
+                    <CheckCircle size={12}/> <span className="text-[9px] font-black uppercase">Prête au resto</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  {order.status === 'delivered' ? (
-                    <>
-                      <span className="text-xs font-black text-emerald-400 block">+2.500 DT</span>
-                      <span className="text-[9px] font-black text-emerald-500/50 uppercase tracking-widest">Livré</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-xs font-black text-red-500 block">0.000 DT</span>
-                      <span className="text-[9px] font-black text-red-500/50 uppercase tracking-widest">Refusé</span>
-                    </>
-                  )}
+
+                <div className="space-y-3 mb-5">
+                  <div className="flex items-start gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                    <Store size={16} className="text-amber-500 shrink-0 mt-0.5"/>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase mb-0.5">Point de collecte</p>
+                      <p className="text-xs font-bold text-slate-300">Restaurant Eagle Partner</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                    <MapPin size={16} className="text-[#10b981] shrink-0 mt-0.5"/>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase mb-0.5">Livraison Client</p>
+                      <p className="text-xs font-bold text-slate-300">{order.delivery_address}</p>
+                    </div>
+                  </div>
                 </div>
+
+                <button onClick={() => handleAcceptMission(order.id)} className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-4 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+                  <Bike size={16}/> Accepter la course
+                </button>
               </div>
             ))
           )}
         </div>
       )}
 
-      {/* 🔐 PIN CONFIRMATION MODAL */}
-      {showPinModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[500] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[#121824] border border-white/10 p-6 rounded-[2.5rem] w-full max-w-sm text-center shadow-2xl relative">
-            <button onClick={() => setShowPinModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors"><XCircle size={18}/></button>
-            
-            <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-              <Lock size={28} className="text-amber-500"/>
+      {/* 🗺️ TAB 2: ACTIVE MISSIONS (En cours) */}
+      {activeTab === 'active' && (
+        <div className="px-5 space-y-4">
+          {activeDeliveries.length === 0 ? (
+            <div className="text-center py-20">
+              <CheckCircle size={48} className="text-slate-700 mx-auto mb-4"/>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Aucune course en cours</p>
+              <button onClick={() => setActiveTab('radar')} className="mt-4 text-emerald-500 text-[10px] font-black uppercase border border-emerald-500/30 px-4 py-2 rounded-xl">Retour au Radar</button>
             </div>
-            
-            <h2 className="text-lg font-black text-white uppercase tracking-wider mb-1">Code de Vérification</h2>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-6 px-2">Demandez au client le code PIN à 4 chiffres affiché sur son application.</p>
-            
-            <input 
-              type="text" 
-              inputMode="numeric" 
-              maxLength={4}
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-              placeholder="----"
-              className={`w-full bg-[#0A0E17] border-2 p-5 rounded-2xl text-4xl tracking-[0.5em] font-mono font-black text-center text-amber-500 focus:outline-none transition-colors ${pinError ? 'border-red-500' : 'border-white/10 focus:border-amber-500'}`}
-            />
-            
-            {pinError && <p className="text-xs text-red-500 font-bold mt-3 animate-pulse">Code PIN incorrect. Veuillez réessayer.</p>}
+          ) : (
+            activeDeliveries.map(order => (
+              <div key={order.id} className="bg-[#121620] border border-amber-500/30 p-5 rounded-[2rem] shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
+                
+                <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
+                  <div>
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1"><Activity size={10} className="animate-pulse"/> {order.status === 'route' ? 'En Route' : 'Aller au Resto'}</span>
+                    <span className="text-lg font-black text-white mt-1 block">#{String(order.id).split('-')[0].toUpperCase()}</span>
+                  </div>
+                  <span className="text-xl font-black text-emerald-500">2.000 <span className="text-[10px] text-slate-400">DT</span></span>
+                </div>
 
-            <button 
-              onClick={verifyAndCloseOrder}
-              disabled={pinInput.length !== 4}
-              className="w-full bg-emerald-500 text-slate-950 py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl mt-6 active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100"
-            >
-              Valider la Livraison
-            </button>
+                {order.status === 'route' && order.delivery_lat && order.delivery_lng && (
+                  <div className="w-full h-32 bg-slate-800 rounded-2xl mb-4 overflow-hidden relative border border-white/10">
+                    <iframe
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${order.delivery_lng-0.005},${order.delivery_lat-0.005},${order.delivery_lng+0.005},${order.delivery_lat+0.005}&layer=mapnik&marker=${order.delivery_lat},${order.delivery_lng}`}
+                      width="100%" height="100%" style={{ border: 0, pointerEvents: 'none' }} loading="lazy"
+                    ></iframe>
+                  </div>
+                )}
+
+                <div className="space-y-3 mb-5">
+                  <div className="flex items-start gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                    <User size={16} className="text-slate-400 shrink-0 mt-0.5"/>
+                    <div className="flex-1">
+                      <p className="text-[9px] font-black text-slate-500 uppercase mb-0.5">Client</p>
+                      <p className="text-xs font-bold text-white">{order.customer_name}</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <a href={`tel:${order.customer_phone}`} className="bg-[#10b981]/20 text-[#10b981] p-2 rounded-lg"><Phone size={14}/></a>
+                       <a href={`https://wa.me/216${order.customer_phone}`} className="bg-[#10b981]/20 text-[#10b981] p-2 rounded-lg"><MessageCircle size={14}/></a>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                    <MapPin size={16} className="text-amber-500 shrink-0 mt-0.5"/>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase mb-0.5">Adresse de Livraison</p>
+                      <p className="text-xs font-bold text-slate-300">{order.delivery_address}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {order.status === 'accepted_livreur' ? (
+                  <button onClick={() => { setSelectedOrder(order); setShowHandoffModal(true); }} className="w-full bg-amber-500 text-slate-900 py-4 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+                    <QrCodeIcon size={16}/> Scanner & Récupérer
+                  </button>
+                ) : (
+                  <button onClick={() => updateOrderStatus(order.id, 'delivered')} className="w-full bg-gradient-to-r from-emerald-500 to-[#059669] text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 border border-emerald-400">
+                    <CheckCircle size={16}/> Confirmer la Livraison
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* 💰 TAB 3: WALLET & GAINS */}
+      {activeTab === 'wallet' && (
+        <div className="px-5 space-y-4">
+           <div className="bg-gradient-to-br from-[#121620] to-[#0a0a0a] border border-emerald-500/20 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-2"><Wallet size={12}/> Gains du Jour</p>
+            <h3 className="text-5xl font-black text-white mb-2">{driverEarnings.toFixed(3)} <span className="text-lg text-emerald-500">DT</span></h3>
+            <p className="text-xs font-bold text-slate-500 mb-6 border-b border-white/10 pb-4">Soit {deliveredOrders.length} courses complétées.</p>
             
-            <div className="mt-4 flex items-start gap-2 text-left bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
-              <ShieldAlert size={16} className="text-amber-500 shrink-0 mt-0.5"/>
-              <p className="text-[8px] text-amber-100/70 font-bold leading-relaxed text-justify">
-                **Conformité INPDP:** En validant, le livreur certifie la remise en main propre. Cette action est irréversible et clôture le suivi GPS.
-              </p>
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Historique récent</h4>
+              {deliveredOrders.slice(0,5).map(o => (
+                <div key={o.id} className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                   <div className="flex items-center gap-2">
+                     <CheckCircle size={14} className="text-emerald-500"/>
+                     <span className="text-[10px] font-mono text-slate-300">#{o.id.slice(0,6)}</span>
+                   </div>
+                   <span className="text-xs font-black text-emerald-500">+2.000 DT</span>
+                </div>
+              ))}
+              {deliveredOrders.length === 0 && <p className="text-[10px] text-slate-500 text-center py-2">Aucune course livrée aujourd'hui</p>}
             </div>
           </div>
         </div>
       )}
 
-      {/* زر تسجيل الخروج */}
-      <button onClick={onLogout} className="fixed bottom-4 right-4 bg-red-500/10 text-red-500 p-3 rounded-full border border-red-500/20 backdrop-blur-md z-40 hover:bg-red-500 hover:text-white transition-colors">
-        <XCircle size={18}/>
-      </button>
+      {/* 🤝 MODAL DE HANDOFF (SÉCURITÉ PIN/QR) */}
+      {showHandoffModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#121620] w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl border border-white/10 relative text-center">
+            <button onClick={() => setShowHandoffModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"><XCircle size={24}/></button>
+            
+            <div className="w-20 h-20 bg-amber-500/10 rounded-full mx-auto flex items-center justify-center mb-6 border border-amber-500/30">
+               <ShieldCheck size={32} className="text-amber-500"/>
+            </div>
+            
+            <h2 className="text-xl font-black text-white uppercase tracking-widest mb-2">Handoff Sécurisé</h2>
+            <p className="text-xs text-slate-400 font-bold mb-8 leading-relaxed">Demandez au restaurant de vous scanner, ou entrez le code PIN affiché sur l'écran du restaurant.</p>
+
+            <div className="space-y-4">
+              <input 
+                type="text" 
+                maxLength={4}
+                value={pinCode} 
+                onChange={e => setPinCode(e.target.value)} 
+                placeholder="Code PIN à 4 chiffres" 
+                className="w-full bg-black border border-amber-500/50 p-5 rounded-2xl text-2xl font-black text-amber-500 tracking-[0.5em] text-center focus:outline-none focus:border-amber-400 shadow-inner" 
+              />
+              <button disabled={pinCode.length < 4} onClick={verifyHandoff} className="w-full bg-amber-500 disabled:opacity-50 disabled:active:scale-100 text-slate-900 py-4 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+                <CheckCircle size={16}/> Valider la récupération
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
