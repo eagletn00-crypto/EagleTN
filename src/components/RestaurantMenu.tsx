@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent } from 'lucide-react';
+import { ShoppingBag, MapPin, Clock, ShieldCheck, ArrowRight, Scale, CheckCircle, AlertCircle, LocateFixed, User, ClipboardList, Home, ChevronRight, Store, Bike, PhoneCall, LayoutGrid, Star, Trash2, QrCode, Lock, ShieldAlert, Activity, RefreshCw, BadgeCheck, XCircle, Percent, Shirt, Sparkles, HeartPulse, Utensils } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import PartnerDashboard from './PartnerDashboard';
@@ -145,31 +145,28 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
+  // 💡 المراقبة الصارمة للطلبات لتأمين شاشة النجاح
   useEffect(() => {
     const fetchInitialData = async () => {
       const { data: storesData } = await supabase.from('restaurants').select('*').eq('id', 1).maybeSingle();
-      if (storesData) {
-        setStores([storesData]);
-      } else {
+      if (storesData) { setStores([storesData]); } 
+      else {
         const { data: allStores } = await supabase.from('restaurants').select('*').limit(1);
         if (allStores) setStores(allStores);
       }
 
       const savedPhone = localStorage.getItem('eagle_phone');
       if (savedPhone) {
+        // نأتي بآخر طلب حتى لو كان مسلماً لمعالجة شاشة النجاح
         const { data: activeOrder } = await supabase
           .from('orders')
           .select('*')
           .eq('customer_phone', savedPhone)
-          .neq('status', 'delivered')
-          .neq('status', 'refused')
-          .neq('status', 'cancelled_timeout')
-          .neq('status', 'cancelled_client')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (activeOrder) {
+        if (activeOrder && !['refused', 'cancelled_timeout', 'cancelled_client'].includes(activeOrder.status)) {
           setCurrentOrderId(activeOrder.id);
           setCurrentOrderStatus(activeOrder.status);
           setOrderPinCode(activeOrder.pin_code);
@@ -182,7 +179,11 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             setDeliveryAddress(activeOrder.delivery_address);
           }
           
-          setAppView('tracking');
+          if (activeOrder.status === 'delivered') {
+            setShowSuccessOverlay(true);
+          } else {
+            setAppView('tracking');
+          }
           return;
         }
       }
@@ -198,7 +199,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${currentOrderId}` }, (payload: any) => {
         if (payload.new) {
           setCurrentOrderStatus(payload.new.status);
-          if (payload.new.status === 'delivered') setShowSuccessOverlay(true);
+          if (payload.new.status === 'delivered') {
+            setShowSuccessOverlay(true);
+          }
         }
       }).subscribe();
 
@@ -218,7 +221,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
     setSelectedStore(store);
     try {
-      // 💡 التعديل الجراحي الأول: الترتيب بحقل id المتواجد حياً
       const { data, error: _err } = await supabase.from('products').select('*').eq('restaurant_id', store.id).order('id', { ascending: false });
       if (data) setProducts(data);
       setAppView('menu');
@@ -227,7 +229,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
-  // 💡 التعديل الجراحي الثاني: دالة السعر الترويجي
   const getProductPrice = (p: any) => {
     return p.is_promo && p.promo_price ? Number(p.promo_price) : Number(p.price || 0);
   };
@@ -237,7 +238,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
   const deleteFromCart = (id: string) => setCart(prev => { const updated = { ...prev }; delete updated[id]; return updated; }); 
 
   const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
-  // 💡 التعديل الجراحي الثالث: حقن دالة السعر في حساب المجموع
   const subtotal = Object.entries(cart).reduce((sum, [id, qty]) => { const p = products.find(prod => String(prod.id) === id); return sum + (p ? getProductPrice(p) * qty : 0); }, 0);
   const totalPrice = subtotal > 0 ? subtotal + dynamicDeliveryFee : 0;
 
@@ -295,7 +295,7 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       return { 
         id, 
         name: p?.name_fr || p?.name || 'Article sans nom', 
-        price: getProductPrice(p), // 💡 حقن السعر في الفاتورة
+        price: getProductPrice(p), 
         quantity: qty 
       }; 
     });
@@ -332,31 +332,21 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
     }
   };
 
-  const formatTimeMinutes = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getTrackingStatusText = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case 'confirmed': return 'Commande confirmée ✅';
-      case 'prete': return 'Le Chef a accepté ta commande 🧑‍🍳';
-      case 'accepted_livreur': return 'Livreur a accepté ta commande 🛵';
-      case 'route': return 'Le Livreur est en route 📍';
-      case 'delivered': return 'Livré avec succès 🎉';
-      case 'cancelled_timeout': return 'Annulée (Délai dépassé) ⏳';
-      case 'cancelled_client': return 'Commande annulée par vous ❌';
-      case 'refused': return 'Commande refusée par le restaurant 🚫';
-      default: return 'Traitement en cours... ⏳';
-    }
-  };
-
   const resetEcosystemFlow = () => { setShowSuccessOverlay(false); setCart({}); setCurrentOrderId(null); setCurrentOrderStatus(''); setAppView('hub'); };
 
   const filteredProducts = selectedCategory === 'TOUS' 
     ? products.filter(p => p.restaurant_id === selectedStore?.id)
     : products.filter(p => p.restaurant_id === selectedStore?.id && p.category?.toUpperCase() === selectedCategory.toUpperCase());
+
+  // 💡 حساب مستوى التتبع (Tracking Progress Level)
+  const trackingLevel = () => {
+    if (['delivered'].includes(currentOrderStatus)) return 5;
+    if (['route'].includes(currentOrderStatus)) return 4;
+    if (['accepted_livreur'].includes(currentOrderStatus)) return 3;
+    if (['prete'].includes(currentOrderStatus)) return 2;
+    if (['confirmed'].includes(currentOrderStatus)) return 1;
+    return 0;
+  };
 
   if (appView === 'partner_dashboard') return <PartnerDashboard onLogout={() => setAppView('login')} />;
   if (appView === 'livreur_dashboard') return <LivreurDashboard onLogout={() => setAppView('login')} />;
@@ -370,6 +360,8 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         ::-webkit-scrollbar { display: none; }
+        .glass-8k-shadow { filter: drop-shadow(0 4px 12px rgba(220, 38, 38, 0.25)); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-8k-shadow:active { transform: scale(0.92); }
       `}} />
 
       {toast.show && (
@@ -454,8 +446,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
+      {/* [شاشة النجاح التامة - ULTRA PREMIUM - Z-INDEX MAX] */}
       {showSuccessOverlay && (
-        <div className="absolute inset-0 z-[999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden">
           <div className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-xl"></div>
           <div className="relative bg-gradient-to-b from-[#121620] to-[#0A0A0A] border border-amber-500/20 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-[0_0_50px_rgba(245,158,11,0.15)] animate-breathe">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-amber-500 rounded-b-full shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
@@ -554,22 +547,22 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div onClick={() => handleLoadStoreType('restaurant')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
               <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80" alt="Resto" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🏪 Restaurant</span>
+              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5"><Utensils size={14} className="text-amber-400 animate-pulse"/> Restaurant</span>
             </div>
             <div onClick={() => handleLoadStoreType('patisserie')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
               <img src="https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80" alt="Pâtisserie" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🧁 Pâtisserie</span>
+              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500 animate-pulse"/> Pâtisserie</span>
             </div>
             <div onClick={() => handleLoadStoreType('para')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
               <img src="https://images.unsplash.com/photo-1608248597481-496100c80836?auto=format&fit=crop&w=600&q=80" alt="Para" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🧴 Para-Bien-être</span>
+              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5"><HeartPulse size={14} className="text-amber-500 animate-pulse"/> Para-Bien-être</span>
             </div>
             <div onClick={() => handleLoadStoreType('boutique')} className="relative h-40 rounded-[2rem] overflow-hidden cursor-pointer shadow-md border border-slate-100 group transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-lg">
               <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80" alt="Boutique" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1">🛍️ Boutique</span>
+              <span className="absolute bottom-4 left-4 text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5"><Shirt size={14} className="text-amber-500 animate-pulse"/> Boutique</span>
             </div>
           </div>
 
@@ -617,7 +610,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
       {appView === 'menu' && selectedStore && (
         <div className="pb-32 max-w-md mx-auto animate-fade-in select-none">
           <div className="relative h-44 w-full bg-slate-900 rounded-b-[2.5rem] overflow-hidden shadow-md">
-            {/* 💡 التعديل الجراحي 1: حقن غلاف المطعم ديناميكياً */}
             {selectedStore.banner_url ? (
               <img src={selectedStore.banner_url} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-80" />
             ) : (
@@ -635,7 +627,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
             <div className="absolute bottom-4 left-6 right-6 z-10 flex gap-4 items-end">
               <div className="w-16 h-16 bg-white rounded-2xl p-0.5 shadow-xl border border-white/20 shrink-0">
                 <div className="w-full h-full bg-amber-50 rounded-[0.9rem] flex items-center justify-center text-xl overflow-hidden">
-                  {/* 💡 التعديل الجراحي 2: حقن اللوغو ديناميكياً */}
                   {selectedStore.logo_url ? <img src={selectedStore.logo_url} className="w-full h-full object-cover" /> : "🏪"}
                 </div>
               </div>
@@ -674,17 +665,16 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
           <div className="p-4 grid grid-cols-2 gap-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id] || 0;
-              // 💡 التعديل الجراحي 3: حساب السعر الفعلي لاستخدامه بأمان
               const productPrice = getProductPrice(p);
               return (
                 <div key={p.id} className="bg-white rounded-[2rem] p-3 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[160px] transition-all duration-300 hover:scale-[1.03] hover:shadow-md hover:border-red-100">
                   <div className="h-24 w-full bg-slate-50 rounded-[1rem] overflow-hidden mb-2 relative flex items-center justify-center text-3xl">
                     {p.image_url ? <img src={p.image_url} className="absolute inset-0 w-full h-full object-cover" /> : "🍲"}
+                    {p.is_special && <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase flex items-center gap-0.5 shadow-md"><Star size={8} fill="white"/> Top</div>}
+                    {p.is_promo && <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase flex items-center gap-0.5 shadow-md"><Percent size={8}/> Promo</div>}
                   </div>
                   <h3 className="font-black text-xs text-slate-800 leading-tight mb-1">{p.name_fr || p.name || 'Plat sans nom'}</h3>
                   <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-50">
-                    
-                    {/* 💡 التعديل الجراحي 4: عرض السعر القديم والجديد بأمان تام وبدون أيقونات متداخلة تكسر الكود */}
                     <div className="flex flex-col">
                       <span className={`font-black text-xs font-mono ${p.is_promo ? 'text-red-600' : 'text-amber-600'}`}>{productPrice.toFixed(3)} <span className="text-[8px] text-slate-400">DT</span></span>
                       {p.is_promo && p.promo_price && <span className="text-[9px] text-slate-400 line-through font-mono">{Number(p.price || 0).toFixed(3)} DT</span>}
@@ -692,9 +682,9 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
                     
                     {qty > 0 ? (
                       <div className="flex items-center gap-1.5 bg-slate-50 px-1.5 py-1 rounded-full animate-fade-in border border-slate-200/50">
-                        <button onClick={(e) => { e.stopPropagation(); removeFromCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeFromCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
                         <span className="text-xs font-mono font-black text-slate-800 px-0.5">{qty}</span>
-                        <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm hover:bg-emerald-50 hover:text-emerald-500 transition-colors">+</button>
+                        <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} className="bg-white text-slate-900 w-6 h-6 rounded-full font-black text-center text-xs shadow-sm flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-500 transition-colors">+</button>
                       </div>
                     ) : (
                       <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} className="bg-slate-900 hover:bg-amber-500 hover:text-slate-900 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 shadow-sm active:scale-95">
@@ -710,7 +700,6 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [6] CART & CHECKOUT */}
       {appView === 'cart' && (
         <div className="p-4 space-y-5 pb-32 max-w-md mx-auto animate-fade-in select-text">
           <button onClick={() => setAppView('menu')} className="text-slate-400 hover:text-slate-600 text-sm font-black flex items-center gap-1 transition-all active:scale-95"><ArrowRight className="rotate-180" size={16} /> Retour</button>
@@ -734,12 +723,11 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
               {Object.entries(cart).map(([id, qty]) => {
                 const p = products.find(prod => String(prod.id) === id);
                 if (!p) return null;
-                // 💡 التعديل الجراحي 5: حقن السعر الترويجي في سلة المشتريات
                 const pPrice = getProductPrice(p);
                 return (
                   <div key={id} className="flex justify-between items-center text-xs bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div className="space-y-0.5">
-                      <p className="font-black text-slate-800">{qty}x {p.name_fr || p.name || 'Article'} {p.is_promo ? '⭐' : ''}</p>
+                      <p className="font-black text-slate-800">{qty}x {p.name_fr || p.name || 'Article'} {p.is_promo && <Percent size={10} className="text-red-500 inline"/>}</p>
                       <p className="font-mono text-[10px] text-amber-600">{(pPrice * qty).toFixed(3)} DT</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -777,97 +765,106 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* [7] TRACKING PLATFORM */}
+      {/* 🚀 [7] TRACKING PLATFORM (8K BOTTOM SHEET TIMELINE) */}
       {appView === 'tracking' && (
-        <div className="p-4 space-y-4 max-w-md mx-auto pb-32 animate-fade-in">
-          <div className="bg-[#121824] text-white p-6 rounded-[2.5rem] text-center space-y-4 shadow-2xl border border-slate-800 relative overflow-hidden">
-            <div className="flex justify-between items-center border-b border-white/10 pb-4">
-              <h3 className="text-[11px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2"><ShieldCheck size={16}/> SÉCURITÉ ACTIVE</h3>
-              <span className="text-[9px] bg-[#10b981]/10 text-[#10b981] px-3 py-1 rounded-full uppercase font-black border border-[#10b981]/20 flex items-center gap-1"><RefreshCw size={10} className="animate-spin"/> Actualisé</span>
-            </div>
-
-            <div className="bg-black/30 border border-white/5 p-4 rounded-2xl text-center space-y-1">
-              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Suivi d'état en direct</span>
-              <p className="text-xs font-black text-amber-500 tracking-wide animate-pulse">{getTrackingStatusText(currentOrderStatus)}</p>
-            </div>
-
-            {currentOrderStatus === 'confirmed' && restaurantVerificationTimer > 0 && (
-              <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center text-xs">
-                <span className="text-slate-400 font-medium">Attente validation resto</span>
-                <span className="font-mono font-black text-amber-500 animate-pulse">{restaurantVerificationTimer}s</span>
-              </div>
-            )}
-
-            {currentOrderStatus === 'prete' && clientCancelTimer > 0 && (
-              <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center text-xs">
-                <span className="text-slate-400 font-medium">Annulation gratuite possible</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-black text-amber-500 animate-pulse">{formatTimeMinutes(clientCancelTimer)}</span>
-                  <button onClick={handleClientCancellation} className="bg-red-500/10 border border-red-500/20 text-red-400 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Annuler</button>
-                </div>
-              </div>
-            )}
-
-            {!showSecretCode ? (
-              <button onClick={() => { setShowSecretCode(true); }} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl flex flex-col items-center justify-center gap-2 text-xs font-black uppercase tracking-wider hover:bg-white/10 transition-colors">
-                <Lock size={28} className="text-amber-500 mb-1"/>
-                Afficher le Code Secret (PIN / QR)
-              </button>
-            ) : (
-              <div className="space-y-4 animate-fade-in">
-                <div className="bg-white p-4 rounded-3xl flex justify-center border-2 border-amber-500 max-w-[180px] mx-auto shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-                  <QRCodeSVG value={`eagle://order-verify/${currentOrderId}/${orderPinCode}`} size={140} />
-                </div>
-                <span className="text-4xl font-mono tracking-[0.4em] font-black text-amber-500 block drop-shadow-md">{orderPinCode}</span>
-                <button onClick={() => setShowSecretCode(false)} className="text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center justify-center w-full gap-1 pt-2 hover:text-slate-300 transition-colors"><Lock size={12}/> Masquer</button>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-slate-100 h-64 overflow-hidden relative group">
+        <div className="h-screen w-full relative bg-[#0A0A0A] animate-fade-in overflow-hidden">
+          
+          {/* MAP BACKGROUND */}
+          <div className="absolute inset-0 z-0">
             <iframe
               src={`https://www.openstreetmap.org/export/embed.html?bbox=${clientLng-0.005},${clientLat-0.005},${clientLng+0.005},${clientLat+0.005}&layer=mapnik`}
-              width="100%" height="100%" style={{ border: 0, borderRadius: '2rem', pointerEvents: 'none' }} loading="lazy"
+              width="100%" height="100%" style={{ border: 0, pointerEvents: 'none' }} loading="lazy"
             ></iframe>
-            
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 animate-bounce flex flex-col items-center justify-center">
-              <div className="relative">
-                <span className="text-5xl drop-shadow-2xl">🦅</span>
-                <span className="absolute -bottom-2 -right-3 text-2xl drop-shadow-lg bg-white/80 rounded-full p-1 border border-slate-200">🛵</span>
-              </div>
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#121620] via-[#121620]/60 to-[#121620]/20 z-10"></div>
+          </div>
 
-            <div className="absolute bottom-4 right-4 bg-gradient-to-r from-[#121620] to-[#0A0A0A] text-white px-4 py-2 rounded-xl border border-amber-500/30 flex items-center gap-2 shadow-[0_5px_15px_rgba(0,0,0,0.3)] z-20">
-              <LocateFixed size={14} className="text-amber-500 animate-pulse"/>
-              <span className="text-xs font-black font-mono tracking-widest text-amber-400">{distanceInKm.toFixed(1)} KM</span>
+          {/* TOP FLOATING CONTROLS (PIN & CANCEL) */}
+          <div className="relative z-20 p-6 pt-10 flex justify-between items-start">
+            <div className="bg-[#121620]/80 backdrop-blur-xl border border-white/10 p-3 px-5 rounded-2xl text-center shadow-2xl flex flex-col items-center justify-center">
+              <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest block mb-0.5">Code de réception</span>
+              <span className="text-2xl font-mono tracking-[0.2em] font-black text-white block leading-none">{orderPinCode}</span>
+            </div>
+            <div className="flex flex-col gap-2 items-end">
+              <button onClick={() => setShowSecretCode(!showSecretCode)} className="bg-amber-500 text-black p-3 rounded-2xl shadow-lg active:scale-95 transition-transform flex items-center justify-center">
+                <QrCodeIcon size={20} />
+              </button>
+              {currentOrderStatus === 'prete' && clientCancelTimer > 0 && (
+                <button onClick={handleClientCancellation} className="bg-red-600/90 backdrop-blur text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg active:scale-95 transition-transform border border-red-500 flex items-center gap-1">
+                  <XCircle size={12}/> Annuler ({formatTimeMinutes(clientCancelTimer)})
+                </button>
+              )}
+              {currentOrderStatus === 'confirmed' && restaurantVerificationTimer > 0 && (
+                <div className="bg-slate-800/90 backdrop-blur text-amber-500 px-3 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg border border-slate-700 flex items-center gap-1">
+                  <Clock size={12}/> Attente ({restaurantVerificationTimer}s)
+                </div>
+              )}
             </div>
           </div>
 
-          {['accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus?.toLowerCase()) ? (
-            <div className="bg-white border p-5 rounded-[2.5rem] shadow-sm flex flex-col gap-4 animate-fade-in border-slate-100">
-              <div className="flex justify-between items-center border-b pb-3 border-slate-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#121620] to-[#0A0A0A] rounded-2xl flex items-center justify-center text-amber-500 shrink-0 shadow-md border border-amber-500/20"><span>🦅</span></div>
-                  <div>
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">COURSIER ASSIGNÉ</span>
-                    <h4 className="font-black text-sm text-slate-900">{driverInfo.name}</h4>
-                  </div>
-                </div>
-                <div className="bg-amber-50 px-2.5 py-1 rounded-xl flex items-center gap-0.5 border border-amber-200 text-amber-600 font-black text-xs shadow-sm">
-                  <span>{driverInfo.rating}</span> <span>★</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 font-sans">
-                <a href={`tel:${driverInfo.phone}`} className="flex items-center justify-center gap-2 bg-[#121620] hover:bg-[#0A0A0A] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase transition-all active:scale-95 shadow-md">Appeler</a>
-                <a href={`https://wa.me/${driverInfo.whatsapp}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#10b981] to-[#059669] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase shadow-md transition-all active:scale-95">WhatsApp</a>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white/60 border border-dashed border-slate-300 p-6 rounded-[2.5rem] text-center animate-pulse">
-              <span className="text-3xl block mb-2 opacity-50 grayscale">🦅</span>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recherche d'un aigle disponible...</p>
+          {showSecretCode && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white p-6 rounded-[2rem] shadow-[0_0_50px_rgba(245,158,11,0.3)] animate-fade-in flex flex-col items-center">
+              <QRCodeSVG value={`eagle://order-verify/${currentOrderId}/${orderPinCode}`} size={160} />
+              <p className="text-[10px] font-black text-slate-400 mt-4 uppercase tracking-widest">Scanner par le livreur</p>
             </div>
           )}
+
+          {/* BOTTOM SHEET TIMELINE (The Eagle Tracking UX) */}
+          <div className="absolute bottom-[80px] left-0 w-full px-4 z-30 pb-4">
+             <div className="bg-[#121620] border border-white/10 rounded-[2.5rem] p-6 shadow-2xl w-full">
+                 <h3 className="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-white/10 pb-3">
+                     <Activity size={16} className="text-amber-500" /> Suivi de Commande
+                 </h3>
+
+                 <div className="space-y-0 relative ml-2">
+                     <div className="absolute left-[15px] top-4 bottom-8 w-0.5 bg-slate-800 z-0"></div>
+
+                     {/* Step 1: Confirmed */}
+                     <div className="flex gap-4 items-center relative z-10 mb-5">
+                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['confirmed', 'prete', 'accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>📝</div>
+                         <div>
+                             <p className={`text-xs font-black uppercase tracking-wider ${['confirmed', 'prete', 'accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'text-white' : 'text-slate-500'}`}>Commande envoyée</p>
+                             {currentOrderStatus === 'confirmed' && <p className="text-[9px] text-amber-500 font-bold mt-0.5 animate-pulse">En attente du restaurant...</p>}
+                         </div>
+                     </div>
+
+                     {/* Step 2: Préparée */}
+                     <div className="flex gap-4 items-center relative z-10 mb-5">
+                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['prete', 'accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>👨‍🍳</div>
+                         <div>
+                             <p className={`text-xs font-black uppercase tracking-wider ${['prete', 'accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'text-white' : 'text-slate-500'}`}>{selectedStore?.name || 'Le Chef'} prépare</p>
+                             {currentOrderStatus === 'prete' && <p className="text-[9px] text-amber-500 font-bold mt-0.5 animate-pulse">Votre repas est en cours de préparation</p>}
+                         </div>
+                     </div>
+
+                     {/* Step 3: Livreur Assigné */}
+                     <div className="flex gap-4 items-center relative z-10 mb-5">
+                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>🤝</div>
+                         <div className="flex-1">
+                             <p className={`text-xs font-black uppercase tracking-wider ${['accepted_livreur', 'route', 'delivered'].includes(currentOrderStatus) ? 'text-white' : 'text-slate-500'}`}>Livreur assigné</p>
+                             {currentOrderStatus === 'accepted_livreur' && <p className="text-[9px] text-amber-500 font-bold mt-0.5 animate-pulse">{driverInfo.name} est en route vers le resto</p>}
+                         </div>
+                     </div>
+
+                     {/* Step 4: En Route */}
+                     <div className="flex gap-4 items-center relative z-10 mb-5">
+                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['route', 'delivered'].includes(currentOrderStatus) ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-500'}`}>🛵</div>
+                         <div>
+                             <p className={`text-xs font-black uppercase tracking-wider ${['route', 'delivered'].includes(currentOrderStatus) ? 'text-white' : 'text-slate-500'}`}>En route vers vous</p>
+                             {currentOrderStatus === 'route' && <p className="text-[9px] text-amber-500 font-bold mt-0.5 animate-pulse">Préparez-vous à recevoir la commande</p>}
+                         </div>
+                     </div>
+
+                     {/* Step 5: Livré */}
+                     <div className="flex gap-4 items-center relative z-10">
+                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-md border-2 border-[#121620] ${['delivered'].includes(currentOrderStatus) ? 'bg-[#10b981] text-white' : 'bg-slate-800 text-slate-500'}`}>🎉</div>
+                         <div>
+                             <p className={`text-xs font-black uppercase tracking-wider ${['delivered'].includes(currentOrderStatus) ? 'text-[#10b981]' : 'text-slate-500'}`}>Commande Livrée</p>
+                         </div>
+                     </div>
+
+                 </div>
+             </div>
+          </div>
         </div>
       )}
 
@@ -894,15 +891,15 @@ export default function RestaurantMenu({ onAdminLogin: _onAdminLogin, onPartnerL
         </div>
       )}
 
-      {/* 🧭 NAV BAR */}
+      {/* 🧭 NAV BAR 3D PREMIUM (Émojis & sans texte) */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-xl border-t border-slate-100 flex justify-around items-center py-4 z-40 px-6 rounded-t-[2rem] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe">
-        <button onClick={() => setAppView('hub')} className={`p-2 transition-all duration-300 ${appView === 'hub' || appView === 'stores_list' || appView === 'menu' || appView === 'cart' ? 'scale-125 opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+        <button onClick={() => setAppView('hub')} className={`p-2 transition-all duration-300 ${appView === 'hub' || appView === 'stores_list' || appView === 'menu' || appView === 'cart' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">🏠</span>
         </button>
-        <button onClick={() => { if(currentOrderId) setAppView('tracking'); else showToast("Aucune commande active", "info"); }} className={`p-2 transition-all duration-300 ${appView === 'tracking' ? 'scale-125 opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+        <button onClick={() => { if(currentOrderId) setAppView('tracking'); else showToast("Aucune commande active", "info"); }} className={`p-2 transition-all duration-300 ${appView === 'tracking' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">🛵</span>
         </button>
-        <button onClick={() => setAppView('profile')} className={`p-2 transition-all duration-300 ${appView === 'profile' ? 'scale-125 opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+        <button onClick={() => setAppView('profile')} className={`p-2 transition-all duration-300 ${appView === 'profile' ? 'scale-125 filter drop-shadow-[0_2px_5px_rgba(239,68,68,0.4)] opacity-100' : 'opacity-50 hover:opacity-80'}`}>
           <span className="text-3xl">👤</span>
         </button>
       </div>
