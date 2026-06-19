@@ -1,7 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// استخدم المتغيرات البيئية أو ضع الروابط المباشرة الخاصة بمشروعك هنا
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'VOTRE_SUPABASE_URL';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'VOTRE_SUPABASE_ANON_KEY';
+// قراءة المتغيرات البيئية الآمنة من Vite
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// التحقق الهيكلي لمنع كسر التطبيق أثناء التشغيل في بيئة التطوير
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Supabase credentials are missing. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env.local file.'
+  );
+}
+
+// تصدير العميل الموحد للمشروع كاملاً
+export const supabase = createClient(
+  supabaseUrl || 'https://supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+);
