@@ -21,10 +21,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* تشغيل الواجهة الفخمة ونقطة الانطلاق الرئيسية مباشرة */}
+        {/* تشغيل الواجهات الفخمة ونقطة الانطلاق المستقرة مباشرة */}
         <Route path="/" element={<MainInitialRoute />} />
         
-        {/* إعادة توجيه أي مسار آخر مؤقتاً للـ Root لضمان الاستقرار التام */}
+        {/* حماية الجذور وإجبار المتصفح على الاستقرار */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
