@@ -33,7 +33,6 @@ interface OrderItem {
 
 interface Order {
   id: string;
-  tenant_id: string;
   client_id: string;
   partner_id: string;
   current_driver_id: string | null;

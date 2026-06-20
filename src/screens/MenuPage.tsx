@@ -15,7 +15,7 @@ export default function MenuPage({ restaurantId, onBack }: { restaurantId: strin
   }, [restaurantId]);
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('*').eq('restaurant_id', restaurantId);
+    const { data } = await supabase.from('products').select('*').eq('partner_id', restaurantId);
     if (data) setMenuItems(data);
   };
 
