@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// استيراد الشاشات الأساسية
+// استيراد الشاشات الأساسية الفخمة
 import SplashScreen from './screens/SplashScreen';
 import LandingPage from './screens/LandingPage';
 import ClientHome from './screens/ClientHome';
@@ -10,7 +10,7 @@ import PartnerDashboard from './screens/partner/PartnerDashboard';
 import OrderTracking from './screens/OrderTracking';
 import MenuPage from './screens/MenuPage';
 
-// استيراد واجهات القطاعات الفرعية
+// استيراد واجهات القطاعات الفرعية الموحدة
 import ClientRoutes from './routes/ClientRoutes';
 import PartnerRoutes from './routes/PartnerRoutes';
 import AdminRoutes from './routes/AdminRoutes';
@@ -40,11 +40,7 @@ export default function App() {
         <Route path="/customer" element={<CustomerHome />} />
         <Route path="/client/*" element={<ClientRoutes />} />
         
-        {/* اصطياد المسار القديم المكسور وتحويله فوراً للنظام الجديد لضمان الاستقرار */}
-        <Route path="/category/partner" element={<Navigate to="/partner/dashboard" replace />} />
-        <Route path="/category/partner" element={<Navigate to="/partner/dashboard" replace />} />
-        
-        {/* قطاع الشركاء والمطاعم المحدث */}
+        {/* قطاع الشركاء والمطاعم المحدث كلياً */}
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/*" element={<PartnerRoutes />} />
         
@@ -55,7 +51,7 @@ export default function App() {
         {/* قطاع الإدارة */}
         <Route path="/admin/*" element={<AdminRoutes />} />
         
-        {/* حماية الجذور */}
+        {/* حماية الجذور وإجبار النظام على الاستقرار */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
