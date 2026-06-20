@@ -1,16 +1,20 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react'; // امسح هذا السطر لو مشروعك ليس React
 
 export default defineConfig({
-  plugins: [react()], // امسح react() لو مشروعك ليس React
   build: {
     rollupOptions: {
-      // إخبار Rollup بمعاملة الملفات التي تفشل في التعرف عليها كملفات خارجية دون إيقاف البناء
-      external: (id) => id.includes('node_modules') ? false : false,
-      onwarn(warning, warn) {
-        if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return;
-        warn(warning);
-      }
+      plugins: [
+        {
+          name: 'catch-missing-files',
+          resolveId(source, importer) {
+            // إذا كان الملف محلي وليس من node_modules وفشل Vite في العثور عليه
+            if (source.startsWith('.') || source.startsWith('/')) {
+              console.log(`\n🚨🚨 [FOUND MISSING ITEM]: Attempting to import "${source}" inside "${importer}" 🚨🚨\n`);
+            }
+            return null;
+          }
+        }
+      ]
     }
   }
 });
