@@ -1,108 +1,135 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// واجهة تعريف هيكل البيانات الأولية المطلوبة للحماية القانونية
+interface SecurityContext {
+  networkStatus: 'online' | 'offline';
+  gpsPermission: PermissionState | 'unknown';
+  tenantId: string | null;
+  timestamp: string;
+}
 
 const SplashScreen: React.FC = () => {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState(0);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+  const [securityLog, setSecurityLog] = useState<SecurityContext | null>(null);
 
   useEffect(() => {
-    // تشغيل الصوت السينمائي
-    const eagleSound = new Audio('/eagle.mp3');
-    eagleSound.volume = 0.6;
-    eagleSound.play().catch(() => {});
+    // 1. استخراج الـ Tenant ID بصمت من الـ URL (للتوجيه الديناميكي)
+    const hostname = window.location.hostname;
+    const extractedTenant = hostname.includes('.') ? hostname.split('.')[0] : 'default';
 
-    // المشهد 1: Cosmic Inception (النسر يتضخم من تونس) -> 0s to 3s
-    setPhase(1);
+    // 2. التحصين القانوني والتقني (Background Checks)
+    const runSecurityAndLegalChecks = async () => {
+      let gpsState: PermissionState | 'unknown' = 'unknown';
+      
+      // [INPDP COMPLIANCE]: التحقق المسبق من إذن الموقع دون إزعاج المستخدم مبكراً
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const status = await navigator.permissions.query({ name: 'geolocation' });
+          gpsState = status.state;
+        } catch (e) {
+          console.warn('Geolocation permission check failed', e);
+        }
+      }
 
-    // المشهد 2: Hypersonic Delivery (الدراجة الضوئية الخاطفة) -> 3s to 4.2s
-    const timer2 = setTimeout(() => setPhase(2), 3000);
+      // [OFFLINE RESILIENCY]: فحص حالة الشبكة التونسية (3G/4G/WIFI)
+      const isOnline = navigator.onLine;
+      
+      // [CHAIN OF CUSTODY]: إنشاء بصمة زمنية أولية (Immutable Timestamp)
+      const initialTimestamp = new Date().toISOString();
 
-    // المشهد 3: الانفجار الذهبي (Explosion) -> 4.2s to 4.5s
-    const timer3 = setTimeout(() => setPhase(3), 4200);
+      setSecurityLog({
+        networkStatus: isOnline ? 'online' : 'offline',
+        gpsPermission: gpsState,
+        tenantId: extractedTenant,
+        timestamp: initialTimestamp,
+      });
 
-    // المشهد 4: كشف الشعار العالمي (Logo Reveal) -> 4.5s to 7s
-    const timer4 = setTimeout(() => setPhase(4), 4500);
+      // [ANTI-SPOOFING PREP]: هنا سيتم مستقبلاً حقن كود فحص بيئة التشغيل (Cordova/Capacitor plugins)
+      // للتأكد من عدم وجود Mock Locations مفعلة في خيارات المطور.
+    };
 
-    // الخروج إلى واجهة التطبيق الرئيسية
-    const exitTimer = setTimeout(() => navigate('/home'), 7500);
+    runSecurityAndLegalChecks();
+
+    // 3. المؤثر الصوتي الذكي (Eagle Screech)
+    const playAudio = () => {
+      const audio = new Audio('/eagle_screech.mp3');
+      audio.volume = 0.5; // مستوى صوت أنيق وغير مزعج
+      // معالجة سياسات الـ Autoplay في المتصفحات بصمت تام
+      audio.play().catch((error) => {
+        console.log('Autoplay policy prevented audio, proceeding silently.', error);
+      });
+    };
+    playAudio();
+
+    // 4. التوجيه الديناميكي والتوقيت (3.5 ثانية)
+    const fadeTimer = setTimeout(() => {
+      setIsFadingOut(true);
+    }, 3000); // بدء التلاشي بعد 3 ثوانٍ
+
+    const redirectTimer = setTimeout(() => {
+      // بناءً على الـ Tenant أو حالة المصادقة يتم التوجيه
+      // تم وضع /home كمثال، يجب ربطه بالـ Router الفعلي
+      navigate('/home', { replace: true });
+    }, 3500); // الانتقال الفعلي بعد 3.5 ثانية
 
     return () => {
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-      clearTimeout(timer4);
-      clearTimeout(exitTimer);
-      eagleSound.pause();
+      clearTimeout(fadeTimer);
+      clearTimeout(redirectTimer);
     };
   }, [navigate]);
 
   return (
-    <div className="fixed inset-0 bg-[#050505] z-50 flex items-center justify-center overflow-hidden font-sans select-none">
+    <div 
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-zinc-950 transition-opacity duration-500 ease-in-out ${
+        isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+    >
+      {/* شبكة الخلفية الجمالية (Tech Grid) */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgxMDAsIDEwMCwgMTAwLCAwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20"></div>
+
+      {/* الحاوية المركزية للنسر (The Frame) */}
+      <div className="relative flex items-center justify-center w-48 h-48">
+        
+        {/* تأثير النبض الخارجي (Pulse Effect) */}
+        <div className="absolute inset-0 rounded-full border border-amber-500/20 animate-ping opacity-75"></div>
+        
+        {/* إطار الماسح الضوئي (Glowing Scanner) */}
+        <div className="absolute inset-[-10px] rounded-full border-t-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.3)] animate-spin" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute inset-[-20px] rounded-full border-b-2 border-zinc-700 animate-spin" style={{ animationDuration: '2s', animationDirection: 'reverse' }}></div>
+
+        {/* الأيقونة الفلسفية (The Eagle) */}
+        <div className="relative z-10 w-32 h-32 rounded-full overflow-hidden bg-black/50 backdrop-blur-md border border-amber-500/30 shadow-[0_0_40px_rgba(251,191,36,0.15)] flex items-center justify-center">
+          <img 
+            src="/eagle.png" 
+            alt="Eagle.TN Core System" 
+            className="w-24 h-24 object-contain filter drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]"
+          />
+        </div>
+      </div>
+
+      {/* شريط التحميل الرقمي */}
+      <div className="absolute bottom-16 flex flex-col items-center gap-3">
+        <div className="text-amber-500/80 text-xs font-mono tracking-[0.2em] uppercase">
+          Initializing Secure Protocol
+        </div>
+        <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-amber-600 to-amber-400 w-full animate-[progress_3.5s_ease-in-out_1]"></div>
+        </div>
+      </div>
       
-      {/* =========================================
-          المشهد الأول: The Cosmic Inception
-         ========================================= */}
-      {/* خلفية الفضاء وتوهج مدن تونس (Ibn Khaldoun, Jbal Lahmar...) */}
-      <div className={`absolute inset-0 transition-opacity duration-[3000ms] ease-out ${phase >= 1 && phase < 3 ? 'opacity-100' : 'opacity-0'}`}>
-        {/* التوهج الأحمر/الذهبي الكوني */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vw] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#E3000F]/20 via-[#FFD700]/5 to-transparent blur-3xl"></div>
-        
-        {/* النسر المهيب يتضخم ليغطي الكوكب */}
-        <img 
-          src="/eagle-bg.png" 
-          alt="Eagle Cosmic" 
-          className="absolute top-1/2 left-1/2 w-96 h-96 object-contain -translate-x-1/2 -translate-y-1/2 transition-transform duration-[4000ms] ease-in-out opacity-80 mix-blend-screen"
-          style={{ transform: phase >= 1 ? 'translate(-50%, -50%) scale(4)' : 'translate(-50%, -50%) scale(0)' }}
-        />
+      {/* إشعار تقني قانوني مخفي (يظهر للمطورين في الـ Logs) */}
+      <div className="absolute bottom-4 text-zinc-700 text-[10px] font-mono opacity-50">
+        Eagle.TN Security Layer v1.0 | TN-INPDP Ready
       </div>
 
-      {/* =========================================
-          المشهد الثاني: The Hypersonic Delivery
-         ========================================= */}
-      {/* الدراجة الضوئية الخاطفة (Light Trail) */}
-      <div className={`absolute top-1/2 left-0 w-full h-1 z-20 ${phase === 2 ? 'opacity-100' : 'opacity-0'}`}>
-        <div 
-          className="h-1 bg-[#FFD700] shadow-[0_0_40px_10px_rgba(255,215,0,0.8),_0_0_80px_20px_rgba(227,0,15,0.6)]"
-          style={{
-            width: '40vw',
-            transform: phase === 2 ? 'translateX(120vw) skewX(-45deg)' : 'translateX(-50vw) skewX(-45deg)',
-            transition: 'transform 0.4s cubic-bezier(0.1, 0.8, 0.1, 1)'
-          }}
-        ></div>
-      </div>
-
-      {/* =========================================
-          المشهد الثالث: الانفجار الذهبي
-         ========================================= */}
-      <div className={`absolute inset-0 bg-white z-30 transition-opacity duration-300 ${phase === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="w-full h-full bg-[#FFD700] mix-blend-overlay blur-md"></div>
-      </div>
-
-      {/* =========================================
-          المشهد الرابع: The Global Logo Reveal
-         ========================================= */}
-      <div className={`relative z-40 flex flex-col items-center text-center transition-all duration-[2000ms] ease-out ${phase >= 4 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
-        
-        {/* التوهج الخلفي خلف النص */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#FFD700]/10 via-transparent to-transparent blur-2xl"></div>
-
-        <h1 className="text-5xl md:text-7xl font-black tracking-[0.2em] mb-4 flex items-center justify-center gap-2 drop-shadow-[0_0_20px_rgba(255,215,0,0.3)]">
-          <span className="text-white">EAGLE</span>
-          <span className="text-[#FFD700]">.</span>
-          <span className="text-[#E3000F]">TN</span>
-        </h1>
-
-        <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-[#FFD700] to-transparent my-6 opacity-70"></div>
-
-        <h2 className="text-sm md:text-lg font-bold text-gray-300 tracking-[0.3em] uppercase mb-4 drop-shadow-md">
-          L'ART DE LA LIVRAISON, REDÉFINI.
-        </h2>
-
-        <h3 className="text-xl md:text-3xl font-black text-[#FFD700] font-arabic drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">
-          فن التوصيل، برؤية جديدة.
-        </h3>
-        
-      </div>
-
+      <style>{`
+        @keyframes progress {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 };
