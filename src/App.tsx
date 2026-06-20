@@ -1,21 +1,60 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import ClientRoutes from './routes/ClientRoutes';
-import LivreurRoutes from './routes/LivreurRoutes';
-import PartnerRoutes from './routes/PartnerRoutes';
-import AdminRoutes from './routes/AdminRoutes';
+
+// استيراد الشاشات الأساسية
+import SplashScreen from './screens/SplashScreen';
+import LandingPage from './screens/LandingPage';
+import ClientHome from './screens/ClientHome';
+import CustomerHome from './screens/customer/CustomerHome';
+import PartnerDashboard from './screens/partner/PartnerDashboard';
+import OrderTracking from './screens/OrderTracking';
+import MenuPage from './screens/MenuPage';
 import NotFound from './pages/NotFound';
 
-const App = () => (
-  <BrowserRouter>
-    <Routes>
-      <Route path="/" element={<Navigate to="/client" replace />} />
-      <Route path="/client/*" element={<ClientRoutes />} />
-      <Route path="/livreur/*" element={<LivreurRoutes />} />
-      <Route path="/partner/*" element={<PartnerRoutes />} />
-      <Route path="/admin/*" element={<AdminRoutes />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  </BrowserRouter>
-);
-export default App;
+// استيراد واجهات القطاعات الفرعية الموحدة
+import ClientRoutes from './routes/ClientRoutes';
+import PartnerRoutes from './routes/PartnerRoutes';
+import AdminRoutes from './routes/AdminRoutes';
+
+const MainInitialRoute = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return showSplash ? <SplashScreen /> : <LandingPage />;
+};
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* البوابة ونقطة الانطلاق */}
+        <Route path="/" element={<MainInitialRoute />} />
+        
+        {/* قطاع الزبائن واللوجستيك */}
+        <Route path="/home" element={<ClientHome />} />
+        <Route path="/customer" element={<CustomerHome />} />
+        <Route path="/client/*" element={<ClientRoutes />} />
+        
+        {/* قطاع الشركاء والمطاعم */}
+        <Route path="/partner/dashboard" element={<PartnerDashboard />} />
+        <Route path="/partner/*" element={<PartnerRoutes />} />
+        
+        {/* القوائم والتتبع الميداني */}
+        <Route path="/menu" element={<MenuPage />} />
+        <Route path="/track/:orderId" element={<OrderTracking />} />
+        
+        {/* قطاع الإدارة */}
+        <Route path="/admin/*" element={<AdminRoutes />} />
+        
+        {/* الحماية والمسارات المجهولة */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
