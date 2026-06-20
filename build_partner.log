@@ -1,0 +1,21 @@
+
+> eagle-tn-project@0.0.0 build
+> vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 38 modules transformed.
+x Build failed in 6.66s
+error during build:
+[vite]: Rollup failed to resolve import "@/services/supabaseClient" from "/data/data/com.termux/files/home/EagleTN-Project/src/screens/partner/PartnerDashboard.tsx".
+This is most likely unintended because it can break your application at runtime.
+If you do want to externalize this module explicitly add it to
+`build.rollupOptions.external`
+    at viteWarn (file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:65855:17)
+    at onwarn (file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/@vitejs/plugin-react/dist/index.js:90:7)
+    at onRollupWarning (file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:65885:5)
+    at onwarn (file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:65550:7)
+    at file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/rollup/dist/es/shared/node-entry.js:21452:13
+    at Object.logger [as onLog] (file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/rollup/dist/es/shared/node-entry.js:23424:9)
+    at ModuleLoader.handleInvalidResolvedId (file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/rollup/dist/es/shared/node-entry.js:22169:26)
+    at file:///data/data/com.termux/files/home/EagleTN-Project/node_modules/rollup/dist/es/shared/node-entry.js:22127:26

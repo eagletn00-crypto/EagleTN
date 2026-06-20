@@ -1,0 +1,13 @@
+
+> eagle-tn-project@0.0.0 build
+> vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 1846 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   1.03 kB │ gzip:   0.66 kB
+dist/assets/index-CAuNI7YF.css   74.15 kB │ gzip:  11.55 kB
+dist/assets/index-BfmW5NDV.js   458.35 kB │ gzip: 133.02 kB
+✓ built in 18.75s
