@@ -99,7 +99,7 @@ export default function ClientHome() {
         customer_phone: phone,
         delivery_address: deliveryAddress, 
         items: itemSummary,
-        total_price: totalPrice,
+        total_amount: totalPrice,
         status: 'confirmed',
         pin_code: Math.floor(1000 + Math.random() * 9000).toString(),
         note: "Commande Standard"

@@ -198,7 +198,7 @@ export default function CustomerHome({ onSelectRestaurant, restaurantStatus }: C
                   </div>
                   <div className="flex justify-between text-xs font-bold text-gray-500">
                     <span>Montant à payer Cash :</span>
-                    <span className="font-black text-red-600">{(Number(liveOrder.total_price)).toFixed(3)} DT</span>
+                    <span className="font-black text-red-600">{(Number(liveOrder.total_amount)).toFixed(3)} DT</span>
                   </div>
                 </div>
 

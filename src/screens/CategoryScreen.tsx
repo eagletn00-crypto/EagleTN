@@ -13,7 +13,7 @@ const CategoryScreen = () => {
     if (isRestaurant) {
       const fetchAmAli = async () => {
         // جلب بيانات عم علي الحقيقية من قاعدة البيانات (بافتراض أن الـ id هو 1)
-        const { data, error } = await supabase.from('restaurants').select('*').eq('id', 1).single();
+        const { data, error } = await supabase.from('partners').select('*').eq('id', 1).single();
         if (!error && data) {
           setPartner(data);
         } else {

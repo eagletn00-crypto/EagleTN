@@ -51,7 +51,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           // Pre-fetch des commandes actives pour un affichage instantané dans le Dashboard (Table: orders)
           await supabase
             .from('orders')
-            .select('id, status, created_at, customer_name, total_price')
+            .select('id, status, created_at, customer_name, total_amount')
             .eq('partner_id', session.user.id)
             .in('status', ['pending', 'accepted'])
             .limit(20);

@@ -31,7 +31,7 @@ export default function SuperAdminDashboard({ onLogout }: SuperAdminProps) {
       const { data: oData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (oData) setOrders(oData);
 
-      const { data: rData } = await supabase.from('restaurants').select('*');
+      const { data: rData } = await supabase.from('partners').select('*');
       if (rData) setRestaurants(rData);
     } catch (e) {
       console.error("Erreur de synchronisation", e);
@@ -42,7 +42,7 @@ export default function SuperAdminDashboard({ onLogout }: SuperAdminProps) {
 
   const toggleRestaurantForce = async (id: string, currentStatus: boolean) => {
     if(window.confirm(`Voulez-vous vraiment forcer la ${currentStatus ? 'fermeture' : "l'ouverture"} de ce partenaire ?`)) {
-      const { error } = await supabase.from('restaurants').update({ is_open: !currentStatus }).eq('id', id);
+      const { error } = await supabase.from('partners').update({ is_open: !currentStatus }).eq('id', id);
       if (!error) fetchAdminData();
       else alert("Erreur de connexion.");
     }
@@ -55,7 +55,7 @@ export default function SuperAdminDashboard({ onLogout }: SuperAdminProps) {
   };
 
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
-  const totalSales = deliveredOrders.reduce((sum, o) => sum + Number(o.total_price || 0), 0);
+  const totalSales = deliveredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
   const eagleCommission = totalSales * 0.15; 
 
   const countAttente = orders.filter(o => o.status === 'confirmed' || o.status === 'prete').length;
@@ -227,7 +227,7 @@ export default function SuperAdminDashboard({ onLogout }: SuperAdminProps) {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs font-black text-white block">{Number(order.total_price || 0).toFixed(3)} DT</span>
+                      <span className="text-xs font-black text-white block">{Number(order.total_amount || 0).toFixed(3)} DT</span>
                       <span className="text-[8px] text-slate-600 uppercase font-bold tracking-widest">
                         {order.created_at ? new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                       </span>

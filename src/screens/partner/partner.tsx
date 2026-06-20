@@ -8,7 +8,7 @@ interface Order {
   id: string;
   customer_name: string;
   items: string;
-  total_price: number;
+  total_amount: number;
   status: 'PENDING' | 'PREPARING' | 'READY';
 }
 
@@ -18,8 +18,8 @@ export const PartnerDashboard: React.FC = () => {
   useEffect(() => {
     // محاكاة جلب الطلبات الحية الخاصة بالمطعم الشريك عبر السوبابيس
     setOrders([
-      { id: '101', customer_name: 'Mohamed Ali', items: '2x Pizza Caprese, 1x Coca', total_price: 34.500, status: 'PENDING' },
-      { id: '102', customer_name: 'Sonia Ben Youssef', items: '1x Couscous Poulet', total_price: 18.000, status: 'PREPARING' },
+      { id: '101', customer_name: 'Mohamed Ali', items: '2x Pizza Caprese, 1x Coca', total_amount: 34.500, status: 'PENDING' },
+      { id: '102', customer_name: 'Sonia Ben Youssef', items: '1x Couscous Poulet', total_amount: 18.000, status: 'PREPARING' },
     ]);
   }, []);
 
@@ -43,7 +43,7 @@ export const PartnerDashboard: React.FC = () => {
           <div key={order.id} entering={FadeInDown.delay(index * 100).duration(500)} style={Object.assign({}, GlassStyles.container, styles.orderCard)}>
             <div style={styles.orderHeader}>
               <p style={styles.orderId}>Commande #{order.id}</p>
-              <p style={styles.orderPrice}>{order.total_price.toFixed(3)} TND</p>
+              <p style={styles.orderPrice}>{order.total_amount.toFixed(3)} TND</p>
             </div>
             <p style={styles.customerName}>Client: {order.customer_name}</p>
             <p style={styles.orderItems}>{order.items}</p>

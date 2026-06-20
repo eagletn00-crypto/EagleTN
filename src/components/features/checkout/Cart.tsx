@@ -91,7 +91,7 @@ export default function Cart() {
           customer_name: String(customerName),
           customer_phone: String(customerPhone),
           delivery_address: String(secureAddress),
-          total_price: cleanTotalPrice,
+          total_amount: cleanTotalPrice,
           status: 'En attente'
         }])
         .select()

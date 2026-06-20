@@ -39,7 +39,7 @@ const CheckoutFlow = () => {
         client_phone: formData.tel,
         customer_name: `${formData.nom} ${formData.prenom}`,
         status: 'PENDING',
-        total_price: 28.000, 
+        total_amount: 28.000, 
         issue_tags: formData.note,
         pin_code: '4592'
       }]);

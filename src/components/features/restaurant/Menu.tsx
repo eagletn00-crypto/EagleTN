@@ -38,7 +38,7 @@ export default function Menu({ onBack }: { onBack: () => void }) {
         customer_name: customerInfo.name,
         customer_phone: customerInfo.phone,
         delivery_address: `${customerInfo.address} 🔒 PIN:${pin}`,
-        total_price: Number(total.toFixed(3)),
+        total_amount: Number(total.toFixed(3)),
         status: 'En attente'
       }]).select().single();
       

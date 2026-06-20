@@ -39,7 +39,7 @@ export default function MenuPage({ restaurantId, onBack }: { restaurantId: strin
         customer_name: customerName,
         customer_phone: customerPhone,
         delivery_address: customerAddress + " 🔒 PIN: " + Math.floor(1000 + Math.random() * 9000),
-        total_price: Number(total.toFixed(3)),
+        total_amount: Number(total.toFixed(3)),
         status: 'En attente'
       }]).select().single();
       
