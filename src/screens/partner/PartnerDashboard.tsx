@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-// 🚨 THE FIX: تم تحديث المسار ليتطابق مع الهيكلة المعمارية الجديدة
-import { supabase } from '@/services/supabaseClient';
+// 🚨 THE FIX: التصحيح الجذري للمسار النسبي لتفادي انهيار Vite
+import { supabase } from '../../services/supabaseClient'; 
 import { 
   Activity, Wallet, CheckCircle, XCircle, Clock, 
   Phone, MapPin, AlertTriangle, TrendingUp, DollarSign, 
-  VolumeX, ShieldCheck, Volume2, MessageCircle, Info, ChefHat
+  VolumeX, ShieldCheck, Volume2, MessageCircle, Info, ChefHat 
 } from 'lucide-react';
 
-// ==========================================
-// STRICT TYPESCRIPT INTERFACES
-// ==========================================
 interface Restaurant {
   id: string;
   name: string;
@@ -18,7 +15,7 @@ interface Restaurant {
   min_delivery_time: number;
   delivery_fee: number;
   is_open: boolean;
-  restaurant_id: string; 
+  restaurant_id: string;
   logo_url: string;
   banner_url: string;
   cover_url: string;
@@ -40,7 +37,7 @@ interface Order {
   partner_id: string;
   livreur_id: string | null;
   status: 'pending' | 'accepted' | 'rejected' | 'delivered';
-  items: OrderItem[] | any; 
+  items: OrderItem[] | any;
   total_price: number;
   delivery_address: string;
   customer_phone: string;
@@ -49,17 +46,11 @@ interface Order {
   driver_lng: number | null;
 }
 
-// ==========================================
-// CONSTANTS & UTILITIES
-// ==========================================
 const formatDT = (millimes: number) => (millimes / 1000).toFixed(3) + ' DT';
-const PLATFORM_FEE_RATE = 0.10; 
-const PARTNER_ID = '1'; 
+const PLATFORM_FEE_RATE = 0.10;
+const PARTNER_ID = '1';
 const SUPPORT_WHATSAPP_NUMBER = "+21650000000";
 
-// ==========================================
-// ERROR BOUNDARY SYSTEM
-// ==========================================
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
   state = { hasError: false, error: null };
   static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
@@ -81,9 +72,6 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-// ==========================================
-// CORE WORKSPACE IMPLEMENTATION
-// ==========================================
 function PartnerDashboardCore() {
   const [activeTab, setActiveTab] = useState<'direct' | 'wallet'>('direct');
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -94,14 +82,10 @@ function PartnerDashboardCore() {
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [isRinging, setIsRinging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // ==========================================
-  // REAL-TIME POSTGRES ENGINE
-  // ==========================================
   useEffect(() => {
-    const timeInterval = setInterval(() => setCurrentTime(new Date()), 60000); 
+    const timeInterval = setInterval(() => setCurrentTime(new Date()), 60000);
 
     const initializeWorkspace = async () => {
       setIsLoading(true);
@@ -112,6 +96,7 @@ function PartnerDashboardCore() {
 
         const { data: ordData, error: ordErr } = await supabase.from('orders').select('*').eq('partner_id', PARTNER_ID).order('created_at', { ascending: false });
         if (ordErr) console.warn("Orders Fetch Error:", ordErr);
+        
         if (ordData) {
           setOrders(ordData);
           const firstPending = ordData.find(o => o.status === 'pending');
@@ -145,9 +130,9 @@ function PartnerDashboardCore() {
       })
       .subscribe();
 
-    return () => { 
+    return () => {
       clearInterval(timeInterval);
-      supabase.removeChannel(channel); 
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -181,9 +166,6 @@ function PartnerDashboardCore() {
     });
   }, [stopAudioAlert]);
 
-  // ==========================================
-  // PSYCHOLOGICAL & FINANCIAL COMPUTATIONS
-  // ==========================================
   const greetingData = useMemo(() => {
     const hour = currentTime.getHours();
     if (hour >= 5 && hour < 12) return { fr: "Bonjour, Chef Am Ali 👨‍🍳", ar: "صباح الخير شيف" };
@@ -209,9 +191,6 @@ function PartnerDashboardCore() {
 
   const pendingOrders = orders.filter(o => o.status === 'pending');
 
-  // ==========================================
-  // OPERATIONAL DATABASE WRITE ACTIONS
-  // ==========================================
   const toggleRestaurantOperations = async () => {
     if (!restaurant) return;
     const newState = !restaurant.is_open;
@@ -226,12 +205,12 @@ function PartnerDashboardCore() {
 
   const dispatchOrderStatus = async (id: string, status: 'accepted' | 'rejected' | 'delivered') => {
     if (status === 'rejected' && !window.confirm("CONFIRMATION CRIMINELLE : Rejeter cette commande ?")) return;
-    
+
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
     if (selectedOrder?.id === id) setSelectedOrder(prev => prev ? { ...prev, status } : null);
-    
+
     if (status !== 'pending') {
-       setTimeout(checkAndStopAudioAlert, 100); 
+       setTimeout(checkAndStopAudioAlert, 100);
     }
 
     try {
@@ -249,7 +228,7 @@ function PartnerDashboardCore() {
 
   const getSecurePhoneNumber = (order: Order) => {
     if (order.status === 'delivered' || order.status === 'rejected') {
-      return order.customer_phone.replace(/.(?=.{4})/g, '*'); 
+      return order.customer_phone.replace(/.(?=.{4})/g, '*');
     }
     return order.customer_phone;
   };
@@ -268,9 +247,8 @@ function PartnerDashboardCore() {
 
   return (
     <div className="flex h-[100dvh] w-full bg-[#030712] text-slate-100 font-sans overflow-hidden selection:bg-emerald-500 selection:text-slate-950 relative">
-      
       <audio ref={audioRef} src="/eagle.mp3" preload="auto" loop />
-
+      
       {audioBlocked && (
         <div className="absolute inset-0 z-[200] bg-[#030712]/95 backdrop-blur-md flex items-center justify-center p-6">
           <button 
@@ -286,7 +264,7 @@ function PartnerDashboardCore() {
         </div>
       )}
 
-      <button 
+      <button
         onClick={() => openWhatsAppGateway(selectedOrder?.id)}
         className="fixed bottom-24 lg:bottom-8 right-6 z-[100] bg-[#0b1329]/90 backdrop-blur-xl border border-slate-800/60 p-4 rounded-full shadow-[0_0_30px_rgba(3,7,18,0.9)] hover:border-emerald-500/40 transition-all duration-300 group"
         title="Contacter le répartiteur Eagle"
@@ -301,14 +279,14 @@ function PartnerDashboardCore() {
            </h1>
            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 truncate">Chef Am Ali | Cuisine Connectée</p>
         </div>
-        
+
         <nav className="flex-1 py-8 px-6 flex flex-col gap-3">
           <button onClick={() => setActiveTab('direct')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 ease-in-out relative group ${activeTab === 'direct' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.05)]' : 'text-slate-400 hover:bg-[#0b1329]/80 hover:text-slate-200 border border-transparent'}`}>
             <Activity size={22} strokeWidth={activeTab === 'direct' ? 2.5 : 2} />
             <span className="font-bold text-sm tracking-wide">Commandes en Direct</span>
             {pendingOrders.length > 0 && <span className="absolute right-4 bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.5)]">{pendingOrders.length}</span>}
           </button>
-          
+
           <button onClick={() => setActiveTab('wallet')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 ease-in-out ${activeTab === 'wallet' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.05)]' : 'text-slate-400 hover:bg-[#0b1329]/80 hover:text-slate-200 border border-transparent'}`}>
             <Wallet size={22} strokeWidth={activeTab === 'wallet' ? 2.5 : 2} />
             <span className="font-bold text-sm tracking-wide">Portefeuille Numérique</span>
@@ -327,236 +305,226 @@ function PartnerDashboardCore() {
       </aside>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-transparent relative pb-20 lg:pb-0">
-        
         <header className="h-28 lg:h-32 bg-[#0b1329]/30 backdrop-blur-xl border-b border-slate-800/40 flex flex-col lg:flex-row lg:items-center justify-between px-6 lg:px-10 shrink-0 z-40">
           <div className="pt-5 lg:pt-0">
             <h2 className="text-xl lg:text-3xl font-black text-white flex items-center gap-3 tracking-tight">
-              {greetingData.fr} <span className="opacity-30 text-base font-normal hidden sm:inline">| {greetingData.ar}</span>
+              {greetingData.fr}
             </h2>
-            <div className="flex items-center gap-3 mt-2">
-               <span className={`w-2.5 h-2.5 rounded-full shadow-[0_0_12px_currentColor] ${restaurant.is_open ? 'bg-emerald-500 text-emerald-500 animate-pulse' : 'bg-rose-500 text-rose-500'}`}></span>
-               <p className={`text-[10px] lg:text-xs font-black tracking-widest uppercase ${restaurant.is_open ? 'text-emerald-400' : 'text-rose-400'}`}>
-                 {restaurant.is_open ? statusOpenLbl : statusClosedLbl}
-               </p>
+            <div className="text-xs lg:text-sm font-bold text-slate-400 mt-2 flex items-center gap-2">
+              <Clock size={14} className="text-emerald-500/70" />
+              {currentTime.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
           </div>
 
-          <div className="absolute right-6 top-6 lg:static">
-             <button 
-                onClick={toggleRestaurantOperations} 
-                className={`w-44 h-12 rounded-full font-black text-[10px] uppercase tracking-widest transition-all duration-500 ease-in-out transform active:scale-95 flex items-center justify-center border border-slate-800/40 shadow-2xl overflow-hidden ${
-                  restaurant.is_open 
-                  ? 'bg-[#030712]/80 text-rose-500 hover:bg-rose-950/40 hover:border-rose-500/50' 
-                  : 'bg-[#030712]/80 text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-500/50'
-                }`}
+          <div className="flex items-center justify-between lg:justify-end gap-6 mt-4 lg:mt-0">
+             <button
+               onClick={toggleRestaurantOperations}
+               className={`relative overflow-hidden group flex items-center justify-between px-6 lg:px-8 py-3 lg:py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-widest transition-all duration-500 ${restaurant.is_open ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-slate-950 shadow-[0_0_40px_rgba(16,185,129,0.3)] hover:shadow-[0_0_60px_rgba(16,185,129,0.5)]' : 'bg-gradient-to-r from-rose-950 to-[#0b1329] text-rose-500 border border-rose-900/50 hover:bg-rose-900/20'}`}
              >
-               <span className="relative z-10">{restaurant.is_open ? 'FERMER LA CUISINE' : 'OUVRIR LA CUISINE'}</span>
+               <span className="relative z-10 mr-4">{restaurant.is_open ? statusOpenLbl : statusClosedLbl}</span>
+               <div className={`w-3 h-3 rounded-full relative z-10 ${restaurant.is_open ? 'bg-slate-950' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]'}`}></div>
              </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8 no-scrollbar">
-          
-          {activeTab === 'direct' && (
-            <div className="flex flex-col lg:flex-row h-full gap-6 pb-20 lg:pb-0">
-              
-              <div className="w-full lg:w-[420px] flex flex-col h-[50dvh] lg:h-full bg-[#0b1329]/40 border border-slate-800/40 rounded-[2rem] overflow-hidden shrink-0 backdrop-blur-xl shadow-2xl">
-                <div className="p-6 border-b border-slate-800/40 bg-[#030712]/60 flex justify-between items-center backdrop-blur-md">
-                  <h3 className="font-black text-sm text-slate-200 uppercase tracking-widest flex items-center gap-2">
-                    <Activity size={16} className="text-emerald-400"/> File des Commandes
-                  </h3>
-                  {isRinging && (
-                    <button onClick={stopAudioAlert} className="text-emerald-400 animate-pulse bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">
-                      MUTER ALERTE
-                    </button>
-                  )}
-                  <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.3)]">{pendingOrders.length}</span>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-                  {orders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-600">
-                      <Clock size={40} className="mb-4 opacity-10" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Aucun flux actif</p>
-                    </div>
-                  ) : (
-                    orders.map(order => (
-                      <div 
-                        key={order.id} 
-                        onClick={() => setSelectedOrder(order)}
-                        className={`p-5 rounded-[1.5rem] cursor-pointer border transition-all duration-300 ease-in-out relative overflow-hidden ${
-                          selectedOrder?.id === order.id 
-                            ? 'border-emerald-500/50 bg-[#0b1329]/80 text-white shadow-[0_0_30px_rgba(16,185,129,0.05)]' 
-                            : 'border-slate-800/40 bg-[#030712]/40 hover:border-slate-700/60 text-slate-400 hover:bg-[#0b1329]/60'
-                        }`}
-                      >
-                        {order.status === 'pending' && <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse"></div>}
-                        
-                        <div className="flex justify-between items-center mb-3 mt-1">
-                           <span className="text-[10px] font-black font-mono tracking-wider opacity-60">#{order.id.split('-')[0]}</span>
-                           <span className="text-[10px] font-bold flex items-center gap-1 opacity-60"><Clock size={12}/> {new Date(order.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <h4 className={`font-black text-lg mb-4 tracking-tight ${selectedOrder?.id === order.id ? 'text-emerald-400' : 'text-slate-200'}`}>{order.customer_name}</h4>
-                        <div className="flex justify-between items-end">
-                          <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border ${
-                            order.status === 'pending' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                            order.status === 'accepted' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                            'bg-slate-800/50 text-slate-500 border-slate-700/50'
-                          }`}>
-                            {order.status === 'pending' ? 'NOUVEAU' : order.status === 'accepted' ? 'EN CUISINE' : order.status}
-                          </span>
-                          <span className="font-black text-sm text-slate-100">{formatDT(order.total_price)}</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-10 hide-scrollbar">
+          {activeTab === 'wallet' ? (
+             <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <div className="bg-[#0b1329]/60 backdrop-blur-md border border-slate-800/50 p-8 rounded-[2rem] flex flex-col items-center justify-center text-center group hover:border-emerald-500/30 transition-colors">
+                   <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                     <TrendingUp size={28} className="text-emerald-500" />
+                   </div>
+                   <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Chiffre d'Affaires</span>
+                   <span className="text-4xl font-black text-white tracking-tighter">{formatDT(financialMetrics.gross)}</span>
+                 </div>
 
-              <div className="w-full lg:flex-1 h-auto min-h-[50dvh] lg:h-full bg-[#0b1329]/40 border border-slate-800/40 rounded-[2rem] overflow-hidden flex flex-col backdrop-blur-xl shadow-2xl relative">
-                {selectedOrder ? (
-                  <div className="flex flex-col h-full">
-                    <div className="p-6 lg:p-10 border-b border-slate-800/40 bg-[#030712]/60 flex flex-col lg:flex-row justify-between lg:items-start gap-6 backdrop-blur-md">
-                      <div>
-                        <h2 className="text-3xl lg:text-4xl font-black text-white mb-4 tracking-tighter drop-shadow-md">{selectedOrder.customer_name}</h2>
-                        <div className="flex flex-wrap gap-3">
-                          <a href={`tel:${selectedOrder.customer_phone}`} className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-[#0b1329]/80 px-4 py-2.5 rounded-xl border border-slate-800/60 hover:bg-[#030712] transition-colors cursor-pointer shadow-sm group">
-                            <Phone size={14} className="text-emerald-500 group-hover:animate-bounce"/> {getSecurePhoneNumber(selectedOrder)}
-                          </a>
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 bg-[#0b1329]/80 px-4 py-2.5 rounded-xl border border-slate-800/60 shadow-sm">
-                            <MapPin size={14} className="text-emerald-500"/> {selectedOrder.delivery_address || 'Retrait Comptoir'}
-                          </div>
-                        </div>
-                        <p className="mt-4 text-[9px] font-bold text-slate-500/50 max-w-sm leading-relaxed">
-                          <Info size={10} className="inline mr-1 text-slate-400"/> Loi n° 2004-63 (Tunisie) : Masquage de sécurité PII appliqué sur l'historique archivé.
-                        </p>
-                      </div>
-                      <div className="text-left lg:text-right bg-[#030712]/80 p-5 rounded-[1.5rem] border border-slate-800/40 shadow-inner shrink-0">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Commande</p>
-                        <p className="text-3xl font-black text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.15)] tracking-tight">{formatDT(selectedOrder.total_price)}</p>
-                      </div>
-                    </div>
+                 <div className="bg-[#0b1329]/60 backdrop-blur-md border border-slate-800/50 p-8 rounded-[2rem] flex flex-col items-center justify-center text-center group hover:border-rose-500/30 transition-colors">
+                   <div className="w-16 h-16 rounded-2xl bg-rose-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                     <DollarSign size={28} className="text-rose-500" />
+                   </div>
+                   <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Frais Plateforme (10%)</span>
+                   <span className="text-3xl font-black text-rose-400 tracking-tighter">-{formatDT(financialMetrics.fees)}</span>
+                 </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 lg:p-10 relative">
-                      <div className="absolute inset-0 bg-gradient-to-b from-[#030712]/20 to-transparent pointer-events-none h-10"></div>
-                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">Détails des Articles</h3>
-                      <div className="space-y-4">
-                        {Array.isArray(selectedOrder.items) ? selectedOrder.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center bg-[#030712]/40 p-5 rounded-2xl border border-slate-800/40 hover:border-slate-700/50 transition-colors shadow-sm">
-                            <div className="flex items-center gap-5">
-                              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black text-sm px-3.5 py-1.5 rounded-lg shadow-inner">{item.quantity}x</span>
-                              <span className="font-bold text-base text-slate-200 tracking-wide">{item.name}</span>
-                            </div>
-                            <span className="font-black text-sm text-slate-400">{formatDT(item.price * item.quantity)}</span>
-                          </div>
-                        )) : (
-                           <div className="bg-[#030712]/40 p-6 rounded-2xl border border-slate-800/40">
-                             <pre className="text-sm font-bold text-slate-300 whitespace-pre-wrap font-sans">{JSON.stringify(selectedOrder.items, null, 2)}</pre>
-                           </div>
-                        )}
-                      </div>
-                    </div>
+                 <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 p-8 rounded-[2rem] flex flex-col items-center justify-center text-center shadow-[0_0_50px_rgba(16,185,129,0.2)] border border-emerald-400/20 relative overflow-hidden">
+                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent_50%)]"></div>
+                   <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-6 backdrop-blur-sm relative z-10">
+                     <Wallet size={28} className="text-emerald-100" />
+                   </div>
+                   <span className="text-sm font-bold text-emerald-100/70 uppercase tracking-widest mb-2 relative z-10">Revenu Net Garanti</span>
+                   <span className="text-5xl font-black text-white tracking-tighter relative z-10">{formatDT(financialMetrics.net)}</span>
+                 </div>
+               </div>
 
-                    <div className="p-6 border-t border-slate-800/40 bg-[#030712]/80 backdrop-blur-2xl shrink-0">
-                      {selectedOrder.status === 'pending' ? (
-                        <div className="flex flex-col gap-3">
-                          <div className="flex flex-col lg:flex-row gap-4">
-                            <button onClick={() => dispatchOrderStatus(selectedOrder.id, 'rejected')} className="w-full lg:w-1/3 py-5 rounded-[1.5rem] border border-rose-900/50 bg-rose-950/20 text-rose-500 font-black text-[11px] uppercase tracking-widest hover:bg-rose-900/40 hover:border-rose-500/40 transition-all duration-300 flex justify-center items-center gap-2 active:scale-95">
-                              <XCircle size={18} /> Rejeter
-                            </button>
-                            <button onClick={() => dispatchOrderStatus(selectedOrder.id, 'accepted')} className="w-full lg:w-2/3 py-5 rounded-[1.5rem] bg-emerald-600 text-slate-100 font-black text-[11px] uppercase tracking-widest hover:bg-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.25)] transition-all duration-300 flex justify-center items-center gap-2 active:scale-95">
-                              <CheckCircle size={18} /> Accepter & Lancer Préparation
-                            </button>
-                          </div>
-                          <p className="text-center text-[9px] font-bold text-slate-500/40 mt-1">
-                            Art. 92 Code des Obligations et des Contrats tunisien : Le prestataire logistique (Eagle.tn) décline toute responsabilité quant à la conformité hygiénique des plats exécutés.
-                          </p>
-                        </div>
-                      ) : (
-                         <div className="flex items-center justify-between bg-[#0b1329]/60 border border-slate-800/40 p-5 rounded-[1.5rem]">
-                            <div className="flex items-center gap-3 text-slate-300">
-                              <span className="text-[10px] font-black uppercase tracking-widest">État: {selectedOrder.status}</span>
-                            </div>
-                            {selectedOrder.status === 'accepted' && (
-                              <button onClick={() => dispatchOrderStatus(selectedOrder.id, 'delivered')} className="text-[10px] font-black uppercase tracking-widest text-slate-950 bg-emerald-500 px-5 py-3 rounded-xl hover:bg-emerald-400 transition-colors active:scale-95 shadow-lg">
-                                Valider Remise
-                              </button>
-                            )}
+               <div className="bg-[#0b1329]/40 backdrop-blur-md border border-slate-800/40 rounded-[2rem] p-8 mt-10">
+                 <h3 className="text-lg font-black tracking-widest uppercase text-slate-300 mb-8 flex items-center gap-3"><Info className="text-emerald-500" /> État de l'Abonnement</h3>
+                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                   <div>
+                     <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-xl mb-4">
+                       Votre partenariat avec Eagle.tn est actif. Le renouvellement de votre pack Premium (Visibilité Maximale + Support Prioritaire) est prévu prochainement.
+                     </p>
+                     <div className="flex items-center gap-3">
+                       <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-widest">
+                         {subscriptionStatus.active ? 'Actif' : 'Expiré'}
+                       </span>
+                     </div>
+                   </div>
+                   <div className="flex flex-col items-center md:items-end">
+                     <span className="text-6xl font-black text-white tracking-tighter">{subscriptionStatus.days}</span>
+                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Jours Restants</span>
+                   </div>
+                 </div>
+               </div>
+             </div>
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 h-full animate-in fade-in duration-700">
+               <div className="w-full lg:w-1/3 flex flex-col bg-[#0b1329]/40 backdrop-blur-xl border border-slate-800/50 rounded-[2rem] overflow-hidden">
+                 <div className="p-6 border-b border-slate-800/50 flex justify-between items-center bg-[#030712]/40">
+                   <h3 className="font-black text-lg tracking-widest uppercase text-white flex items-center gap-3">
+                     <Activity className="text-emerald-500" /> Flux
+                   </h3>
+                   <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-black tracking-widest border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                     {orders.length} TOTAL
+                   </span>
+                 </div>
+
+                 <div className="flex-1 overflow-y-auto p-4 space-y-3 hide-scrollbar">
+                   {orders.length === 0 ? (
+                     <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-4 opacity-50">
+                       <ChefHat size={48} strokeWidth={1} />
+                       <p className="text-sm font-bold uppercase tracking-widest text-center">Aucune commande pour le moment</p>
+                     </div>
+                   ) : (
+                     orders.map(order => (
+                       <button
+                         key={order.id}
+                         onClick={() => setSelectedOrder(order)}
+                         className={`w-full text-left p-5 rounded-2xl transition-all duration-300 border ${
+                           selectedOrder?.id === order.id
+                             ? 'bg-[#030712] border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.05)]'
+                             : 'bg-[#0b1329]/50 border-slate-800/40 hover:bg-[#0b1329] hover:border-slate-700'
+                         } ${order.status === 'pending' ? 'relative overflow-hidden' : ''}`}
+                       >
+                         {order.status === 'pending' && (
+                           <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)] animate-pulse"></div>
+                         )}
+                         <div className="flex justify-between items-start mb-3">
+                           <span className="font-black text-lg tracking-tight text-white">#{order.id.slice(0, 6).toUpperCase()}</span>
+                           <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ${
+                             order.status === 'pending' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                             order.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                             order.status === 'delivered' ? 'bg-slate-800 text-slate-400 border border-slate-700' :
+                             'bg-red-950/50 text-red-500 border border-red-900/50'
+                           }`}>
+                             {order.status}
+                           </span>
                          </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
-                    <Activity size={80} className="mb-6 opacity-10" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Aucune commande sélectionnée</p>
-                  </div>
-                )}
-              </div>
+                         <div className="flex justify-between items-center">
+                           <span className="text-xs font-bold text-slate-400">{new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                           <span className="font-black text-emerald-400">{formatDT(order.total_price)}</span>
+                         </div>
+                       </button>
+                     ))
+                   )}
+                 </div>
+               </div>
+
+               <div className="w-full lg:w-2/3 flex flex-col bg-[#0b1329]/40 backdrop-blur-xl border border-slate-800/50 rounded-[2rem] overflow-hidden">
+                 {selectedOrder ? (
+                   <div className="flex flex-col h-full animate-in slide-in-from-right-8 duration-500">
+                     <div className="p-8 lg:p-10 border-b border-slate-800/50 bg-gradient-to-b from-[#030712]/80 to-transparent flex flex-col lg:flex-row lg:items-end justify-between gap-6 shrink-0">
+                       <div>
+                         <span className="inline-block px-3 py-1 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-full mb-4 border border-slate-700">Détails de la Commande</span>
+                         <h2 className="text-4xl lg:text-5xl font-black tracking-tighter text-white">
+                           #{selectedOrder.id.slice(0, 6).toUpperCase()}
+                         </h2>
+                         <div className="flex items-center gap-6 mt-6">
+                           <div className="flex items-center gap-2 text-slate-400 text-sm font-bold">
+                             <Phone size={16} className="text-emerald-500" /> {getSecurePhoneNumber(selectedOrder)}
+                           </div>
+                           <div className="flex items-center gap-2 text-slate-400 text-sm font-bold">
+                             <MapPin size={16} className="text-rose-500" /> {selectedOrder.delivery_address}
+                           </div>
+                         </div>
+                       </div>
+                       <div className="text-left lg:text-right">
+                         <span className="block text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">Montant Total</span>
+                         <span className="text-5xl font-black text-emerald-400 tracking-tighter">{formatDT(selectedOrder.total_price)}</span>
+                       </div>
+                     </div>
+
+                     <div className="flex-1 overflow-y-auto p-8 lg:p-10 hide-scrollbar bg-[#030712]/20">
+                       <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2"><ChefHat size={16} /> Contenu de la Commande</h4>
+                       <div className="space-y-4">
+                         {(selectedOrder.items || []).map((item: any, idx: number) => (
+                           <div key={idx} className="flex justify-between items-center bg-[#0b1329]/80 border border-slate-800/50 p-6 rounded-2xl hover:border-emerald-500/30 transition-colors">
+                             <div className="flex items-center gap-6">
+                               <div className="w-12 h-12 bg-[#030712] border border-slate-800 rounded-xl flex items-center justify-center font-black text-lg text-emerald-500 shadow-inner">
+                                 {item.quantity}x
+                               </div>
+                               <span className="font-bold text-lg text-slate-200 tracking-wide">{item.name}</span>
+                             </div>
+                             <span className="font-black text-slate-400">{formatDT(item.price * item.quantity)}</span>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+
+                     {selectedOrder.status === 'pending' && (
+                       <div className="p-6 lg:p-8 border-t border-slate-800/50 bg-[#030712]/80 shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <button
+                           onClick={() => dispatchOrderStatus(selectedOrder.id, 'accepted')}
+                           className="flex items-center justify-center gap-3 bg-emerald-500 text-slate-950 font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-emerald-400 transition-colors shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:shadow-[0_0_50px_rgba(16,185,129,0.4)]"
+                         >
+                           <CheckCircle size={22} /> Accepter & Préparer
+                         </button>
+                         <button
+                           onClick={() => dispatchOrderStatus(selectedOrder.id, 'rejected')}
+                           className="flex items-center justify-center gap-3 bg-transparent border-2 border-rose-900/50 text-rose-500 font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-rose-950/30 hover:border-rose-500/50 transition-all"
+                         >
+                           <XCircle size={22} /> Rejeter
+                         </button>
+                       </div>
+                     )}
+                     
+                     {selectedOrder.status === 'accepted' && (
+                       <div className="p-6 lg:p-8 border-t border-slate-800/50 bg-[#030712]/80 shrink-0 flex justify-center">
+                         <div className="flex items-center gap-4 text-emerald-500 font-bold bg-emerald-500/10 border border-emerald-500/20 px-8 py-5 rounded-2xl w-full justify-center shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+                           <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                           <span>En cours de préparation - En attente du Livreur Eagle</span>
+                         </div>
+                       </div>
+                     )}
+                   </div>
+                 ) : (
+                   <div className="flex-1 flex flex-col items-center justify-center text-slate-500/50 space-y-6">
+                     <div className="w-32 h-32 rounded-full bg-[#0b1329] border-2 border-slate-800/50 flex items-center justify-center">
+                       <ChefHat size={48} className="opacity-50" />
+                     </div>
+                     <p className="text-sm font-bold uppercase tracking-widest max-w-xs text-center leading-relaxed">Sélectionnez une commande dans le flux pour afficher les détails</p>
+                   </div>
+                 )}
+               </div>
             </div>
           )}
-
-          {activeTab === 'wallet' && (
-            <div className="max-w-6xl mx-auto space-y-10 pb-20 lg:pb-0 animate-fade-in">
-              <div className="bg-[#0b1329]/60 backdrop-blur-2xl border border-slate-800/40 rounded-[2.5rem] p-8 lg:p-12 shadow-2xl">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10 border-b border-slate-800/40 pb-8">
-                  <div className="flex items-center gap-5">
-                    <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20"><Wallet size={32} className="text-emerald-500" /></div>
-                    <div>
-                      <h2 className="text-3xl font-black text-white tracking-tight mb-1">Portefeuille Numérique</h2>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Registre Comptable SaaS</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-[#030712]/80 border border-slate-800/60 p-4 rounded-2xl flex items-center justify-between gap-6 w-full lg:w-auto">
-                    <div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Licence Mensuelle</span>
-                      <span className="text-sm font-black text-white">{subscriptionStatus.days} Jours Actifs</span>
-                    </div>
-                    <button className="bg-slate-800 text-slate-300 hover:bg-emerald-500 hover:text-slate-950 border border-slate-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95">
-                      RENOUVELER
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-                  <div className="bg-[#030712]/60 rounded-[2rem] p-8 border border-slate-800/40 shadow-inner relative overflow-hidden">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><TrendingUp size={16}/> Chiffre d'Affaires Brut</p>
-                    <p className="text-4xl font-black text-white tracking-tighter">{formatDT(financialMetrics.gross)}</p>
-                  </div>
-                  
-                  <div className="bg-[#030712]/60 rounded-[2rem] p-8 border border-rose-900/20 relative overflow-hidden shadow-inner">
-                    <div className="absolute top-0 right-0 w-1.5 h-full bg-rose-600/30"></div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><AlertTriangle size={16} className="text-rose-500"/> Commission Eagle (10%)</p>
-                    <p className="text-4xl font-black text-rose-500/80 tracking-tighter">- {formatDT(financialMetrics.fees)}</p>
-                  </div>
-                  
-                  <div className="bg-emerald-950/10 rounded-[2rem] p-8 border border-emerald-900/30 relative overflow-hidden shadow-inner">
-                     <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.8)]"></div>
-                     <p className="text-[10px] font-black text-emerald-500/80 uppercase tracking-widest mb-4 flex items-center gap-2"><DollarSign size={16}/> Revenu Net Estimé</p>
-                     <p className="text-4xl font-black text-emerald-400 tracking-tighter drop-shadow-[0_0_20px_rgba(52,211,153,0.15)]">{formatDT(financialMetrics.net)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
         </div>
       </main>
-
-      <nav className="lg:hidden fixed bottom-0 w-full bg-[#030712]/90 backdrop-blur-2xl border-t border-slate-800/60 flex justify-around items-center px-4 py-3 pb-8 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-        <button onClick={() => setActiveTab('direct')} className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative ${activeTab === 'direct' ? 'text-emerald-500 scale-110 drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'text-slate-500'}`}>
-          <Activity size={24} strokeWidth={activeTab === 'direct' ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Radar</span>
-          {pendingOrders.length > 0 && <span className="absolute -top-1 -right-2 bg-emerald-500 text-slate-950 w-4 h-4 text-[9px] font-black flex items-center justify-center rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]">{pendingOrders.length}</span>}
+      
+      <div className="lg:hidden fixed bottom-0 w-full bg-[#0b1329]/95 backdrop-blur-3xl border-t border-slate-800/60 flex justify-around p-4 z-50 pb-safe">
+        <button onClick={() => setActiveTab('direct')} className={`flex flex-col items-center gap-1.5 transition-colors relative ${activeTab === 'direct' ? 'text-emerald-500' : 'text-slate-500'}`}>
+          <div className="relative">
+            <Activity size={24} strokeWidth={activeTab === 'direct' ? 2.5 : 2} />
+            {pendingOrders.length > 0 && <span className="absolute -top-2 -right-2 w-3 h-3 bg-rose-500 rounded-full animate-ping"></span>}
+            {pendingOrders.length > 0 && <span className="absolute -top-2 -right-2 w-3 h-3 bg-rose-500 rounded-full"></span>}
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest">Commandes</span>
         </button>
-
-        <button onClick={() => setActiveTab('wallet')} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${activeTab === 'wallet' ? 'text-emerald-500 scale-110 drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'text-slate-500'}`}>
+        <button onClick={() => setActiveTab('wallet')} className={`flex flex-col items-center gap-1.5 transition-colors ${activeTab === 'wallet' ? 'text-emerald-500' : 'text-slate-500'}`}>
           <Wallet size={24} strokeWidth={activeTab === 'wallet' ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Portefeuille</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">Portefeuille</span>
         </button>
-      </nav>
-
+      </div>
     </div>
   );
 }
