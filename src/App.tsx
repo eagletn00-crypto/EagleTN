@@ -28,18 +28,6 @@ const MainInitialRoute = () => {
   return showSplash ? <SplashScreen /> : <LandingPage />;
 };
 
-// مكون فحص الانهيار الصامت
-const RouteCrashFallback = () => (
-  <div style={{ padding: '20px', background: '#000', color: '#ff0055', fontFamily: 'monospace', minHeight: '100vh' }}>
-    <h1 style={{ fontSize: '20px' }}>🚨 تم اعتراض انهيار في التوجيه (Route Crash Intercepted)</h1>
-    <p>التطبيق حاول القذف بك إلى مسار مجهول أو مكسور بسبب فشل الـ Auth Store.</p>
-    <p>الموقع الحالي: {window.location.pathname}</p>
-    <button onClick={() => { localStorage.clear(); sessionStorage.clear(); window.location.href = '/'; }} style={{ background: '#ff0055', color: '#fff', border: 'none', padding: '10px 20px', cursor: 'pointer', marginTop: '20px' }}>
-      تطهير الكاش القسري وإعادة التشغيل
-    </button>
-  </div>
-);
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -52,7 +40,11 @@ export default function App() {
         <Route path="/customer" element={<CustomerHome />} />
         <Route path="/client/*" element={<ClientRoutes />} />
         
-        {/* قطاع الشركاء والمطاعم */}
+        {/* اصطياد المسار القديم المكسور وتحويله فوراً للنظام الجديد لضمان الاستقرار */}
+        <Route path="/category/partner" element={<Navigate to="/partner/dashboard" replace />} />
+        <Route path="/category/partner" element={<Navigate to="/partner/dashboard" replace />} />
+        
+        {/* قطاع الشركاء والمطاعم المحدث */}
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/*" element={<PartnerRoutes />} />
         
@@ -63,8 +55,8 @@ export default function App() {
         {/* قطاع الإدارة */}
         <Route path="/admin/*" element={<AdminRoutes />} />
         
-        {/* بدلاً من التوجيه التلقائي للمسار القديم، سنمسك بالخطأ هنا */}
-        <Route path="*" element={<RouteCrashFallback />} />
+        {/* حماية الجذور */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
