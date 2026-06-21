@@ -1,0 +1,8 @@
+{
+  "name": "client",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "mkdir -p dist && echo '<h1>Mono Client App Under Construction</h1>' > dist/index.html"
+  }
+}
