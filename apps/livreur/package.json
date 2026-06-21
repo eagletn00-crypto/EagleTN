@@ -1,0 +1,8 @@
+{
+  "name": "livreur",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'Building livreur...'"
+  }
+}
