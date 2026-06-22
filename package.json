@@ -1,23 +1,16 @@
 {
-  "name": "eagle-tn-monorepo",
+  "name": "eagle-tn-project",
   "private": true,
-  "version": "1.0.0",
-  "engines": {
-    "node": ">=18.0.0"
-  },
+  "version": "0.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
     "dev:client": "yarn workspace client dev",
-    "dev:admin": "yarn workspace admin dev",
-    "dev:livreur": "yarn workspace livreur dev",
-    "dev:partner": "yarn workspace partner dev",
     "build:client": "yarn workspace client build",
-    "build:admin": "yarn workspace admin build",
-    "build:livreur": "yarn workspace livreur build",
-    "build:partner": "yarn workspace partner build"
+    "dev:partner": "yarn workspace partner dev",
+    "build:all": "turbo run build"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

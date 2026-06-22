@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import LandingPage from './screens/LandingPage';
 import ClientHome from './screens/ClientHome';
 import RestaurantMenu from './screens/RestaurantMenu';
+import OrderTracking from './screens/OrderTracking';
 
 export const router = createBrowserRouter([
   {
@@ -16,5 +17,9 @@ export const router = createBrowserRouter([
   {
     path: '/restaurant-menu/:restaurantId',
     element: <RestaurantMenu />,
+  },
+  {
+    path: '/order-tracking/:orderId',
+    element: <OrderTracking />,
   },
 ]);
