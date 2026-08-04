@@ -1,28 +1,23 @@
 {
-  "name": "eagle-tn-monorepo",
+  "name": "the-eagletn",
   "private": true,
-  "version": "1.0.0",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "dev:client": "yarn workspace client dev",
-    "dev:admin": "yarn workspace admin dev",
-    "dev:livreur": "yarn workspace livreur dev",
-    "dev:partner": "yarn workspace partner dev",
-    "build:client": "yarn workspace client build",
-    "build:admin": "yarn workspace admin build",
-    "build:livreur": "yarn workspace livreur build",
-    "build:partner": "yarn workspace partner build"
+    "dev:all": "pnpm --filter \"*\" --parallel dev",
+    "build:all": "pnpm --filter \"*\" build",
+    "clean": "pnpm -r exec rm -rf node_modules dist .vite .turbo"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0"
+    "@tailwindcss/postcss": "^4.3.2",
+    "autoprefixer": "^10.5.4",
+    "postcss": "^8.5.25",
+    "tailwindcss": "^4.3.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
+    "lucide-react": "^1.28.0"
   }
 }

@@ -1,41 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "apps/client/dist"
-      }
-    }
-  ],
+  "buildCommand": "pnpm --filter client build",
+  "outputDirectory": "apps/client/dist",
   "rewrites": [
-    {
-      "source": "/admin/(.*)",
-      "destination": "/apps/admin/dist/$1"
-    },
-    {
-      "source": "/livreur/(.*)",
-      "destination": "/apps/livreur/dist/$1"
-    },
-    {
-      "source": "/partner/(.*)",
-      "destination": "/apps/partner/dist/$1"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
     }
   ]
 }

@@ -1,8 +1,30 @@
 {
-  "name": "partner",
+  "name": "@eagle/partner",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "build": "echo 'Building partner...'"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "lucide-react": "^0.427.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.5.4",
+    "postcss": "^8.5.25",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0"
   }
 }

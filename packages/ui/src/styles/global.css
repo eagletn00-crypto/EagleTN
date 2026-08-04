@@ -1,0 +1,16 @@
+:root {
+  --eg-bg-pure: 255 255 255;
+  --eg-bg-canvas: 250 250 250;
+  --eg-bg-subtle: 244 244 245;
+  --eg-bg-border-subtle: 228 228 231;
+  --eg-bg-border-muted: 212 212 216;
+  --eg-text-primary: 9 9 11;
+  --eg-text-secondary: 113 113 122;
+}
+
+body {
+  background-color: rgb(var(--eg-bg-canvas));
+  color: rgb(var(--eg-text-primary));
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

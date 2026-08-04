@@ -1,46 +1,58 @@
 import React from 'react';
 
-export default function LandingPage() {
+export interface LandingPageProps {
+  onSelectRole: (role: 'client' | 'guest') => void;
+}
+
+export const LandingPage: React.FC<LandingPageProps> = ({ onSelectRole }) => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-gray-100 font-sans p-6 selection:bg-amber-500 selection:text-black">
-      <div className="max-w-2xl w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center shadow-xl space-y-8">
-        <div className="space-y-4">
-          <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center mx-auto text-white text-5xl font-black shadow-2xl shadow-amber-500/30">
-            🍕
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white">MONO Delivery</h1>
-          <p className="text-lg text-zinc-300">تطبيق التوصيل الأول بمعايير عالمية</p>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-6 relative overflow-hidden dir-rtl" dir="rtl">
+      {/* Background Glow Effect */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="space-y-4 py-8">
-          <p className="text-zinc-400">اختر كيفية استخدامك للتطبيق:</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a
-              href="/client-home"
-              className="p-6 bg-zinc-800 hover:bg-zinc-700 border border-amber-500/30 hover:border-amber-500 rounded-xl transition-all duration-300 cursor-pointer group"
-            >
-              <div className="text-3xl mb-3">🛒</div>
-              <h3 className="font-semibold text-white group-hover:text-amber-400 transition-colors">عميل</h3>
-              <p className="text-sm text-zinc-400 mt-2">اطلب وجبتك المفضلة</p>
-            </a>
-
-            <a
-              href="/restaurant-menu"
-              className="p-6 bg-zinc-800 hover:bg-zinc-700 border border-amber-500/30 hover:border-amber-500 rounded-xl transition-all duration-300 cursor-pointer group"
-            >
-              <div className="text-3xl mb-3">👨‍🍳</div>
-              <h3 className="font-semibold text-white group-hover:text-amber-400 transition-colors">مطعم</h3>
-              <p className="text-sm text-zinc-400 mt-2">إدارة الطلبات</p>
-            </a>
-          </div>
+      {/* Header / Logo */}
+      <div className="flex flex-col items-center text-center mt-12 space-y-4 relative z-10">
+        <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-amber-500/40 flex items-center justify-center shadow-2xl shadow-amber-500/10">
+          <span className="text-5xl">🦅</span>
         </div>
-
-        <div className="pt-6 border-t border-zinc-800">
-          <p className="text-xs text-zinc-500">
-            تطبيق عملاء MONO | نسخة التطوير
-          </p>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-black tracking-wider text-amber-400 font-mono">
+            EAGLE<span className="text-white">.TN</span>
+          </h1>
+          <p className="text-xs italic text-amber-200/80 font-serif">Delivery</p>
         </div>
+        <p className="text-xs text-slate-400 max-w-xs pt-2">
+          Livraison sécurisée, confidentielle, rapide
+          <br />
+          <span className="text-slate-300 font-semibold">توصيل آمن، سري، سريع</span>
+        </p>
+      </div>
+
+      {/* Main Actions */}
+      <div className="space-y-3 relative z-10 mb-8 max-w-sm mx-auto w-full">
+        {/* Sign In / Sign Up Main Button */}
+        <button
+          onClick={() => onSelectRole('client')}
+          className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-2xl shadow-xl transition active:scale-98 flex items-center justify-center gap-2 text-sm"
+        >
+          <span>👤</span>
+          <span>SE CONNECTER / S'INSCRIRE</span>
+        </button>
+
+        {/* Guest Button */}
+        <button
+          onClick={() => onSelectRole('guest')}
+          className="w-full py-3.5 bg-slate-900/80 hover:bg-slate-900 text-slate-300 font-bold rounded-2xl border border-slate-800 transition active:scale-98 text-xs tracking-wide"
+        >
+          CONTINUER SANS COMPTE
+        </button>
+
+        <p className="text-[11px] text-center text-slate-500 pt-2">
+          التصفح كزائر يتيح لك استكشاف المأكولات والمطاعم
+        </p>
       </div>
     </div>
   );
-}
+};
+
+export default LandingPage;

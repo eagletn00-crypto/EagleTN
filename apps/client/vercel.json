@@ -1,0 +1,11 @@
+{
+  "framework": "vite",
+  "buildCommand": "pnpm --filter client build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
