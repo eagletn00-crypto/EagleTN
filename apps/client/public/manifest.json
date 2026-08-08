@@ -1,6 +1,6 @@
 {
-  "short_name": "Eagle.tn",
-  "name": "Eagle Logistics Tunisia",
+  "short_name": "Eagle TN",
+  "name": "Eagle TN - Food & Delivery",
   "icons": [
     {
       "src": "favicon.ico",
@@ -9,8 +9,7 @@
     }
   ],
   "start_url": ".",
-  "background_color": "#F8FAFC",
-  "theme_color": "#F8FAFC",
   "display": "standalone",
-  "orientation": "portrait"
+  "theme_color": "#FDFBF7",
+  "background_color": "#FDFBF7"
 }

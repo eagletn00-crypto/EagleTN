@@ -1,75 +1,52 @@
-import { supabase } from '../lib/supabaseClient';
-import { MenuItem, Partner, CreateOrderPayload } from '../types/supabase';
+import { supabase } from '../lib/supabase';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-// جلب الشركاء / المطاعم
-export const fetchPartners = async (): Promise<Partner[]> => {
-  const { data, error } = await supabase
-    .from('partners')
-    .select('*');
+export interface OrderPayload {
+  partner_id: string;
+  items: unknown[];
+  total_amount: number;
+  delivery_address?: string;
+  notes?: string;
+}
 
-  if (error) throw error;
-  return data || [];
-};
+export const orderService = {
+  async createOrder(orderData: OrderPayload) {
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([orderData])
+      .select()
+      .single();
 
-// جلب قائمة الطعام لمطعم معين
-export const fetchMenuItems = async (partnerId: string): Promise<MenuItem[]> => {
-  const { data, error } = await supabase
-    .from('menu_items')
-    .select('*')
-    .eq('partner_id', partnerId)
-    .eq('is_available', true);
+    if (error) throw error;
+    return data;
+  },
 
-  if (error) throw error;
-  return data || [];
-};
+  async getOrderById(orderId: string) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', orderId)
+      .single();
 
-// إنشاء طلب حقيقي وتأكيده في قاعدة البيانات
-export const createOrder = async (payload: CreateOrderPayload) => {
-  const { items, ...orderData } = payload;
+    if (error) throw error;
+    return data;
+  },
 
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert([orderData])
-    .select()
-    .single();
-
-  if (orderError) throw orderError;
-
-  const orderItems = items.map(item => ({
-    order_id: order.id,
-    item_name: item.item_name,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    total_price: item.total_price,
-    options: item.options || {}
-  }));
-
-  const { error: itemsError } = await supabase
-    .from('order_items')
-    .insert(orderItems);
-
-  if (itemsError) throw itemsError;
-
-  return order;
-};
-
-// التتبع اللحظي لحالة الطلب عبر WebSockets
-export const subscribeToOrderStatus = (orderId: string, onUpdate: (status: string) => void) => {
-  return supabase
-    .channel(`order-status-${orderId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders',
-        filter: `id=eq.${orderId}`
-      },
-      (payload) => {
-        if (payload.new && payload.new.status) {
-          onUpdate(payload.new.status);
+  subscribeToOrderStatus(orderId: string, callback: (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void) {
+    return supabase
+      .channel(`order-status-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          callback(payload);
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
+  },
 };

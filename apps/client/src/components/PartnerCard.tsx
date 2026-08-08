@@ -1,121 +1,75 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Partner } from '../types';
 
-interface PartnerCardProps {
-  id?: string;
-  name?: string;
-  location?: string;
-  deliveryFee?: string;
-  imageUrl?: string;
-  rating?: number;
-  reviewsCount?: string;
-  isVip?: boolean;
-  isB2bPlaceholder?: boolean;
-  onSelectMenu?: () => void;
-  onApplyB2b?: () => void;
+export interface PartnerCardProps {
+  partner: Partner;
+  onClick?: () => void;
 }
 
-export default function PartnerCard({
-  name = "Am Ali Gastronomie",
-  location = "Cité Ibn Khaldoun, Tunis",
-  deliveryFee = "2.500 DT",
-  imageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
-  rating = 4.9,
-  reviewsCount = "120+",
-  isVip = true,
-  isB2bPlaceholder = false,
-  onSelectMenu,
-  onApplyB2b
-}: PartnerCardProps) {
+export const PartnerCard: React.FC<PartnerCardProps> = ({ partner, onClick }) => {
+  const [imgError, setImgError] = useState(false);
+  const fallbackImg = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=800";
 
-  // 🛡️ B2B PARTNER ACQUISITION CARD (LEGAL & MARKETING HOLDER)
-  if (isB2bPlaceholder) {
-    return (
-      <div className="relative bg-[#121316] rounded-2xl overflow-hidden shadow-md border border-slate-800 p-5 text-white">
-        <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80')] bg-cover bg-center pointer-events-none" />
-        
-        <div className="relative z-10 space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E63946]/20 border border-[#E63946]/40 text-[#E63946] text-[9px] font-mono font-bold tracking-wider uppercase">
-            <span>🚀</span> DEVENIR PARTENAIRE EAGLE.TN
-          </div>
-
-          <h3 className="text-base font-bold text-white tracking-tight">
-            Vous êtes un restaurant ou une pâtisserie ?
-          </h3>
-
-          <p className="text-xs text-slate-300 leading-relaxed font-normal">
-            Rejoignez l'écosystème logistique le plus performant de Tunisie et développez votre chiffre d'affaires dès aujourd'hui.
-          </p>
-
-          <button 
-            onClick={onApplyB2b}
-            className="w-full py-2.5 rounded-xl bg-[#E63946] hover:bg-[#c82d3a] active:scale-[0.98] transition-all text-white font-mono font-bold text-xs tracking-wider uppercase shadow-md flex items-center justify-center gap-2"
-          >
-            <span>Postuler Maintenant</span>
-            <span>→</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 📐 REAL CERTIFIED PARTNER CARD WITH SMART ROW DISTRIBUTION
   return (
-    <div className="group relative bg-white border border-[#EAEAEA] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-      
-      {/* 🖼️ FOOD IMAGE CANVAS */}
-      <div className="relative w-full h-44 overflow-hidden bg-slate-100">
+    <div 
+      onClick={onClick}
+      className="group relative bg-white/75 rounded-[24px] p-2.5 border border-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden space-y-2.5 active:scale-[0.99]"
+    >
+      {/* Cover Image & Overlay Badges */}
+      <div className="relative h-44 w-full rounded-[18px] overflow-hidden bg-slate-100">
         <img 
-          src={imageUrl} 
-          alt={name} 
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          src={imgError ? fallbackImg : (partner.image || partner.cover_url || fallbackImg)} 
+          alt={partner.name}
+          onError={() => setImgError(true)}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        {isVip && (
-          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-gray-200 shadow-sm text-[9px] font-mono font-bold text-[#E63946] uppercase flex items-center gap-1">
-            <span>👑</span> VIP PARTNER
-          </div>
-        )}
-      </div>
-
-      {/* 📄 SMART INFORMATION LAYOUT */}
-      <div className="p-3.5 space-y-2.5">
         
-        {/* ROW 1: PARTNER NAME & RATING */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-[#121316] truncate max-w-[200px]">
-            {name}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+        
+        {/* Royal Badge */}
+        {partner.tag && (
+          <span className="absolute top-2.5 left-2.5 bg-slate-900/90 text-amber-400 text-[9.5px] font-black tracking-wider px-2.5 py-1 rounded-full border border-white/10 shadow-xs font-['Plus_Jakarta_Sans']">
+            👑 {partner.tag}
+          </span>
+        )}
+
+        {/* Rating Glass Badge */}
+        {partner.rating && (
+          <span className="absolute top-2.5 right-2.5 bg-white/90 text-slate-900 text-[11px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs font-['Plus_Jakarta_Sans']">
+            ⭐ {partner.rating} <span className="text-slate-400 font-normal text-[9px]">({partner.reviewsCount ?? 0})</span>
+          </span>
+        )}
+
+        {/* Overlay Title */}
+        <div className="absolute bottom-2.5 left-3 right-3 flex justify-between items-end gap-2">
+          <h3 className="text-sm font-black text-white tracking-tight leading-tight drop-shadow-sm font-['Plus_Jakarta_Sans'] line-clamp-1">
+            {partner.name_fr || partner.name}
           </h3>
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-mono font-bold text-amber-700">
-            <span>⭐</span>
-            <span>{rating}</span>
-            <span className="text-[10px] text-amber-600/80 font-normal">({reviewsCount})</span>
-          </div>
+          <span className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs font-['Plus_Jakarta_Sans'] shrink-0">
+            {partner.isOpen ?? true ? 'OUVERT' : 'FERMÉ'}
+          </span>
         </div>
-
-        {/* ROW 2: MAP GREEN LOCATION & LOGISTICS FEE */}
-        <div className="flex items-center justify-between text-xs pt-0.5">
-          <div className="flex items-center gap-1 text-[#2ECC71] font-medium truncate max-w-[210px]">
-            <span>📍</span>
-            <span className="truncate">{location}</span>
-          </div>
-
-          <div className="text-right shrink-0">
-            <span className="font-mono font-bold text-[#121316] text-xs">
-              🛵 {deliveryFee}
-            </span>
-          </div>
-        </div>
-
-        {/* ROW 3: ACTION DIGITAL MENU BUTTON */}
-        <button 
-          onClick={onSelectMenu}
-          className="w-full mt-1 py-2 rounded-xl bg-[#FAF9F6] hover:bg-white border border-[#EAEAEA] hover:border-[#E63946]/40 active:scale-[0.98] transition-all text-[#121316] hover:text-[#E63946] font-mono font-bold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 shadow-2xl"
-        >
-          <span>🧾</span>
-          <span>VOIR LE MENU DIGITAL</span>
-        </button>
-
       </div>
 
+      {/* Logistics Capsules with Font-Black Metrics Hierarchy */}
+      <div className="flex items-center justify-between px-0.5 font-['Plus_Jakarta_Sans']">
+        {/* Time Capsule */}
+        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-xl text-slate-700">
+          <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="12 8v4l3 3m6-3a9 9 0 11-18 0 9 7 0 0118 0z" />
+          </svg>
+          <span className="text-xs font-black text-slate-900">20-30</span>
+          <span className="text-[10px] font-bold text-slate-400">min</span>
+        </div>
+
+        {/* Dynamic Surge/Price Capsule */}
+        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-xl text-amber-950">
+          <span className="text-xs font-black text-slate-900">2.000</span>
+          <span className="text-[10px] font-bold text-amber-800">DT</span>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default PartnerCard;

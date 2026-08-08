@@ -1,23 +1,17 @@
 {
-  "name": "the-eagletn",
+  "name": "the-eagletn-monorepo",
   "private": true,
-  "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
-  },
   "scripts": {
-    "dev:all": "pnpm --filter \"*\" --parallel dev",
-    "build:all": "pnpm --filter \"*\" build",
-    "clean": "pnpm -r exec rm -rf node_modules dist .vite .turbo"
+    "dev": "turbo dev",
+    "dev:all": "turbo dev",
+    "dev:client": "pnpm --filter client dev",
+    "dev:livreur": "pnpm --filter livreur dev",
+    "dev:partner": "pnpm --filter partner dev",
+    "build": "turbo build",
+    "lint": "turbo lint"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.2",
-    "autoprefixer": "^10.5.4",
-    "postcss": "^8.5.25",
-    "tailwindcss": "^4.3.3"
+    "turbo": "^2.0.0"
   },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.111.0",
-    "lucide-react": "^1.28.0"
-  }
+  "packageManager": "pnpm@9.0.0"
 }

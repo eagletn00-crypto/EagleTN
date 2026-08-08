@@ -1,48 +1,57 @@
-export interface Partner {
-  id: string;
-  name: string;
-  name_fr?: string;
-  name_ar?: string;
-  logo_url?: string;
-  cover_url?: string;
-  category?: string;
-  rating?: number;
-  delivery_time?: string;
-  delivery_fee?: number;
-  is_active?: boolean;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  name_fr?: string;
-  name_ar?: string;
-  partner_id?: string;
-}
-
 export interface MenuItem {
   id: string;
   partner_id?: string;
   category_id?: string;
   name: string;
   name_fr?: string;
-  name_ar?: string;
   description?: string;
   price: number;
   image_url?: string;
   is_available?: boolean;
 }
 
-export interface CartItem {
+export interface Partner {
   id: string;
-  menuItemId?: string;
   name: string;
   name_fr?: string;
-  name_ar?: string;
+  slug?: string;
+  logo?: string;
+  image?: string;
+  cover_url?: string;
+  rating?: number;
+  reviewsCount?: number;
+  delivery_time?: string;
+  time?: string;
+  delivery_fee?: string | number;
+  fee?: string;
+  category?: string;
+  isOpen?: boolean;
+  is_active?: boolean;
+  isAvailable?: boolean;
+  tag?: string;
+  isRoyalBadge?: boolean;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  label?: string;
+  icon?: string;
+}
+
+export interface CartOption {
+  id: string;
+  name: string;
+  price: number;
+}
+
+export interface CartItem {
+  id: string;
+  partnerId: string;
+  name: string;
+  name_fr?: string;
   price: number;
   totalUnitPrice?: number;
   quantity: number;
-  partnerId?: string;
-  partner_id?: string;
-  selectedOptions?: any[];
+  options?: CartOption[];
 }
