@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShieldCheck, LayoutGrid, List } from 'lucide-react';
+import { ShieldCheck, LayoutGrid, List, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useCartStore } from '../../store/useCartStore';
 import { PartnerProfileCard } from './components/PartnerProfileCard';
@@ -19,103 +19,80 @@ export const RestaurantMenu: React.FC = () => {
   const [viewMode, setViewMode] = useState<'row' | 'card'>('row');
 
   useEffect(() => {
-    async function loadData() {
+    async function fetchRealSupabaseData() {
       if (!id) return;
       setLoading(true);
 
       try {
-        const { data: partnerData } = await supabase
+        // 1. جلب بيانات الشريك/المطعم الحقيقية
+        const { data: partnerData, error: partnerErr } = await supabase
           .from('partners')
           .select('*')
           .eq('id', id)
           .single();
 
-        if (partnerData) {
-          setPartner(partnerData);
+        if (partnerErr) {
+          console.error('Error fetching partner:', partnerErr);
         } else {
-          setPartner({
-            id,
-            name: 'مطعم ' + id.slice(0, 5),
-            category: 'Plats Populaires • Spécialités Tunisiennes',
-            rating: 4.8,
-            reviews_count: 50,
-            delivery_time: '20-30 min',
-            delivery_fee: '2.000 DT',
-            banner_url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=800',
-            is_royal: true
-          });
+          setPartner(partnerData);
         }
 
-        const { data: itemsData } = await supabase
+        // 2. جلب الأطباق الحقيقية التابعة لهذا المطعم
+        const { data: itemsData, error: itemsErr } = await supabase
           .from('menu_items')
           .select('*')
           .eq('partner_id', id);
 
-        if (itemsData && itemsData.length > 0) {
+        if (itemsErr) {
+          console.error('Error fetching menu_items:', itemsErr);
+        } else if (itemsData) {
           setMenuItems(
             itemsData.map((item) => ({
               id: item.id,
-              name_fr: item.name_fr || item.name,
-              description_fr: item.description_fr || item.description,
-              price: Number(item.price),
+              name_fr: item.name_fr || item.name || 'Plat Sans Nom',
+              description_fr: item.description_fr || item.description || '',
+              price: Number(item.price) || 0,
               image_url: item.image_url,
-              is_popular: item.is_popular
+              is_popular: item.is_popular || false
             }))
           );
-        } else {
-          setMenuItems([
-            {
-              id: 'item-1',
-              name_fr: 'Hergma Traditionnelle Royale',
-              description_fr: 'Servie chaude avec pain artisanal, huile d\'olive du Sahel et harissa arbi.',
-              price: 12.5,
-              image_url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=600',
-              is_popular: true
-            },
-            {
-              id: 'item-2',
-              name_fr: 'Plat Ojja Merguez',
-              description_fr: 'Œufs frais, tomates braisées, piments et merguez artisanales.',
-              price: 9.8,
-              image_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&q=80&w=600'
-            }
-          ]);
         }
       } catch (e) {
-        console.error('Error fetching partner menu:', e);
+        console.error('Unexpected Supabase fetch error:', e);
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
+    fetchRealSupabaseData();
   }, [id]);
 
   const handleSelectItem = (item: MenuItem) => {
     addItem({
       id: item.id,
       partnerId: id!,
-      name: item.name_fr || 'Plat',
-      name_fr: item.name_fr || 'Plat',
+      name: item.name_fr,
+      name_fr: item.name_fr,
       price: item.price
     });
   };
 
   const subtotal = getSubtotal();
-  const deliveryFee = 2.0;
+  const deliveryFee = partner?.delivery_fee ? Number(partner.delivery_fee) : 2.0;
   const grandTotal = subtotal + (subtotal > 0 ? deliveryFee : 0);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
-        <div className="w-8 h-8 border-3 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-[#FDFBF7] flex flex-col items-center justify-center gap-3">
+        <div className="w-9 h-9 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-xs font-bold text-slate-400">Chargement du menu...</span>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] pb-32 max-w-md mx-auto relative font-sans antialiased">
-      {/* Partner Cover & Details */}
+      {/* Partner Banner & Details */}
       <PartnerProfileCard partner={partner} onBack={() => navigate(-1)} />
 
       {/* Header with View Switcher */}
@@ -148,27 +125,37 @@ export const RestaurantMenu: React.FC = () => {
         </div>
       </div>
 
-      {/* Menu Items List */}
-      <div className={`px-4 pb-4 ${viewMode === 'card' ? 'grid grid-cols-1 gap-4' : 'space-y-3'}`}>
-        {menuItems.map((item) => (
-          <MenuItemCard
-            key={item.id}
-            item={item}
-            viewMode={viewMode}
-            onSelect={handleSelectItem}
-          />
-        ))}
-
-        {/* INPDP Compliance Footer */}
-        <div className="pt-8 pb-4 text-center space-y-1 col-span-full">
-          <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-400">
-            <ShieldCheck size={13} className="text-emerald-600/80" />
-            <span>Facturation conforme au modèle INPDP & MF Tunisie</span>
+      {/* Menu Items List or Empty State */}
+      {menuItems.length === 0 ? (
+        <div className="my-12 px-4 text-center">
+          <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-3">
+            <UtensilsCrossed size={28} />
           </div>
-          <p className="text-[9px] text-slate-400/80 font-medium">
-            Tarifs affichés en Dinars Tunisiens (TND) • TVA Incluse
-          </p>
+          <h3 className="text-sm font-bold text-slate-800">Aucun plat disponible</h3>
+          <p className="text-xs text-slate-400 mt-1">Ce restaurant n'a pas encore ajouté de plats à son menu.</p>
         </div>
+      ) : (
+        <div className={`px-4 pb-4 ${viewMode === 'card' ? 'grid grid-cols-1 gap-4' : 'space-y-3'}`}>
+          {menuItems.map((item) => (
+            <MenuItemCard
+              key={item.id}
+              item={item}
+              viewMode={viewMode}
+              onSelect={handleSelectItem}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* INPDP & MF Compliance Badge */}
+      <div className="pt-8 pb-4 text-center space-y-1 px-4">
+        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-400">
+          <ShieldCheck size={13} className="text-emerald-600/80" />
+          <span>Facturation conforme au modèle INPDP & MF Tunisie</span>
+        </div>
+        <p className="text-[9px] text-slate-400/80 font-medium">
+          Tarifs affichés en Dinars Tunisiens (TND) • TVA Incluse
+        </p>
       </div>
 
       {/* Floating Cart Button */}
