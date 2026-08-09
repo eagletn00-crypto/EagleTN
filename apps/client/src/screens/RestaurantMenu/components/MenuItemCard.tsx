@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Plus, X, Check } from 'lucide-react';
 
 export interface MenuItem {
   id: string;
@@ -9,140 +10,180 @@ export interface MenuItem {
   is_popular?: boolean;
 }
 
-export interface MenuItemCardProps {
+interface MenuItemCardProps {
   item: MenuItem;
-  viewMode?: 'row' | 'card';
-  onSelect: (item: MenuItem) => void;
+  viewMode: 'row' | 'card';
+  onSelect: (item: MenuItem, selectedOptions?: any) => void;
 }
 
-export const MenuItemCard: React.FC<MenuItemCardProps> = ({
-  item,
-  viewMode = 'row',
-  onSelect,
-}) => {
-  const formattedPrice = item.price.toFixed(3);
+export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, viewMode, onSelect }) => {
+  const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
+  const [portion, setPortion] = useState<'plat' | 'sandwich'>('plat');
+  const [drink, setDrink] = useState<string>('none');
+  const [quantity, setQuantity] = useState(1);
 
-  // 1. خيار العرض الشبكي (Card View)
-  if (viewMode === 'card') {
-    return (
-      <div
-        onClick={() => onSelect(item)}
-        className="group relative flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md active:scale-[0.99] cursor-pointer"
+  const handleAddToCart = () => {
+    onSelect(item, { portion, drink, quantity });
+    setIsOptionModalOpen(false);
+  };
+
+  return (
+    <>
+      {/* UK-Grade Clean Card */}
+      <div 
+        onClick={() => setIsOptionModalOpen(true)}
+        className="group bg-white rounded-2xl p-3.5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all cursor-pointer flex items-center gap-4"
       >
-        <div className="relative h-40 w-full overflow-hidden bg-slate-100">
-          {item.image_url ? (
-            <img
-              src={item.image_url}
-              alt={item.name_fr}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
+        {item.image_url && (
+          <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100">
+            <img 
+              src={item.image_url} 
+              alt={item.name_fr} 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-3xl text-slate-300">
-              🍲
-            </div>
-          )}
+            {item.is_popular && (
+              <span className="absolute top-1.5 left-1.5 bg-slate-900/80 backdrop-blur-md text-amber-400 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                ★ Popular
+              </span>
+            )}
+          </div>
+        )}
 
-          {item.is_popular && (
-            <span className="absolute top-2.5 left-2.5 rounded-full bg-white/95 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-black text-amber-700 shadow-sm ring-1 ring-amber-500/20">
-              🔥 Populaire
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-1 flex-col justify-between p-3.5">
+        <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
-              {item.name_fr}
-            </h3>
+            <h3 className="text-sm font-bold text-slate-900 truncate tracking-tight">{item.name_fr}</h3>
             {item.description_fr && (
-              <p className="mt-1 line-clamp-2 text-xs text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed font-normal">
                 {item.description_fr}
               </p>
             )}
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-xs font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
-              {formattedPrice} <span className="text-[9px] font-bold text-slate-500">TND</span>
-            </span>
-
-            <button
-              type="button"
+          <div className="flex items-center justify-between mt-2 pt-1">
+            <span className="text-sm font-black text-slate-900">{item.price.toFixed(3)} <span className="text-[10px] text-slate-400 font-bold">DT</span></span>
+            <button 
               onClick={(e) => {
                 e.stopPropagation();
-                onSelect(item);
+                setIsOptionModalOpen(true);
               }}
-              className="flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-md transition-transform hover:scale-105 active:scale-95 hover:bg-emerald-600"
+              className="w-8 h-8 rounded-xl bg-slate-900 hover:bg-amber-500 text-white hover:text-slate-950 flex items-center justify-center transition-all shadow-sm"
             >
-              <span>Ajouter</span>
-              <span className="text-sm">+</span>
+              <Plus size={16} strokeWidth={2.5} />
             </button>
           </div>
         </div>
       </div>
-    );
-  }
 
-  // 2. خيار العرض الصفّي (Row View)
-  return (
-    <div
-      onClick={() => onSelect(item)}
-      className="group relative flex items-center justify-between gap-3.5 rounded-2xl bg-white p-3 shadow-sm transition-all duration-300 hover:shadow-md border border-slate-100/80 active:scale-[0.99] cursor-pointer"
-    >
-      <div className="flex flex-1 flex-col justify-between py-0.5">
-        <div>
-          {item.is_popular && (
-            <span className="mb-1 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20">
-              🔥 Populaire
-            </span>
-          )}
+      {/* Modern Ultra-Clean UK Bottom Sheet for Options */}
+      {isOptionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-3xl max-h-[90vh] overflow-y-auto shadow-2xl p-5 space-y-5">
+            
+            {/* Header with Image */}
+            <div className="relative -mx-5 -mt-5 mb-2 h-44 overflow-hidden rounded-t-[32px] bg-slate-100">
+              {item.image_url ? (
+                <img src={item.image_url} alt={item.name_fr} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-slate-900 flex items-center justify-center text-amber-500 font-bold text-sm">Eagle TN</div>
+              )}
+              <button 
+                onClick={() => setIsOptionModalOpen(false)}
+                className="absolute top-3 right-3 w-8 h-8 bg-slate-900/60 backdrop-blur-md text-white rounded-full flex items-center justify-center hover:bg-slate-900 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-          <h3 className="text-sm font-bold tracking-tight text-slate-900 group-hover:text-emerald-600 transition-colors">
-            {item.name_fr}
-          </h3>
+            <div>
+              <h2 className="text-base font-black text-slate-900">{item.name_fr}</h2>
+              <p className="text-xs font-bold text-amber-600 mt-0.5">{item.price.toFixed(3)} DT</p>
+              {item.description_fr && (
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.description_fr}</p>
+              )}
+            </div>
 
-          {item.description_fr && (
-            <p className="mt-1 line-clamp-2 text-xs font-normal leading-relaxed text-slate-500">
-              {item.description_fr}
-            </p>
-          )}
-        </div>
+            {/* Portion Selection */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Format / Portion</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'plat', label: 'Plat' },
+                  { id: 'sandwich', label: 'Sandwich' }
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setPortion(opt.id as any)}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
+                      portion === opt.id
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {portion === opt.id && <Check size={14} className="text-amber-400" />}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div className="mt-2.5 flex items-center gap-2">
-          <span className="inline-flex items-baseline rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black tracking-tight text-slate-900">
-            {formattedPrice} <span className="ms-1 text-[9px] font-bold text-slate-500">TND</span>
-          </span>
-        </div>
-      </div>
+            {/* Drinks Options */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Boisson (Optionnel)</label>
+              <div className="space-y-1.5">
+                {[
+                  { id: 'none', label: 'Sans boisson', price: 0 },
+                  { id: 'soda', label: 'Soda Local (Gazouz)', price: 1.5 },
+                  { id: 'water', label: 'Eau Minérale', price: 1.0 }
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDrink(d.id)}
+                    className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
+                      drink === d.id
+                        ? 'border-amber-500/50 bg-amber-500/10 text-slate-900'
+                        : 'border-slate-100 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{d.label}</span>
+                    <span className="text-slate-500 font-semibold">{d.price > 0 ? `+${d.price.toFixed(3)} DT` : 'Gratuit'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-        {item.image_url ? (
-          <img
-            src={item.image_url}
-            alt={item.name_fr}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-300 text-xl">
-            🍲
+            {/* Quantity & Add Action */}
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
+              <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                <button 
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 rounded-lg bg-white shadow-sm font-black text-slate-800 flex items-center justify-center"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center text-xs font-black text-slate-900">{quantity}</span>
+                <button 
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-8 h-8 rounded-lg bg-white shadow-sm font-black text-slate-800 flex items-center justify-center"
+                >
+                  +
+                </button>
+              </div>
+
+              <button
+                onClick={handleAddToCart}
+                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-3.5 rounded-xl shadow-xl flex items-center justify-between px-4 transition-all"
+              >
+                <span>Ajouter au panier</span>
+                <span className="text-amber-400">{(item.price * quantity).toFixed(3)} DT</span>
+              </button>
+            </div>
+
           </div>
-        )}
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(item);
-          }}
-          aria-label={`Ajouter ${item.name_fr}`}
-          className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-white shadow-md transition-transform hover:scale-110 active:scale-95 hover:bg-emerald-600"
-        >
-          <span className="text-base font-bold leading-none">+</span>
-        </button>
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 };
 
