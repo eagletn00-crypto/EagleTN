@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { MenuItemCard, MenuItem } from './components/MenuItemCard';
 import { useCartStore } from '../../store/useCartStore';
@@ -9,52 +9,94 @@ interface Partner {
   id: string;
   name: string;
   category?: string;
-  rating?: number;
   banner_url?: string;
-  delivery_fee?: number;
-  delivery_time?: string;
 }
 
 export const RestaurantMenu: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { items, addItem, getTotalItems, getSubtotal } = useCartStore();
+  const { addItem, getTotalItems, getSubtotal } = useCartStore();
 
   const [partner, setPartner] = useState<Partner | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchRestaurantData = async () => {
       setLoading(true);
+      setErrorMsg(null);
+
       try {
-        // 1. جلب المطعم (إذا لم يوجد ID نجلب أول مطعم مثل عم علي)
-        let partnerQuery = supabase.from('partners').select('*');
+        let partnerData = null;
+
         if (id) {
-          partnerQuery = partnerQuery.eq('id', id);
+          const { data, error } = await supabase
+            .from('partners')
+            .select('id, name, category, banner_url')
+            .eq('id', id)
+            .maybeSingle();
+
+          if (error) throw error;
+          partnerData = data;
         }
-        
-        const { data: partnerData, error: partnerErr } = await partnerQuery.limit(1).single();
-        if (partnerErr) throw partnerErr;
 
-        setPartner(partnerData);
+        // إذا لم يتم العثور على المطعم بـ ID، نجلب أول مطعم متاح من القائمة
+        if (!partnerData) {
+          const { data, error } = await supabase
+            .from('partners')
+            .select('id, name, category, banner_url')
+            .limit(1)
+            .maybeSingle();
 
-        // 2. جلب الأطباق التابعة لهذا المطعم
+          if (error) throw error;
+          partnerData = data;
+        }
+
+        if (!partnerData) {
+          if (isMounted) {
+            setErrorMsg('Aucun restaurant trouvé.');
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (isMounted) setPartner(partnerData);
+
+        // جلب الأطباق الخاصة بالمطعم
         const { data: itemsData, error: itemsErr } = await supabase
           .from('menu_items')
           .select('*')
           .eq('partner_id', partnerData.id);
 
         if (itemsErr) throw itemsErr;
-        setMenuItems(itemsData || []);
-      } catch (err) {
-        console.error('Error fetching menu:', err);
+
+        // معالجة البيانات لضمان عدم وجود أخطاء في الـ Render
+        const formattedItems: MenuItem[] = (itemsData || []).map((item: any) => ({
+          id: item.id,
+          name_fr: item.name_fr || item.name || 'Plat sans nom',
+          description_fr: item.description_fr || item.description || '',
+          price: typeof item.price === 'number' ? item.price : parseFloat(item.price || '0'),
+          image_url: item.image_url || '',
+          is_popular: Boolean(item.is_popular)
+        }));
+
+        if (isMounted) setMenuItems(formattedItems);
+      } catch (err: any) {
+        console.error('Error in RestaurantMenu:', err);
+        if (isMounted) setErrorMsg(err?.message || 'Erreur lors du chargement du menu.');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchRestaurantData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   const handleSelectItem = (item: MenuItem, options?: any) => {
@@ -71,8 +113,23 @@ export const RestaurantMenu: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
+      <div className="min-h-screen bg-[#FDFBF7] max-w-md mx-auto flex flex-col items-center justify-center">
         <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs font-bold text-slate-400 mt-3">Chargement du menu...</p>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] max-w-md mx-auto p-4 flex flex-col items-center justify-center text-center">
+        <p className="text-sm font-bold text-red-500 mb-4">{errorMsg}</p>
+        <button
+          onClick={() => navigate('/')}
+          className="bg-slate-900 text-white font-black text-xs px-5 py-2.5 rounded-xl"
+        >
+          Retour à l'accueil
+        </button>
       </div>
     );
   }
@@ -81,13 +138,17 @@ export const RestaurantMenu: React.FC = () => {
     <div className="min-h-screen bg-[#FDFBF7] max-w-md mx-auto pb-28 font-sans text-slate-900">
       {/* Header Banner */}
       <div className="relative h-48 bg-slate-900 overflow-hidden">
-        {partner?.banner_url && (
+        {partner?.banner_url ? (
           <img src={partner.banner_url} alt={partner.name} className="w-full h-full object-cover opacity-80" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-slate-900 to-slate-800 flex items-center justify-center text-amber-500 font-black">
+            Eagle TN
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent"></div>
         <button
           onClick={() => navigate('/')}
-          className="absolute top-4 left-4 p-2 bg-slate-900/60 backdrop-blur-md text-white rounded-xl hover:bg-slate-900 transition-all"
+          className="absolute top-4 left-4 p-2 bg-slate-900/60 backdrop-blur-md text-white rounded-xl hover:bg-slate-900 transition-all z-10"
         >
           <ArrowLeft size={18} />
         </button>
