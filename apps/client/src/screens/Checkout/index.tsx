@@ -1,207 +1,263 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wallet, CreditCard, Banknote, ShieldCheck, CheckCircle2, ChevronRight, MapPin } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, User, ShoppingBag, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
+import { supabase } from '../../lib/supabase';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { items, getSubtotal, clearCart } = useCartStore();
 
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'edinar'>('cash');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [note, setNote] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const subtotal = getSubtotal();
-  const deliveryFee = subtotal > 0 ? 2.500 : 0;
+  const deliveryFee = subtotal > 0 ? 2.500 : 0.000;
   const grandTotal = subtotal + deliveryFee;
 
-  const handleConfirmOrder = () => {
-    setIsSubmitting(true);
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (items.length === 0) {
+      setErrorMsg('Votre panier est vide.');
+      return;
+    }
+    if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim()) {
+      setErrorMsg('Veuillez remplir tous les champs obligatoires.');
+      return;
+    }
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    try {
+      const partnerId = items[0]?.partnerId || null;
+
+      // 1. إدراج الطلب الرئيسي في جدول orders
+      const { data: orderData, error: orderErr } = await supabase
+        .from('orders')
+        .insert({
+          partner_id: partnerId,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          delivery_address: deliveryAddress,
+          notes: notes,
+          subtotal: subtotal,
+          delivery_fee: deliveryFee,
+          total_price: grandTotal,
+          status: 'pending',
+          payment_method: 'cash_on_delivery'
+        })
+        .select()
+        .single();
+
+      if (orderErr) throw orderErr;
+
+      // 2. إدراج عناصر الطلب في جدول order_items
+      const orderItemsToInsert = items.map((item) => ({
+        order_id: orderData.id,
+        menu_item_id: item.id,
+        item_name: item.name_fr || item.name,
+        unit_price: item.price,
+        quantity: item.quantity,
+        total_price: item.price * item.quantity
+      }));
+
+      const { error: itemsErr } = await supabase
+        .from('order_items')
+        .insert(orderItemsToInsert);
+
+      if (itemsErr) console.error('Error saving order items:', itemsErr);
+
+      // 3. تفريغ السلة والانتقال لشاشة تتبع الطلب
       clearCart();
-    }, 1200);
+      navigate(`/order-tracking/${orderData.id}`);
+    } catch (err: any) {
+      console.error('Order creation failed:', err);
+      setErrorMsg(err.message || 'Une erreur est survenue lors de la validation du commande.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  if (isSuccess) {
+  if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4 max-w-md mx-auto font-sans antialiased relative overflow-hidden">
-        <div className="absolute top-1/4 -left-10 w-48 h-48 bg-amber-300/30 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 -right-10 w-48 h-48 bg-emerald-300/20 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="w-full bg-white/80 backdrop-blur-xl border border-white/90 rounded-3xl p-6 shadow-xl text-center space-y-5 relative z-10">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 mx-auto">
-            <CheckCircle2 size={36} />
-          </div>
-
-          <div className="space-y-1">
-            <h2 className="text-xl font-black text-slate-900">Commande Reçue ! / تم استلام طلبك</h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Votre commande a été transmise au restaurant. Suivez la livraison en temps réel.
-            </p>
-          </div>
-
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-xs font-bold text-amber-900">
-            Montant total : {grandTotal.toFixed(3)} TND
-          </div>
-
-          <button
-            onClick={() => navigate('/orders')}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-xs transition-all active:scale-[0.99]"
-          >
-            <span>Suivre la commande / الانتقال لتتبع الطلب</span>
-            <ChevronRight size={16} />
-          </button>
+      <div className="min-h-screen bg-[#FDFBF7] max-w-md mx-auto p-4 flex flex-col items-center justify-center text-center">
+        <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mb-4">
+          <ShoppingBag size={32} />
         </div>
+        <h2 className="text-lg font-black text-slate-900 mb-1">Votre panier est vide</h2>
+        <p className="text-xs text-slate-500 mb-6">Découvrez nos restaurants et ajoutez de délicieux plats.</p>
+        <button
+          onClick={() => navigate('/')}
+          className="bg-amber-500 text-slate-950 font-black text-xs px-6 py-3 rounded-2xl shadow-md hover:bg-amber-400 transition-all"
+        >
+          Parcourir le menu
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pb-32 max-w-md mx-auto font-sans antialiased relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-72 h-72 bg-amber-200/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-0 w-64 h-64 bg-amber-300/20 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="sticky top-0 z-30 bg-[#FDFBF7]/80 backdrop-blur-md p-4 border-b border-amber-900/5 flex items-center justify-between">
+    <div className="min-h-screen bg-[#FDFBF7] max-w-md mx-auto pb-28 font-sans antialiased text-slate-900">
+      {/* Header */}
+      <div className="sticky top-0 bg-[#FDFBF7]/90 backdrop-blur-md z-30 px-4 py-3 border-b border-slate-200/60 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-xl bg-white/80 border border-white/90 text-slate-800 flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+          className="p-2 bg-white rounded-xl shadow-sm text-slate-700 hover:bg-slate-100 transition-all"
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-sm font-black text-slate-900">Confirmation de commande</h1>
-        <div className="w-9" />
+        <h1 className="text-sm font-black text-slate-900 tracking-tight">Caisse & Finalisation</h1>
+        <div className="w-8"></div>
       </div>
 
-      <div className="p-4 space-y-4 relative z-10">
-        <div className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl p-4 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <MapPin size={12} className="text-amber-600" /> Adresse de livraison
-            </span>
-            <span className="text-xs font-bold text-amber-600 cursor-pointer">Changer</span>
+      <form onSubmit={handlePlaceOrder} className="p-4 space-y-4">
+        {/* Error Alert */}
+        {errorMsg && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-xs font-bold text-red-600">
+            <AlertCircle size={16} className="shrink-0" />
+            <span>{errorMsg}</span>
           </div>
-          <div>
-            <p className="text-xs font-black text-slate-900">El Manar 2, Tunis</p>
-            <p className="text-[11px] text-slate-500">Rue Habib Bourguiba, Appt 4B</p>
-          </div>
-        </div>
+        )}
 
-        <div className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl p-4 shadow-sm space-y-3">
-          <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-            Résumé de la commande ({items.reduce((acc, i) => acc + i.quantity, 0)} articles)
-          </h3>
+        {/* Customer & Delivery Form */}
+        <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+          <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">
+            Informations de livraison
+          </h2>
 
-          <div className="space-y-2 divide-y divide-slate-100">
-            {items.map((item) => (
-              <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-bold text-slate-900">{item.name}</span>
-                  <span className="text-slate-400 text-[11px] ml-1.5">x{item.quantity}</span>
-                </div>
-                <span className="font-bold text-slate-800">{(item.price * item.quantity).toFixed(3)} TND</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="pt-2">
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+              <User size={13} className="text-amber-500" /> Nom & Prénom *
+            </label>
             <input
               type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Note spéciale (ex: sans harissa, sauce à part...)"
-              className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-amber-500/50 transition-colors"
+              required
+              placeholder="e.g. Mohamed Ben Ali"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-amber-500 transition-all"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+              <Phone size={13} className="text-amber-500" /> Numéro de Téléphone *
+            </label>
+            <input
+              type="tel"
+              required
+              placeholder="e.g. +216 20 123 456"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-amber-500 transition-all"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+              <MapPin size={13} className="text-amber-500" /> Adresse exacte de livraison *
+            </label>
+            <textarea
+              required
+              rows={2}
+              placeholder="e.g. Cité El Ghazala, Rue Habib Bourguiba, Appt 4"
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-amber-500 transition-all resize-none"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-500">Instructions (Optionnel)</label>
+            <input
+              type="text"
+              placeholder="e.g. Sans h'rissa, sonner à l'interphone"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
             />
           </div>
         </div>
 
-        <div className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl p-4 shadow-sm space-y-3">
-          <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-            Mode de Paiement / طريقة الدفع
-          </h3>
-
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('cash')}
-              className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
-                paymentMethod === 'cash'
-                  ? 'bg-amber-500/15 border-amber-500 text-amber-950 font-black shadow-sm'
-                  : 'bg-white/50 border-slate-200/70 text-slate-600 font-medium hover:bg-white/80'
-              }`}
-            >
-              <Banknote size={20} className={paymentMethod === 'cash' ? 'text-amber-600' : 'text-slate-500'} />
-              <span className="text-[10px]">Espèces (نقداً)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('card')}
-              className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center relative ${
-                paymentMethod === 'card'
-                  ? 'bg-amber-500/15 border-amber-500 text-amber-950 font-black shadow-sm'
-                  : 'bg-white/50 border-slate-200/70 text-slate-600 font-medium hover:bg-white/80'
-              }`}
-            >
-              <CreditCard size={20} className={paymentMethod === 'card' ? 'text-amber-600' : 'text-slate-500'} />
-              <span className="text-[10px]">Carte Bancaire</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('edinar')}
-              className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center relative ${
-                paymentMethod === 'edinar'
-                  ? 'bg-amber-500/15 border-amber-500 text-amber-950 font-black shadow-sm'
-                  : 'bg-white/50 border-slate-200/70 text-slate-600 font-medium hover:bg-white/80'
-              }`}
-            >
-              <Wallet size={20} className={paymentMethod === 'edinar' ? 'text-amber-600' : 'text-slate-500'} />
-              <span className="text-[10px]">e-Dinar 🇹🇳</span>
-            </button>
+        {/* Payment Method */}
+        <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+          <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider">Mode de paiement</h2>
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center font-black text-xs">
+                💵
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-900">Paiement à la livraison</p>
+                <p className="text-[10px] text-slate-500 font-medium">Payez en espèces dès réception de la commande</p>
+              </div>
+            </div>
+            <CheckCircle2 size={18} className="text-amber-600" />
           </div>
         </div>
 
-        <div className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl p-4 shadow-sm space-y-2 text-xs text-slate-600">
-          <div className="flex justify-between">
-            <span>Sous-total</span>
-            <span className="font-bold text-slate-900">{subtotal.toFixed(3)} TND</span>
+        {/* Order Summary */}
+        <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+          <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider">Résumé de la commande</h2>
+          
+          <div className="divide-y divide-slate-100">
+            {items.map((item) => (
+              <div key={item.id} className="py-2.5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="bg-slate-100 font-black text-slate-800 text-[11px] px-2 py-0.5 rounded-md">
+                    {item.quantity}x
+                  </span>
+                  <span className="font-bold text-slate-800">{item.name_fr || item.name}</span>
+                </div>
+                <span className="font-extrabold text-slate-900">{(item.price * item.quantity).toFixed(3)} DT</span>
+              </div>
+            ))}
           </div>
-          <div className="flex justify-between">
-            <span>Frais de livraison</span>
-            <span className="font-bold text-slate-900">{deliveryFee.toFixed(3)} TND</span>
-          </div>
-          <div className="pt-2 border-t border-slate-100 flex justify-between text-sm font-black text-slate-900">
-            <span>Total Final</span>
-            <span className="text-amber-700">{grandTotal.toFixed(3)} TND</span>
+
+          <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
+            <div className="flex justify-between text-slate-500 font-medium">
+              <span>Sous-total</span>
+              <span>{subtotal.toFixed(3)} DT</span>
+            </div>
+            <div className="flex justify-between text-slate-500 font-medium">
+              <span>Frais de livraison</span>
+              <span>{deliveryFee.toFixed(3)} DT</span>
+            </div>
+            <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-100">
+              <span>Total TTC</span>
+              <span className="text-amber-600 font-black">{grandTotal.toFixed(3)} DT</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-slate-400 pt-2">
-          <ShieldCheck size={13} className="text-emerald-600" />
-          <span>Facturation & Sécurité conformes INPDP Tunisie</span>
+        {/* Compliance Footer */}
+        <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-semibold pt-2">
+          <ShieldCheck size={14} className="text-emerald-600" />
+          <span>Facturation conforme aux normes de la République Tunisienne</span>
         </div>
-      </div>
 
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white/80 backdrop-blur-xl border-t border-white/90 z-40">
-        <button
-          onClick={handleConfirmOrder}
-          disabled={isSubmitting || items.length === 0}
-          className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-2 text-xs tracking-wider transition-all active:scale-[0.99]"
-        >
-          {isSubmitting ? (
-            <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <span>Confirmer la commande ({grandTotal.toFixed(3)} TND)</span>
-              <ChevronRight size={16} />
-            </>
-          )}
-        </button>
-      </div>
+        {/* Submit Action Button */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200/80 p-4 max-w-md mx-auto z-40">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <span>Confirmer la commande ({grandTotal.toFixed(3)} DT)</span>
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
