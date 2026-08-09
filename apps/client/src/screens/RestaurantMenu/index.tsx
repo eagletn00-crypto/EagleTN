@@ -1,194 +1,146 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShieldCheck, LayoutGrid, List, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useCartStore } from '../../store/useCartStore';
-import { PartnerProfileCard } from './components/PartnerProfileCard';
 import { MenuItemCard, MenuItem } from './components/MenuItemCard';
-import { SlideOverCartSheet } from './components/SlideOverCartSheet';
+import { useCartStore } from '../../store/useCartStore';
+
+interface Partner {
+  id: string;
+  name: string;
+  category?: string;
+  rating?: number;
+  banner_url?: string;
+  delivery_fee?: number;
+  delivery_time?: string;
+}
 
 export const RestaurantMenu: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { items, addItem, getSubtotal } = useCartStore();
+  const { items, addItem, getTotalItems, getSubtotal } = useCartStore();
 
-  const [partner, setPartner] = useState<any>(null);
+  const [partner, setPartner] = useState<Partner | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'row' | 'card'>('row');
 
   useEffect(() => {
-    async function fetchRealSupabaseData() {
-      if (!id) return;
+    const fetchRestaurantData = async () => {
       setLoading(true);
-
       try {
-        // 1. جلب بيانات الشريك/المطعم الحقيقية
-        const { data: partnerData, error: partnerErr } = await supabase
-          .from('partners')
-          .select('*')
-          .eq('id', id)
-          .single();
-
-        if (partnerErr) {
-          console.error('Error fetching partner:', partnerErr);
-        } else {
-          setPartner(partnerData);
+        // 1. جلب المطعم (إذا لم يوجد ID نجلب أول مطعم مثل عم علي)
+        let partnerQuery = supabase.from('partners').select('*');
+        if (id) {
+          partnerQuery = partnerQuery.eq('id', id);
         }
+        
+        const { data: partnerData, error: partnerErr } = await partnerQuery.limit(1).single();
+        if (partnerErr) throw partnerErr;
 
-        // 2. جلب الأطباق الحقيقية التابعة لهذا المطعم
+        setPartner(partnerData);
+
+        // 2. جلب الأطباق التابعة لهذا المطعم
         const { data: itemsData, error: itemsErr } = await supabase
           .from('menu_items')
           .select('*')
-          .eq('partner_id', id);
+          .eq('partner_id', partnerData.id);
 
-        if (itemsErr) {
-          console.error('Error fetching menu_items:', itemsErr);
-        } else if (itemsData) {
-          setMenuItems(
-            itemsData.map((item) => ({
-              id: item.id,
-              name_fr: item.name_fr || item.name || 'Plat Sans Nom',
-              description_fr: item.description_fr || item.description || '',
-              price: Number(item.price) || 0,
-              image_url: item.image_url,
-              is_popular: item.is_popular || false
-            }))
-          );
-        }
-      } catch (e) {
-        console.error('Unexpected Supabase fetch error:', e);
+        if (itemsErr) throw itemsErr;
+        setMenuItems(itemsData || []);
+      } catch (err) {
+        console.error('Error fetching menu:', err);
       } finally {
         setLoading(false);
       }
-    }
+    };
 
-    fetchRealSupabaseData();
+    fetchRestaurantData();
   }, [id]);
 
-  const handleSelectItem = (item: MenuItem) => {
+  const handleSelectItem = (item: MenuItem, options?: any) => {
     addItem({
       id: item.id,
-      partnerId: id!,
       name: item.name_fr,
       name_fr: item.name_fr,
-      price: item.price
+      price: item.price,
+      quantity: options?.quantity || 1,
+      image_url: item.image_url,
+      partnerId: partner?.id
     });
   };
 
-  const subtotal = getSubtotal();
-  const deliveryFee = partner?.delivery_fee ? Number(partner.delivery_fee) : 2.0;
-  const grandTotal = subtotal + (subtotal > 0 ? deliveryFee : 0);
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex flex-col items-center justify-center gap-3">
-        <div className="w-9 h-9 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-xs font-bold text-slate-400">Chargement du menu...</span>
+      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
+        <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pb-32 max-w-md mx-auto relative font-sans antialiased">
-      {/* Partner Banner & Details */}
-      <PartnerProfileCard partner={partner} onBack={() => navigate(-1)} />
-
-      {/* Header with View Switcher */}
-      <div className="p-4 pb-2 flex items-center justify-between">
-        <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-          La Carte & Plats populaires
-        </h2>
-
-        <div className="flex items-center gap-1 bg-slate-200/60 p-1 rounded-xl">
-          <button
-            onClick={() => setViewMode('row')}
-            className={`p-1.5 rounded-lg transition-all ${
-              viewMode === 'row'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <List size={15} />
-          </button>
-          <button
-            onClick={() => setViewMode('card')}
-            className={`p-1.5 rounded-lg transition-all ${
-              viewMode === 'card'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <LayoutGrid size={15} />
-          </button>
+    <div className="min-h-screen bg-[#FDFBF7] max-w-md mx-auto pb-28 font-sans text-slate-900">
+      {/* Header Banner */}
+      <div className="relative h-48 bg-slate-900 overflow-hidden">
+        {partner?.banner_url && (
+          <img src={partner.banner_url} alt={partner.name} className="w-full h-full object-cover opacity-80" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent"></div>
+        <button
+          onClick={() => navigate('/')}
+          className="absolute top-4 left-4 p-2 bg-slate-900/60 backdrop-blur-md text-white rounded-xl hover:bg-slate-900 transition-all"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="absolute bottom-4 left-4 right-4">
+          <span className="text-[10px] font-black text-amber-400 bg-amber-500/20 px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-md">
+            {partner?.category || 'Cuisine Tunisienne'}
+          </span>
+          <h1 className="text-xl font-black text-white mt-1">{partner?.name || 'Restaurant'}</h1>
         </div>
       </div>
 
-      {/* Menu Items List or Empty State */}
-      {menuItems.length === 0 ? (
-        <div className="my-12 px-4 text-center">
-          <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-3">
-            <UtensilsCrossed size={28} />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">Aucun plat disponible</h3>
-          <p className="text-xs text-slate-400 mt-1">Ce restaurant n'a pas encore ajouté de plats à son menu.</p>
+      {/* Menu List */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between py-1">
+          <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider">La Carte & Spécialités</h2>
+          <span className="text-xs font-bold text-slate-500">{menuItems.length} plats</span>
         </div>
-      ) : (
-        <div className={`px-4 pb-4 ${viewMode === 'card' ? 'grid grid-cols-1 gap-4' : 'space-y-3'}`}>
-          {menuItems.map((item) => (
-            <MenuItemCard
-              key={item.id}
-              item={item}
-              viewMode={viewMode}
-              onSelect={handleSelectItem}
-            />
-          ))}
-        </div>
-      )}
 
-      {/* INPDP & MF Compliance Badge */}
-      <div className="pt-8 pb-4 text-center space-y-1 px-4">
-        <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-400">
-          <ShieldCheck size={13} className="text-emerald-600/80" />
-          <span>Facturation conforme au modèle INPDP & MF Tunisie</span>
-        </div>
-        <p className="text-[9px] text-slate-400/80 font-medium">
-          Tarifs affichés en Dinars Tunisiens (TND) • TVA Incluse
-        </p>
+        {menuItems.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 p-6">
+            <p className="text-sm font-bold text-slate-700">Aucun plat disponible pour le moment</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {menuItems.map((item) => (
+              <MenuItemCard
+                key={item.id}
+                item={item}
+                viewMode="row"
+                onSelect={handleSelectItem}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Floating Cart Button */}
-      {items.length > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-slate-900 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl z-40">
-          <div className="flex items-center gap-2">
-            <span className="bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-1 rounded-lg">
-              {items.reduce((acc, i) => acc + i.quantity, 0)}
-            </span>
-            <span className="text-sm font-bold">{subtotal.toFixed(3)} DT</span>
-          </div>
+      {getTotalItems() > 0 && (
+        <div className="fixed bottom-4 left-0 right-0 max-w-md mx-auto px-4 z-40">
           <button
-            onClick={() => setIsCartOpen(true)}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl transition-all"
+            onClick={() => navigate('/checkout')}
+            className="w-full bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl flex items-center justify-between hover:bg-slate-800 transition-all"
           >
-            Voir le Panier
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-amber-500 text-slate-950 font-black rounded-lg flex items-center justify-center text-xs">
+                {getTotalItems()}
+              </div>
+              <span className="text-xs font-black">Voir le panier</span>
+            </div>
+            <span className="text-xs font-black text-amber-400">{getSubtotal().toFixed(3)} DT</span>
           </button>
         </div>
       )}
-
-      {/* SlideOver Cart Sheet */}
-      <SlideOverCartSheet
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={items.map(i => ({ id: i.id, name: i.name_fr || i.name, price: i.price, quantity: i.quantity }))}
-        subtotal={subtotal}
-        deliveryFee={deliveryFee}
-        grandTotal={grandTotal}
-        onCheckout={() => {
-          setIsCartOpen(false);
-          navigate('/checkout');
-        }}
-      />
     </div>
   );
 };
