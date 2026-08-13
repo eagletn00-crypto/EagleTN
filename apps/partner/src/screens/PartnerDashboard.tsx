@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import type { OrderStatus } from '@eagle/database';
 import { LayoutGrid, UtensilsCrossed, Store, Settings, Camera, Loader2, Edit3, Check, X, Flame, Star, Search, Wallet, FileText, Upload, Plus, Image as ImageIcon } from 'lucide-react';
 
 interface MenuItem {
@@ -19,13 +20,13 @@ interface OrderFacture {
   date: string;
   customer: string;
   total_gross: number;
-  status: 'DELIVERED' | 'PENDING' | 'CANCELLED';
+  status: OrderStatus;
 }
 
 const INITIAL_ORDERS: OrderFacture[] = [
-  { id: 'ord-101', order_code: 'EAG-9821', date: '2026-08-02 19:40', customer: 'Sami K.', total_gross: 45.000, status: 'DELIVERED' },
-  { id: 'ord-102', order_code: 'EAG-9825', date: '2026-08-02 20:15', customer: 'Yassine M.', total_gross: 28.500, status: 'DELIVERED' },
-  { id: 'ord-103', order_code: 'EAG-9830', date: '2026-08-02 20:30', customer: 'Amel B.', total_gross: 62.000, status: 'DELIVERED' },
+  { id: 'ord-101', order_code: 'EAG-9821', date: '2026-08-02 19:40', customer: 'Sami K.', total_gross: 45.000, status: 'delivered' },
+  { id: 'ord-102', order_code: 'EAG-9825', date: '2026-08-02 20:15', customer: 'Yassine M.', total_gross: 28.500, status: 'delivered' },
+  { id: 'ord-103', order_code: 'EAG-9830', date: '2026-08-02 20:30', customer: 'Amel B.', total_gross: 62.000, status: 'delivered' },
 ];
 
 const INITIAL_31_ITEMS: MenuItem[] = [

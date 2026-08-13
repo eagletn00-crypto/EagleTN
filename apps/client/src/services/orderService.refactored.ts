@@ -520,4 +520,3 @@ export class OrderService {
 export function createOrderService(supabase: SupabaseClient): OrderService {
   return new OrderService(supabase);
 }
-

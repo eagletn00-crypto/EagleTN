@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@eagle/database';
+import type { OrderStatus } from '@eagle/database';
+import { normalizeOrderStatus } from '@eagle/database';
 import { DeliveryOrder } from '../types/order';
 
 const CACHE_KEY_ORDERS = 'eagle_livreur_orders_cache';
@@ -110,12 +112,12 @@ export function useLivreurOrders() {
           lng: item.delivery_longitude || 10.1597,
           order_value: item.total_ttc || 0,
           delivery_fee: item.delivery_fee || 2.5,
-          status: item.status || 'PENDING',
+          status: normalizeOrderStatus(item.status),
         }));
 
         setOrders(mappedOrders);
 
-        const delivered = mappedOrders.filter(o => o.status === 'DELIVERED');
+        const delivered = mappedOrders.filter(o => o.status === 'delivered');
         const totalCash = delivered.reduce((acc, curr) => acc + (curr.order_value || 0), 0);
         const totalProfit = delivered.reduce((acc, curr) => acc + (curr.delivery_fee || 0), 0);
 
@@ -147,39 +149,51 @@ export function useLivreurOrders() {
   };
 
   const handleStartTrip = async (id: string) => {
-    // تحديث تفاؤلي سريع في الواجهة (Optimistic UI Update)
+    // Optimistic UI Update with canonical status
     setOrders(prev => {
-      const updated = prev.map(ord => ord.id === id ? { ...ord, status: 'EN_ROUTE' } : ord);
+      const updated = prev.map(ord => ord.id === id ? { ...ord, status: 'on_the_way' } : ord);
       localStorage.setItem(CACHE_KEY_ORDERS, JSON.stringify(updated));
       return updated;
     });
 
-    await supabase
-      .from('orders')
-      .update({ status: 'EN_ROUTE', updated_at: new Date().toISOString() })
-      .eq('id', id);
+    try {
+      await supabase.rpc('update_order_status', {
+        p_order_id: id,
+        p_new_status: 'on_the_way',
+        p_note: 'Driver picked up order and en route',
+      });
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      // Revert optimistic update on error
+      setOrders(prev => prev.filter(o => o.id !== id));
+    }
   };
 
   const handleFinalizeDelivery = async () => {
     if (!confirmOrder) return;
 
     const targetId = confirmOrder.id;
+    
+    // Optimistic UI Update with canonical status
     setOrders(prev => {
-      const updated = prev.map(ord => ord.id === targetId ? { ...ord, status: 'DELIVERED' } : ord);
+      const updated = prev.map(ord => ord.id === targetId ? { ...ord, status: 'delivered' } : ord);
       localStorage.setItem(CACHE_KEY_ORDERS, JSON.stringify(updated));
       return updated;
     });
 
     setConfirmOrder(null);
 
-    await supabase
-      .from('orders')
-      .update({ 
-        status: 'DELIVERED', 
-        payment_status: 'PAID',
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', targetId);
+    try {
+      await supabase.rpc('update_order_status', {
+        p_order_id: targetId,
+        p_new_status: 'delivered',
+        p_note: 'Order delivered to customer',
+      });
+    } catch (err) {
+      console.error('Error finalizing delivery:', err);
+      // Revert optimistic update on error
+      setOrders(prev => prev.filter(o => o.id !== targetId));
+    }
   };
 
   const handleReportIssue = async (reason: string) => {
@@ -188,7 +202,7 @@ export function useLivreurOrders() {
     setIssueOrder(null);
   };
 
-  const activeOrders = orders.filter(o => o.status !== 'DELIVERED');
+  const activeOrders = orders.filter(o => o.status !== 'delivered');
 
   return {
     isOnline,

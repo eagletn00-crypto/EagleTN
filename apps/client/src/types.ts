@@ -63,11 +63,6 @@ export interface CartItem {
   price: number;
 }
 
-export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
-
-export interface Order {
-  id: string;
-  status: OrderStatus;
-  items: CartItem[];
-  totalAmount: number;
-}
+// Import canonical types from shared database package
+export type { OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@eagle/database';
+export type { Order, OrderItem, OrderStatusHistory, Profile } from '@eagle/database';
