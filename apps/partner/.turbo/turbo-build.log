@@ -1,0 +1,68 @@
+
+> @eagle/partner@1.0.0 build /data/data/com.termux/files/home/The-Eagletn/apps/partner
+> tsc && vite build
+
+Version 5.9.3
+tsc: The TypeScript Compiler - Version 5.9.3          [48;5;68m     [39;49m
+                                                      [48;5;68m[97m  TS [39m[39;49m
+[1mCOMMON COMMANDS[22m
+
+  [94mtsc[39m
+  Compiles the current project (tsconfig.json in the working directory.)
+
+  [94mtsc app.ts util.ts[39m
+  Ignoring tsconfig.json, compiles the specified files with default compiler options.
+
+  [94mtsc -b[39m
+  Build a composite project in the working directory.
+
+  [94mtsc --init[39m
+  Creates a tsconfig.json with the recommended settings in the working directory.
+
+  [94mtsc -p ./path/to/tsconfig.json[39m
+  Compiles the TypeScript project located at the specified path.
+
+  [94mtsc --help --all[39m
+  An expanded version of this information, showing all possible compiler options
+
+  [94mtsc --noEmit[39m
+  [94mtsc --target esnext[39m
+  Compiles the current project, with additional settings.
+
+[1mCOMMAND LINE FLAGS[22m
+
+[94m--help, -h[39m
+Print this message.
+
+[94m--watch, -w[39m
+Watch input files.
+
+[94m--all[39m
+Show all compiler options.
+
+[94m--version, -v[39m
+Print the compiler's version.
+
+[94m--init[39m
+Initializes a TypeScript project and creates a tsconfig.json file.
+
+[94m--project, -p[39m
+Compile the project given the path to its configuration file, or to a folder with a 'tsconfig.json'.
+
+[94m--showConfig[39m
+Print the final configuration instead of building.
+
+[94m--build, -b[39m
+Build one or more projects and their dependencies, if out of date
+
+[1mCOMMON COMPILER OPTIONS[22m
+
+[94m--pretty[39m
+Enable color and formatting in TypeScript's output to make compiler errors easier to read.
+type: boolean
+default: true
+
+[94m--declaration, -d[39m
+Generate .d.ts files from TypeScript and JavaScript files in your project.
+type: boolean
+default: `false`, unless `composite` is set

@@ -1,119 +1,80 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { useParams } from 'react-router-dom';
 
-// دالة للتحقق مما إذا كان النص عبارة عن UUID صالح
-function isValidUUID(uuidStr?: string) {
-  if (!uuidStr) return false;
-  const regexExp = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[0-89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return regexExp.test(uuidStr);
-}
-
-export function useRestaurantMenu(partnerId?: string) {
-  const [menuItems, setMenuItems] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+export function useRestaurantMenu() {
+  const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [restaurant, setRestaurant] = useState<any>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchMenu() {
+    let isMounted = true;
+    
+    async function fetchMenuData() {
       try {
         setLoading(true);
-        setError(null);
+        const mockRestaurant = {
+          id: id || '1',
+          name: 'Chez Am Ali',
+          name_ar: 'عند عم علي',
+          image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop'
+        };
 
-        let targetUuid = partnerId;
-
-        // إذا كان partnerId ممرر ولكن ليس صيغة UUID (مثل "am-ali")
-        if (partnerId && !isValidUUID(partnerId)) {
-          // جلب الـ UUID الحقيقي من جدول الشركاء عبر الـ slug أو الـ id
-          const { data: partnerData } = await supabase
-            .from('partners')
-            .select('id')
-            .or(`slug.eq.${partnerId},id.eq.${partnerId}`)
-            .maybeSingle();
-
-          if (partnerData?.id && isValidUUID(partnerData.id)) {
-            targetUuid = partnerData.id;
-          } else {
-            // إذا لم نجد الشريك بهذا الاسم، نلغي الفلترة لتجنب الخطأ
-            targetUuid = undefined;
-          }
-        }
-
-        // 1. Fetch Categories
-        const { data: catData, error: catError } = await supabase
-          .from('categories')
-          .select('*');
-
-        if (catError) throw catError;
-
-        // 2. Fetch Menu Items
-        let query = supabase.from('menu_items').select('*');
-        if (targetUuid && isValidUUID(targetUuid)) {
-          query = query.eq('partner_id', targetUuid);
-        }
-
-        const { data: itemsData, error: itemsError } = await query;
-        if (itemsError) throw itemsError;
-
-        const fetchedItems = itemsData || [];
-
-        // حساب عدد الأطباق لكل تصنيف
-        const categoryMap: { [key: string]: number } = {};
-        fetchedItems.forEach((item) => {
-          if (item.category_id) {
-            categoryMap[item.category_id] = (categoryMap[item.category_id] || 0) + 1;
-          }
-        });
-
-        // تشكيل قائمة التصنيفات
-        const formattedCategories = [
-          { id: 'all', name: 'Tous', count: fetchedItems.length },
-          ...(catData || []).map((cat) => ({
-            id: cat.id,
-            name: cat.name_fr || cat.name_ar || cat.title || 'Catégorie',
-            count: categoryMap[cat.id] || 0,
-          })),
+        const mockCategories = [
+          { category_id: '1', category_name_fr: 'PLATS', label: 'Plats' },
+          { category_id: '2', category_name_fr: 'SANDWICHS', label: 'Sandwichs' },
+          { category_id: '3', category_name_fr: 'BOISSONS', label: 'Boissons' }
         ];
 
-        setCategories(formattedCategories);
+        const mockItems = [
+          {
+            item_id: '101',
+            category_id: '1',
+            item_name_fr: 'Pâtes Poulet',
+            item_name_ar: 'مقرونة دجاج',
+            description_fr: 'Pâtes tunisiennes à la sauce tomate épicée et morceau de poulet.',
+            base_price: 10.000,
+            image_url: ''
+          },
+          {
+            item_id: '102',
+            category_id: '1',
+            item_name_fr: 'Ojja Crevettes',
+            item_name_ar: 'عجة شفرات',
+            description_fr: 'Ojja tunisienne aux crevettes fraîches, œufs et sauce tomate.',
+            base_price: 14.000,
+            image_url: ''
+          },
+          {
+            item_id: '103',
+            category_id: '3',
+            item_name_fr: 'Eau Minérale 1.5L',
+            item_name_ar: 'ماء كبير',
+            description_fr: 'Boisson rafraîchissante.',
+            base_price: 1.500,
+            image_url: ''
+          }
+        ];
 
-        // الفلترة حسب التصنيف والبحث
-        let filtered = fetchedItems;
-        if (selectedCategoryId !== 'all') {
-          filtered = filtered.filter((i) => i.category_id === selectedCategoryId);
+        if (isMounted) {
+          setRestaurant(mockRestaurant);
+          setCategories(mockCategories);
+          setMenuItems(mockItems);
         }
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          filtered = filtered.filter(
-            (i) =>
-              (i.name_fr && i.name_fr.toLowerCase().includes(q)) ||
-              (i.name && i.name.toLowerCase().includes(q)) ||
-              (i.name_ar && i.name_ar.includes(q))
-          );
-        }
-
-        setMenuItems(filtered);
-      } catch (err: any) {
-        console.error('Error fetching menu:', err);
-        setError(err.message || 'Impossible de charger le menu');
+      } catch (err) {
+        console.error("Error loading menu:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
-    fetchMenu();
-  }, [partnerId, selectedCategoryId, searchQuery]);
+    fetchMenuData();
 
-  return {
-    menuItems,
-    categories,
-    selectedCategoryId,
-    setSelectedCategoryId,
-    searchQuery,
-    setSearchQuery,
-    loading,
-    error,
-  };
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  return { restaurant, categories, menuItems, loading };
 }

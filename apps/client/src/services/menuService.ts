@@ -1,80 +1,56 @@
 import { supabase } from '../lib/supabase';
+import { Category, MenuItemWithCategory } from '../types';
 
-export interface MenuItem {
-  id: string;
-  partner_id: string;
-  category_id: string;
-  name: string;
-  name_fr: string;
-  name_ar: string;
-  description_fr: string | null;
-  description_ar: string | null;
-  price: number;
-  img: string | null;
-  badge: string | null;
-  is_popular: boolean;
-  is_spicy: boolean;
-}
-
-export interface CategoryWithItems {
-  id: string;
-  code: string;
-  name_fr: string;
-  name_ar: string;
-  sort_order: number;
-  menu_items: MenuItem[];
-}
-
-export interface Partner {
-  id: string;
-  name: string;
-  name_ar?: string;
-  rating?: number;
-  reviews_count?: number;
-  opening_hours?: string;
-  address?: string;
-  cover_url?: string;
-  is_open?: boolean;
-}
-
-export const fetchPartnerDetails = async (partnerId: string | null): Promise<Partner | null> => {
-  let query = supabase.from('partners').select('*');
-  
-  if (partnerId) {
-    query = query.eq('id', partnerId);
-  } else {
-    query = query.limit(1);
-  }
-
-  const { data, error } = await query.maybeSingle();
-  if (error) {
-    console.error('Error fetching partner:', error);
-    return null;
-  }
-  return data;
-};
-
-export const fetchStructuredMenu = async (partnerId?: string): Promise<CategoryWithItems[]> => {
-  // جلب جميع التصنيفات وكافة الـ 31 وجبة بدون تقييد صارم بالـ partner_id المفقود
-  const [catRes, itemsRes] = await Promise.all([
-    supabase
+export const menuService = {
+  /**
+   * جلب كافة التصنيفات المتاحة
+   */
+  async getCategories(): Promise<Category[]> {
+    const { data, error } = await supabase
       .from('categories')
-      .select('*')
-      .order('sort_order', { ascending: true }),
-    supabase
+      .select('id, name_fr')
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching categories:', error);
+      throw error;
+    }
+
+    return (data || []).map((cat) => ({
+      id: cat.id,
+      nameFr: cat.name_fr,
+    }));
+  },
+
+  /**
+   * جلب كافة الأطباق مع إمكانية التصفية بحسب التصنيف
+   */
+  async getMenuItems(categoryId?: string): Promise<MenuItemWithCategory[]> {
+    let query = supabase
       .from('menu_items')
-      .select('*')
-      .range(0, 999)
-  ]);
+      .select('id, category_id, name_ar, name_fr, description_ar, description_fr, price, img_url, is_available')
+      .eq('is_available', true);
 
-  if (catRes.error) throw catRes.error;
-  if (itemsRes.error) throw itemsRes.error;
+    if (categoryId && categoryId !== 'all') {
+      query = query.eq('category_id', categoryId);
+    }
 
-  const categories = catRes.data || [];
-  const items = itemsRes.data || [];
+    const { data, error } = await query.order('created_at', { ascending: false });
 
-  return categories.map((cat) => ({
-    ...cat,
-    menu_items: items.filter((item) => item.category_id === cat.id)
-  }));
+    if (error) {
+      console.error('Error fetching menu items:', error);
+      throw error;
+    }
+
+    return (data || []).map((item) => ({
+      id: item.id,
+      categoryId: item.category_id,
+      nameAr: item.name_ar,
+      nameFr: item.name_fr,
+      descriptionAr: item.description_ar,
+      descriptionFr: item.description_fr,
+      price: Number(item.price),
+      imgUrl: item.img_url,
+    }));
+  },
 };

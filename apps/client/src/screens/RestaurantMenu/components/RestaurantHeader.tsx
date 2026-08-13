@@ -1,81 +1,97 @@
-import React from 'react';
-import { ArrowLeft, Star, Heart, Search, Clock, MapPin } from 'lucide-react';
+import React, { useState } from 'react';
+import { RestaurantPartner } from '../types';
 
 interface RestaurantHeaderProps {
-  name: string;
-  rating: number;
-  reviewCount: number;
-  deliveryTime: string;
-  coverImage: string;
-  onBack: () => void;
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
+  restaurant: RestaurantPartner | null;
+  onBack?: () => void;
 }
 
-export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({
-  name,
-  rating,
-  reviewCount,
-  deliveryTime,
-  coverImage,
-  onBack,
-  searchQuery,
-  onSearchChange,
-}) => {
-  return (
-    <div className="relative font-sans antialiased">
-      {/* Cover Image & Overlay */}
-      <div className="relative h-48 w-full overflow-hidden">
-        <img src={coverImage} alt={name} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent" />
+export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({ restaurant, onBack }) => {
+  const [showRatingTooltip, setShowRatingTooltip] = useState(false);
 
-        {/* Top Floating Controls */}
-        <div className="absolute top-4 inset-x-4 flex items-center justify-between z-10">
+  const name = restaurant?.name_fr || restaurant?.name || 'Chez Am Ali';
+  const tagLine = restaurant?.name_ar || 'البنة التونسية الأصيلة';
+  const coverUrl = restaurant?.cover_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&q=80';
+
+  return (
+    <div className="relative w-full bg-[#faf8f5]">
+      {/* 1. الغلاف الذكي المحرر عمودياً */}
+      <div className="relative h-60 w-full overflow-hidden">
+        <img src={coverUrl} alt={name} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+
+        {/* أعلى اليسار: زر العودة الزجاجي */}
+        <div className="absolute top-4 left-4 z-10">
           <button
             onClick={onBack}
-            className="w-9 h-9 rounded-xl bg-white/80 backdrop-blur-md text-slate-900 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/20 text-white font-bold text-xs border border-white/20 shadow-md active:scale-95 transition-transform"
           >
-            <ArrowLeft size={18} />
-          </button>
-          <button className="w-9 h-9 rounded-xl bg-white/80 backdrop-blur-md text-rose-500 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <Heart size={18} className="fill-rose-500" />
+            <span>←</span>
+            <span>Accueil</span>
           </button>
         </div>
 
-        {/* Restaurant Badge Info overlay */}
-        <div className="absolute bottom-3 left-4 right-4 text-white space-y-1">
+        {/* أعلى اليمين: زر التقييم والـ Tooltip المنبثق للمصداقية */}
+        <div className="absolute top-4 right-4 z-20">
+          <button
+            onClick={() => setShowRatingTooltip(!showRatingTooltip)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/20 text-white border border-white/20 shadow-md text-xs font-black active:scale-95 transition-transform"
+          >
+            <span className="text-rose-500">❤️</span>
+            <span>{restaurant?.rating || '4.9'}</span>
+            <span className="text-white/70 font-normal text-[10px]">(120+)</span>
+          </button>
+
+          {/* 4. التفصيلة الخفية: Tooltip التقييم والمصداقية */}
+          {showRatingTooltip && (
+            <div className="absolute right-0 mt-2 w-56 p-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/80 rounded-2xl shadow-2xl text-white text-xs z-30 animate-in fade-in zoom-in-95 duration-150">
+              <div className="font-bold text-emerald-400 mb-1 flex items-center justify-between">
+                <span>Avis Clients</span>
+                <span className="text-[10px] text-zinc-400">En direct</span>
+              </div>
+              <div className="space-y-1.5 text-[11px] text-zinc-200">
+                <div className="flex items-center gap-1.5">
+                  <span>👍</span>
+                  <span className="font-semibold text-emerald-300">95%</span>
+                  <span className="text-zinc-400">Gout & Propreté</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span>👎</span>
+                  <span className="font-semibold text-rose-400">5%</span>
+                  <span className="text-zinc-400">Retard aux heures de pointe</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* أسفل الغلاف: دمج المعلومات الهندسية واسم المطعم بالأخضر الزمردي */}
+        <div className="absolute bottom-3 left-4 right-4 z-10 flex flex-col justify-end gap-1">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-black tracking-tight">{name}</h1>
-            <span className="bg-emerald-500/90 backdrop-blur-md text-white text-[10px] font-extrabold px-2 py-0.5 rounded-lg">
-              OUVERT
-            </span>
+            {/* 2. اسم المطعم بالأخضر التونسي الحيوي */}
+            <h1 className="text-2xl font-black text-emerald-400 tracking-wide drop-shadow-md">
+              {name}
+            </h1>
+
+            {/* حالة المطعم */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold text-[10px]">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Ouvert</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-slate-200 font-medium">
-            <span className="flex items-center gap-1 font-bold text-amber-400">
-              <Star size={13} className="fill-amber-400" /> {rating} ({reviewCount})
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Clock size={12} /> {deliveryTime}
-            </span>
+          {/* 1. التحرير العمودي: دمج شريط المعلومات في السطر الأخير من الـ Cover */}
+          <div className="flex items-center gap-2 text-[11px] font-medium text-white/90 drop-shadow">
+            <span>🛵 {restaurant?.delivery_fee ? `${Number(restaurant.delivery_fee).toFixed(3)}` : '2.500'} DT</span>
+            <span className="text-white/40">•</span>
+            <span>🕒 11:00 - 22:00</span>
+            <span className="text-white/40">•</span>
+            <span className="truncate">📍 Cité Khaldoun</span>
           </div>
-        </div>
-      </div>
-
-      {/* Floating Glass Search Input */}
-      <div className="p-4 -mt-3 relative z-20">
-        <div className="relative bg-white/85 backdrop-blur-md border border-white/90 rounded-2xl shadow-md overflow-hidden">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Rechercher un plat, boisson... / ابحث عن طبق"
-            className="w-full pl-10 pr-4 py-3 text-xs font-semibold text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none"
-          />
         </div>
       </div>
     </div>
   );
 };
+
+export default RestaurantHeader;

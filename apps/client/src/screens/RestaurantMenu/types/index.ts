@@ -1,6 +1,5 @@
 export interface MenuItem {
   id: string;
-  partner_id: string;
   category_id?: string;
   name: string;
   name_ar?: string;
@@ -9,16 +8,32 @@ export interface MenuItem {
   description_ar?: string;
   description_fr?: string;
   price: number;
+  image_url?: string;
   img?: string;
-  is_available: boolean;
   badge?: string;
   is_popular?: boolean;
   is_spicy?: boolean;
-  display_type?: 'hero' | 'standard' | 'compact';
+  is_epice?: boolean;
+  is_available?: boolean;
 }
 
 export interface Category {
   id: string;
   name: string;
-  count?: number;
+  name_ar?: string;
+  name_fr?: string;
+  icon?: string;
+}
+
+export interface RestaurantPartner {
+  id: string;
+  name: string;
+  name_ar?: string;
+  name_fr?: string;
+  cover_url?: string;
+  logo_url?: string;
+  rating?: number;
+  delivery_time?: string;
+  delivery_fee?: number;
+  is_open?: boolean;
 }

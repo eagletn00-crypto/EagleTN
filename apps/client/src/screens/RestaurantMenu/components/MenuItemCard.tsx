@@ -1,189 +1,126 @@
-import React, { useState } from 'react';
-import { Plus, X, Check } from 'lucide-react';
-
-export interface MenuItem {
-  id: string;
-  name_fr: string;
-  description_fr?: string;
-  price: number;
-  image_url?: string;
-  is_popular?: boolean;
-}
+import React from 'react';
 
 interface MenuItemCardProps {
-  item: MenuItem;
-  viewMode: 'row' | 'card';
-  onSelect: (item: MenuItem, selectedOptions?: any) => void;
+  item: {
+    id: string;
+    name?: string;
+    name_fr?: string;
+    description?: string;
+    description_fr?: string;
+    price: number;
+    img?: string;
+    image_url?: string;
+    badge?: string;
+    is_popular?: boolean;
+    is_spicy?: boolean;
+  };
+  count: number;
+  onAdd: () => void;
+  onRemove: () => void;
+  onOpenDetails: () => void;
 }
 
-export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, viewMode, onSelect }) => {
-  const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
-  const [portion, setPortion] = useState<'plat' | 'sandwich'>('plat');
-  const [drink, setDrink] = useState<string>('none');
-  const [quantity, setQuantity] = useState(1);
+export const MenuItemCard: React.FC<MenuItemCardProps> = ({
+  item,
+  count,
+  onAdd,
+  onRemove,
+  onOpenDetails,
+}) => {
+  const displayName = item.name_fr || item.name || 'Produit';
+  const displayDescription = item.description_fr || item.description || 'Ingrédients frais préparés selon la recette.';
+  const imageSrc = item.img || item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80';
 
-  const handleAddToCart = () => {
-    onSelect(item, { portion, drink, quantity });
-    setIsOptionModalOpen(false);
+  const triggerHaptic = () => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(12); } catch (e) {}
+    }
+  };
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    triggerHaptic();
+    onAdd();
+  };
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    triggerHaptic();
+    onRemove();
   };
 
   return (
-    <>
-      {/* UK-Grade Clean Card */}
-      <div 
-        onClick={() => setIsOptionModalOpen(true)}
-        className="group bg-white rounded-2xl p-3.5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all cursor-pointer flex items-center gap-4"
-      >
-        {item.image_url && (
-          <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100">
-            <img 
-              src={item.image_url} 
-              alt={item.name_fr} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            {item.is_popular && (
-              <span className="absolute top-1.5 left-1.5 bg-slate-900/80 backdrop-blur-md text-amber-400 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
-                ★ Popular
-              </span>
-            )}
+    <div
+      onClick={onOpenDetails}
+      className="group relative bg-white rounded-2xl border border-zinc-100/60 shadow-sm shadow-zinc-200/50 flex flex-col justify-between cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md active:scale-[0.99] w-full h-full"
+    >
+      <div className="relative w-full h-36 overflow-hidden bg-zinc-100">
+        <img
+          src={imageSrc}
+          alt={displayName}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80';
+          }}
+        />
+
+        {(item.is_popular || item.badge) && (
+          <div className="absolute top-2 left-2 backdrop-blur-md bg-amber-500/20 text-amber-800 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full z-10">
+            {item.badge || 'POPULAIRE'}
           </div>
         )}
-
-        <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 truncate tracking-tight">{item.name_fr}</h3>
-            {item.description_fr && (
-              <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed font-normal">
-                {item.description_fr}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between mt-2 pt-1">
-            <span className="text-sm font-black text-slate-900">{item.price.toFixed(3)} <span className="text-[10px] text-slate-400 font-bold">DT</span></span>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOptionModalOpen(true);
-              }}
-              className="w-8 h-8 rounded-xl bg-slate-900 hover:bg-amber-500 text-white hover:text-slate-950 flex items-center justify-center transition-all shadow-sm"
-            >
-              <Plus size={16} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
       </div>
 
-      {/* Modern Ultra-Clean UK Bottom Sheet for Options */}
-      {isOptionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
-          <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-3xl max-h-[90vh] overflow-y-auto shadow-2xl p-5 space-y-5">
-            
-            {/* Header with Image */}
-            <div className="relative -mx-5 -mt-5 mb-2 h-44 overflow-hidden rounded-t-[32px] bg-slate-100">
-              {item.image_url ? (
-                <img src={item.image_url} alt={item.name_fr} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-slate-900 flex items-center justify-center text-amber-500 font-bold text-sm">Eagle TN</div>
-              )}
-              <button 
-                onClick={() => setIsOptionModalOpen(false)}
-                className="absolute top-3 right-3 w-8 h-8 bg-slate-900/60 backdrop-blur-md text-white rounded-full flex items-center justify-center hover:bg-slate-900 transition-all"
+      <div className="p-3 space-y-1 flex flex-col justify-between flex-1">
+        <div className="space-y-1">
+          <h3 className="text-xs font-bold text-zinc-950 line-clamp-2 min-h-[2rem] leading-snug">
+            {displayName}
+          </h3>
+          <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed">
+            {displayDescription}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 mt-auto">
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-sm font-black text-zinc-900">
+              {Number(item.price).toFixed(3)}
+            </span>
+            <span className="text-[9px] font-bold text-zinc-400">DT</span>
+          </div>
+
+          {/* 2. زر الإضافة بالأخضر الزمردي المحفز سيكولوجياً */}
+          <div className="w-[84px] h-8 flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+            {count === 0 ? (
+              <button
+                onClick={handleAdd}
+                className="w-8 h-8 rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-900/20 transition-all duration-200 flex items-center justify-center active:scale-90 hover:bg-emerald-500"
               >
-                <X size={16} />
+                <span className="text-base font-bold leading-none">+</span>
               </button>
-            </div>
-
-            <div>
-              <h2 className="text-base font-black text-slate-900">{item.name_fr}</h2>
-              <p className="text-xs font-bold text-amber-600 mt-0.5">{item.price.toFixed(3)} DT</p>
-              {item.description_fr && (
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.description_fr}</p>
-              )}
-            </div>
-
-            {/* Portion Selection */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Format / Portion</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'plat', label: 'Plat' },
-                  { id: 'sandwich', label: 'Sandwich' }
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setPortion(opt.id as any)}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
-                      portion === opt.id
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span>{opt.label}</span>
-                    {portion === opt.id && <Check size={14} className="text-amber-400" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Drinks Options */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Boisson (Optionnel)</label>
-              <div className="space-y-1.5">
-                {[
-                  { id: 'none', label: 'Sans boisson', price: 0 },
-                  { id: 'soda', label: 'Soda Local (Gazouz)', price: 1.5 },
-                  { id: 'water', label: 'Eau Minérale', price: 1.0 }
-                ].map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setDrink(d.id)}
-                    className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
-                      drink === d.id
-                        ? 'border-amber-500/50 bg-amber-500/10 text-slate-900'
-                        : 'border-slate-100 bg-slate-50/60 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span>{d.label}</span>
-                    <span className="text-slate-500 font-semibold">{d.price > 0 ? `+${d.price.toFixed(3)} DT` : 'Gratuit'}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quantity & Add Action */}
-            <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
-              <div className="flex items-center bg-slate-100 rounded-xl p-1">
-                <button 
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-8 h-8 rounded-lg bg-white shadow-sm font-black text-slate-800 flex items-center justify-center"
+            ) : (
+              <div className="w-full h-full flex items-center justify-between bg-zinc-900 text-white rounded-full p-1 shadow-md">
+                <button
+                  onClick={handleRemove}
+                  className="w-6 h-6 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-xs active:scale-90"
                 >
                   -
                 </button>
-                <span className="w-8 text-center text-xs font-black text-slate-900">{quantity}</span>
-                <button 
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-8 h-8 rounded-lg bg-white shadow-sm font-black text-slate-800 flex items-center justify-center"
+                <span className="text-xs font-bold min-w-[14px] text-center">
+                  {count}
+                </span>
+                <button
+                  onClick={handleAdd}
+                  className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs active:scale-90"
                 >
                   +
                 </button>
               </div>
-
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-3.5 rounded-xl shadow-xl flex items-center justify-between px-4 transition-all"
-              >
-                <span>Ajouter au panier</span>
-                <span className="text-amber-400">{(item.price * quantity).toFixed(3)} DT</span>
-              </button>
-            </div>
-
+            )}
           </div>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 };
 

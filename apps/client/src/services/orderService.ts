@@ -1,52 +1,69 @@
 import { supabase } from '../lib/supabase';
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { Order, OrderStatus, CartItem, DeliveryAddress } from '../types';
 
-export interface OrderPayload {
+export interface CreateOrderPayload {
   partner_id: string;
-  items: unknown[];
+  client_id: string;
+  items: CartItem[];
+  subtotal: number;
+  delivery_fee: number;
   total_amount: number;
-  delivery_address?: string;
-  notes?: string;
+  address: string;
+  delivery_address: DeliveryAddress;
 }
 
 export const orderService = {
-  async createOrder(orderData: OrderPayload) {
-    const { data, error } = await supabase
-      .from('orders')
+  async createOrder(payload: CreateOrderPayload): Promise<Order> {
+    const orderData = {
+      partner_id: payload.partner_id,
+      client_id: payload.client_id,
+      subtotal: payload.subtotal,
+      delivery_fee: payload.delivery_fee,
+      total_amount: payload.total_amount,
+      address: payload.address,
+      delivery_address: payload.delivery_address,
+      delivery_latitude: payload.delivery_address.latitude || null,
+      delivery_longitude: payload.delivery_address.longitude || null,
+      status: 'PENDING'
+    };
+
+    const { data, error } = await (supabase.from('orders') as any)
       .insert([orderData])
       .select()
       .single();
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data as Order;
   },
 
-  async getOrderById(orderId: string) {
+  async getOrderById(orderId: string): Promise<Order | null> {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select('*')
       .eq('id', orderId)
       .single();
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data as Order;
   },
 
-  subscribeToOrderStatus(orderId: string, callback: (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void) {
-    return supabase
-      .channel(`order-status-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          callback(payload);
-        }
-      )
-      .subscribe();
-  },
+  async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
+    const { data, error } = await (supabase.from('orders') as any)
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data as Order;
+  }
 };

@@ -1,103 +1,82 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-
-export interface CartOption {
-  id: string;
-  name: string;
-  price: number;
-}
+import { persist } from 'zustand/middleware';
+import { MenuItem } from '../types';
 
 export interface CartItem {
-  id: string;
-  name: string;
-  name_fr?: string;
-  price: number;
-  totalUnitPrice?: number;
+  id?: string;
+  menu_item: MenuItem;
   quantity: number;
-  partnerId?: string;
-  instructions?: string;
-  options?: CartOption[];
+  customizations: Record<string, any>;
 }
 
-interface AddItemResult {
-  success: boolean;
-  message?: string;
-}
-
-interface CartStore {
+interface CartState {
+  partnerId: string | null;
   items: CartItem[];
-  addItem: (
-    item: Omit<CartItem, 'quantity'>,
-    quantity?: number,
-    options?: CartOption[],
-    partnerId?: string
-  ) => AddItemResult;
+  addItem: (partnerId: string, item: MenuItem) => void;
   removeItem: (id: string) => void;
-  updateQuantity: (id: string, delta: number) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   getSubtotal: () => number;
 }
 
-export const useCartStore = create<CartStore>()(
+export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
+      partnerId: null,
       items: [],
-      addItem: (item, quantity = 1, options = [], partnerId) => {
-        const state = get();
-        const effectivePartnerId = partnerId || item.partnerId;
 
-        // Check if mixing items from different partners
-        if (
-          effectivePartnerId &&
-          state.items.length > 0 &&
-          state.items.some((i) => i.partnerId && i.partnerId !== effectivePartnerId)
-        ) {
-          return {
-            success: false,
-            message: 'لا يمكن دمج مطاعم مختلفة في نفس السلة',
-          };
+      addItem: (partnerId, newItem) => {
+        const currentPartnerId = get().partnerId;
+        const items = get().items;
+
+        if (currentPartnerId && currentPartnerId !== partnerId) {
+          set({
+            partnerId,
+            items: [{ id: `${newItem.id}-${Date.now()}`, menu_item: newItem, quantity: 1, customizations: {} }],
+          });
+          return;
         }
 
-        const calculatedUnitPrice =
-          item.totalUnitPrice ?? (item.price + options.reduce((sum, opt) => sum + opt.price, 0));
-        const itemId = item.id;
-        const existingIndex = state.items.findIndex((i) => i.id === itemId);
-
+        const existingIndex = items.findIndex((i) => i.menu_item.id === newItem.id);
         if (existingIndex > -1) {
-          const updatedItems = [...state.items];
-          updatedItems[existingIndex].quantity += quantity;
-          set({ items: updatedItems });
+          const updated = [...items];
+          updated[existingIndex].quantity += 1;
+          set({ partnerId, items: updated });
         } else {
           set({
-            items: [
-              ...state.items,
-              {
-                ...item,
-                partnerId: effectivePartnerId,
-                totalUnitPrice: calculatedUnitPrice,
-                quantity,
-                options,
-              },
-            ],
+            partnerId,
+            items: [...items, { id: `${newItem.id}-${Date.now()}`, menu_item: newItem, quantity: 1, customizations: {} }],
           });
         }
-
-        return { success: true };
       },
-      removeItem: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
-      updateQuantity: (id, delta) =>
-        set((state) => ({
-          items: state.items
-            .map((i) => (i.id === id ? { ...i, quantity: i.quantity + delta } : i))
-            .filter((i) => i.quantity > 0),
-        })),
-      clearCart: () => set({ items: [] }),
-      getSubtotal: () =>
-        get().items.reduce((acc, item) => acc + (item.totalUnitPrice || item.price) * item.quantity, 0),
+
+      removeItem: (id) => {
+        const updated = get().items.filter((i) => i.menu_item.id !== id && i.id !== id);
+        set({
+          items: updated,
+          partnerId: updated.length === 0 ? null : get().partnerId,
+        });
+      },
+
+      updateQuantity: (id, quantity) => {
+        if (quantity <= 0) {
+          get().removeItem(id);
+          return;
+        }
+        const updated = get().items.map((i) =>
+          i.menu_item.id === id || i.id === id ? { ...i, quantity } : i
+        );
+        set({ items: updated });
+      },
+
+      clearCart: () => set({ partnerId: null, items: [] }),
+
+      getSubtotal: () => {
+        return get().items.reduce((acc, item) => acc + item.menu_item.price * item.quantity, 0);
+      },
     }),
     {
       name: 'eagle-tn-cart',
-      storage: createJSONStorage(() => localStorage),
     }
   )
 );

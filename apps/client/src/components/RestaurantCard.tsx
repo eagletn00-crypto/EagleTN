@@ -1,42 +1,31 @@
 import React from 'react';
+import { Restaurant } from '../types/schema';
 
-export interface LocalizedName {
-  ar?: string;
-  fr?: string;
-  en?: string;
-}
-
-export interface Category {
-  id: string;
-  name: string | LocalizedName;
-  icon?: string;
-}
-
-export interface Partner {
-  id: string;
-  name: string | LocalizedName;
-  category: string;
-  image?: string;
-  rating?: number;
-  deliveryTime?: string;
-  minOrder?: number;
-}
-
-export interface RestaurantCardProps {
-  partner?: Partner;
+interface RestaurantCardProps {
+  restaurant: Restaurant;
   onClick?: () => void;
 }
 
-export const RestaurantCard: React.FC<RestaurantCardProps> = ({ partner, onClick }) => {
+export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onClick }) => {
   return (
-    <div 
+    <div
       onClick={onClick}
-      className="p-4 bg-[#001A4D]/60 rounded-xl border border-white/10 cursor-pointer hover:border-[#D4AF37] transition-all"
+      className="bg-white rounded-2xl border border-slate-100 p-3 flex gap-3 items-center cursor-pointer hover:shadow-md transition-shadow"
     >
-      <h3 className="font-bold text-lg text-white">
-        {typeof partner?.name === 'string' ? partner.name : partner?.name?.fr || 'Restaurant'}
-      </h3>
-      <p className="text-xs text-gray-400 mt-1">{partner?.category || 'General'}</p>
+      <img
+        src={restaurant.logo || restaurant.cover || 'https://via.placeholder.com/80'}
+        alt={restaurant.name}
+        className="w-16 h-16 rounded-xl object-cover bg-slate-100"
+      />
+      <div className="flex-1 min-w-0">
+        <h4 className="font-black text-slate-900 text-xs truncate">{restaurant.name}</h4>
+        <p className="text-[10px] text-slate-500 truncate mt-0.5">{restaurant.address || 'Tunisie'}</p>
+        <div className="flex items-center gap-2 mt-2">
+          <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+            ⭐ {restaurant.rating ? restaurant.rating.toFixed(1) : '5.0'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };

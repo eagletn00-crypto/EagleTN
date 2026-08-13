@@ -1,51 +1,29 @@
 import { create } from 'zustand';
-import { Partner } from '../types';
+import { Restaurant, Partner } from '../types/schema';
+import { partnerService } from '../services/partnerService';
 
-export type { Partner };
-
-interface RestaurantStore {
-  partners: Partner[];
-  activeCategoryFilter: string | null;
+interface RestaurantState {
+  restaurants: Restaurant[];
+  selectedRestaurant: Restaurant | null;
   isLoading: boolean;
   error: string | null;
-  setActiveCategory: (category: string | null) => void;
-  fetchPartners: () => void;
+  fetchRestaurants: () => Promise<void>;
+  selectRestaurant: (restaurant: Restaurant | null) => void;
 }
 
-export const useRestaurantStore = create<RestaurantStore>((set) => ({
-  partners: [
-    {
-      id: 'chez-am-ali',
-      name: 'Chez Am Ali',
-      name_fr: 'Chez Am Ali (Cité Ibn Khaldoun)',
-      rating: 4.9,
-      reviewsCount: 142,
-      time: '20-30 min',
-      fee: '2.000 DT',
-      isOpen: true,
-      isAvailable: true,
-      tag: 'ROI DU HERGMA',
-      isRoyalBadge: true,
-      image: '/eagle-bg.png'
-    },
-    {
-      id: 'plan-b',
-      name: 'Plan B Tunis',
-      name_fr: 'Plan B',
-      rating: 4.7,
-      reviewsCount: 310,
-      time: '15-25 min',
-      fee: '1.500 DT',
-      isOpen: true,
-      isAvailable: true,
-      tag: 'BAGUETTE FARCIE',
-      isRoyalBadge: false,
-      image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&q=80&w=800'
-    }
-  ],
-  activeCategoryFilter: null,
+export const useRestaurantStore = create<RestaurantState>((set) => ({
+  restaurants: [],
+  selectedRestaurant: null,
   isLoading: false,
   error: null,
-  setActiveCategory: (category) => set({ activeCategoryFilter: category }),
-  fetchPartners: () => {},
+  fetchRestaurants: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const data: Partner[] = await partnerService.getActivePartners();
+      set({ restaurants: data, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to fetch restaurants', isLoading: false });
+    }
+  },
+  selectRestaurant: (restaurant) => set({ selectedRestaurant: restaurant })
 }));
