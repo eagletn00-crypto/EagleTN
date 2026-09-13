@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@eagle/database';
-import type { OrderStatus } from '@eagle/database';
-import { normalizeOrderStatus } from '@eagle/database';
+import type { OrderStatus } from '../types/order';
+import { normalizeOrderStatus } from '../types/order';
 import { DeliveryOrder } from '../types/order';
 
 const CACHE_KEY_ORDERS = 'eagle_livreur_orders_cache';

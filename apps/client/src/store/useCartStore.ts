@@ -1,82 +1,48 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { MenuItem } from '../types';
-
-export interface CartItem {
-  id?: string;
-  menu_item: MenuItem;
-  quantity: number;
-  customizations: Record<string, any>;
-}
+import { MenuItem, OrderItem } from '../types';
 
 interface CartState {
-  partnerId: string | null;
-  items: CartItem[];
-  addItem: (partnerId: string, item: MenuItem) => void;
+  items: OrderItem[];
+  addItem: (item: MenuItem | OrderItem) => void;
+  addToCart: (item: MenuItem | OrderItem) => void;
   removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  updateQuantity: (id: string, delta: number) => void;
   clearCart: () => void;
-  getSubtotal: () => number;
 }
 
-export const useCartStore = create<CartState>()(
-  persist(
-    (set, get) => ({
-      partnerId: null,
-      items: [],
-
-      addItem: (partnerId, newItem) => {
-        const currentPartnerId = get().partnerId;
-        const items = get().items;
-
-        if (currentPartnerId && currentPartnerId !== partnerId) {
-          set({
-            partnerId,
-            items: [{ id: `${newItem.id}-${Date.now()}`, menu_item: newItem, quantity: 1, customizations: {} }],
-          });
-          return;
-        }
-
-        const existingIndex = items.findIndex((i) => i.menu_item.id === newItem.id);
-        if (existingIndex > -1) {
-          const updated = [...items];
-          updated[existingIndex].quantity += 1;
-          set({ partnerId, items: updated });
-        } else {
-          set({
-            partnerId,
-            items: [...items, { id: `${newItem.id}-${Date.now()}`, menu_item: newItem, quantity: 1, customizations: {} }],
-          });
-        }
-      },
-
-      removeItem: (id) => {
-        const updated = get().items.filter((i) => i.menu_item.id !== id && i.id !== id);
-        set({
-          items: updated,
-          partnerId: updated.length === 0 ? null : get().partnerId,
-        });
-      },
-
-      updateQuantity: (id, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(id);
-          return;
-        }
-        const updated = get().items.map((i) =>
-          i.menu_item.id === id || i.id === id ? { ...i, quantity } : i
-        );
-        set({ items: updated });
-      },
-
-      clearCart: () => set({ partnerId: null, items: [] }),
-
-      getSubtotal: () => {
-        return get().items.reduce((acc, item) => acc + item.menu_item.price * item.quantity, 0);
-      },
+export const useCartStore = create<CartState>((set) => ({
+  items: [],
+  addItem: (item) =>
+    set((state) => {
+      const existing = state.items.find((i) => i.id === item.id);
+      if (existing) {
+        return {
+          items: state.items.map((i) =>
+            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          ),
+        };
+      }
+      return { items: [...state.items, { id: item.id, name: item.name, price: item.price, quantity: 1 }] };
     }),
-    {
-      name: 'eagle-tn-cart',
-    }
-  )
-);
+  addToCart: (item) =>
+    set((state) => {
+      const existing = state.items.find((i) => i.id === item.id);
+      if (existing) {
+        return {
+          items: state.items.map((i) =>
+            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          ),
+        };
+      }
+      return { items: [...state.items, { id: item.id, name: item.name, price: item.price, quantity: 1 }] };
+    }),
+  removeItem: (id) =>
+    set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
+  updateQuantity: (id, delta) =>
+    set((state) => ({
+      items: state.items
+        .map((i) => (i.id === id ? { ...i, quantity: i.quantity + delta } : i))
+        .filter((i) => i.quantity > 0),
+    })),
+  clearCart: () => set({ items: [] }),
+}));

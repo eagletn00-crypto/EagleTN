@@ -1,97 +1,109 @@
-import React, { useState } from 'react';
-import { RestaurantPartner } from '../types';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Heart, Share2, ShieldCheck, Star, Clock, Bike } from 'lucide-react';
 
-interface RestaurantHeaderProps {
-  restaurant: RestaurantPartner | null;
+interface HeaderProps {
+  name: string;
+  nameAr?: string;
+  rating?: number;
+  reviewsCount?: number;
+  deliveryTime?: string;
+  deliveryFee?: string;
+  coverImage?: string;
+  isVerified?: boolean;
   onBack?: () => void;
 }
 
-export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({ restaurant, onBack }) => {
-  const [showRatingTooltip, setShowRatingTooltip] = useState(false);
-
-  const name = restaurant?.name_fr || restaurant?.name || 'Chez Am Ali';
-  const tagLine = restaurant?.name_ar || 'البنة التونسية الأصيلة';
-  const coverUrl = restaurant?.cover_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&q=80';
-
+export const RestaurantHeader: React.FC<HeaderProps> = ({
+  name,
+  nameAr,
+  rating = 4.9,
+  reviewsCount = 142,
+  deliveryTime = '15-25 min',
+  deliveryFee = '2.500 DT',
+  coverImage = '/placeholder-restaurant.jpg',
+  isVerified = true,
+  onBack,
+}) => {
   return (
-    <div className="relative w-full bg-[#faf8f5]">
-      {/* 1. الغلاف الذكي المحرر عمودياً */}
-      <div className="relative h-60 w-full overflow-hidden">
-        <img src={coverUrl} alt={name} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+    <div className="relative w-full bg-slate-900 text-white overflow-hidden rounded-b-[2.5rem] shadow-2xl">
+      <div className="relative h-64 w-full">
+        <img
+          src={coverImage}
+          alt={name}
+          className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/30" />
+      </div>
 
-        {/* أعلى اليسار: زر العودة الزجاجي */}
-        <div className="absolute top-4 left-4 z-10">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/20 text-white font-bold text-xs border border-white/20 shadow-md active:scale-95 transition-transform"
-          >
-            <span>←</span>
-            <span>Accueil</span>
-          </button>
-        </div>
+      <div className="absolute top-4 inset-x-4 flex items-center justify-between z-10">
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={onBack}
+          className="w-10 h-10 bg-white/20 backdrop-blur-xl border border-white/30 rounded-full flex items-center justify-center text-white shadow-lg"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </motion.button>
 
-        {/* أعلى اليمين: زر التقييم والـ Tooltip المنبثق للمصداقية */}
-        <div className="absolute top-4 right-4 z-20">
-          <button
-            onClick={() => setShowRatingTooltip(!showRatingTooltip)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/20 text-white border border-white/20 shadow-md text-xs font-black active:scale-95 transition-transform"
-          >
-            <span className="text-rose-500">❤️</span>
-            <span>{restaurant?.rating || '4.9'}</span>
-            <span className="text-white/70 font-normal text-[10px]">(120+)</span>
-          </button>
-
-          {/* 4. التفصيلة الخفية: Tooltip التقييم والمصداقية */}
-          {showRatingTooltip && (
-            <div className="absolute right-0 mt-2 w-56 p-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/80 rounded-2xl shadow-2xl text-white text-xs z-30 animate-in fade-in zoom-in-95 duration-150">
-              <div className="font-bold text-emerald-400 mb-1 flex items-center justify-between">
-                <span>Avis Clients</span>
-                <span className="text-[10px] text-zinc-400">En direct</span>
-              </div>
-              <div className="space-y-1.5 text-[11px] text-zinc-200">
-                <div className="flex items-center gap-1.5">
-                  <span>👍</span>
-                  <span className="font-semibold text-emerald-300">95%</span>
-                  <span className="text-zinc-400">Gout & Propreté</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span>👎</span>
-                  <span className="font-semibold text-rose-400">5%</span>
-                  <span className="text-zinc-400">Retard aux heures de pointe</span>
-                </div>
-              </div>
+        <div className="flex items-center gap-2">
+          {isVerified && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 backdrop-blur-xl border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>PARTENAIRE VÉRIFIÉ</span>
             </div>
           )}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            className="w-10 h-10 bg-white/20 backdrop-blur-xl border border-white/30 rounded-full flex items-center justify-center text-white shadow-lg"
+          >
+            <Heart className="w-5 h-5 hover:text-red-500 transition-colors" />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            className="w-10 h-10 bg-white/20 backdrop-blur-xl border border-white/30 rounded-full flex items-center justify-center text-white shadow-lg"
+          >
+            <Share2 className="w-5 h-5" />
+          </motion.button>
         </div>
+      </div>
 
-        {/* أسفل الغلاف: دمج المعلومات الهندسية واسم المطعم بالأخضر الزمردي */}
-        <div className="absolute bottom-3 left-4 right-4 z-10 flex flex-col justify-end gap-1">
-          <div className="flex items-center justify-between">
-            {/* 2. اسم المطعم بالأخضر التونسي الحيوي */}
-            <h1 className="text-2xl font-black text-emerald-400 tracking-wide drop-shadow-md">
-              {name}
-            </h1>
+      <div className="px-5 pb-6 -mt-16 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-5 rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl text-slate-900 bg-white"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
+                {name} {nameAr && <span className="text-emerald-600 font-bold">({nameAr})</span>}
+              </h1>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span className="text-xs font-bold text-amber-900">{rating}</span>
+                  <span className="text-[10px] text-amber-700">({reviewsCount})</span>
+                </div>
+              </div>
+            </div>
 
-            {/* حالة المطعم */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold text-[10px]">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Ouvert</span>
+            <div className="px-3 py-1.5 rounded-2xl bg-emerald-600 text-white font-black text-sm shadow-md shadow-emerald-600/30">
+              {deliveryFee}
             </div>
           </div>
 
-          {/* 1. التحرير العمودي: دمج شريط المعلومات في السطر الأخير من الـ Cover */}
-          <div className="flex items-center gap-2 text-[11px] font-medium text-white/90 drop-shadow">
-            <span>🛵 {restaurant?.delivery_fee ? `${Number(restaurant.delivery_fee).toFixed(3)}` : '2.500'} DT</span>
-            <span className="text-white/40">•</span>
-            <span>🕒 11:00 - 22:00</span>
-            <span className="text-white/40">•</span>
-            <span className="truncate">📍 Cité Khaldoun</span>
+          <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100 text-slate-600 text-xs font-medium">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-600" />
+              <span>التوصيل: <strong>{deliveryTime}</strong></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Bike className="w-4 h-4 text-emerald-600" />
+              <span>تتبع حي ومباشر GPS</span>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
 };
-
-export default RestaurantHeader;

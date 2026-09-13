@@ -20,17 +20,26 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    console.error('Uncaught error in component:', error, errorInfo);
   }
 
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="p-6 bg-red-50 text-red-900 rounded-2xl m-4 border border-red-200 dir-ltr text-left">
-          <h1 className="text-lg font-bold mb-2">⚠️ Runtime Error Caught</h1>
-          <pre className="text-xs bg-red-100 p-3 rounded-xl overflow-x-auto">
-            {this.state.error?.toString()}
-          </pre>
+        <div className="p-6 bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center text-center dir-ltr">
+          <div className="w-16 h-16 bg-rose-500/20 text-rose-500 rounded-full flex items-center justify-center text-2xl mb-4 border border-rose-500/30">
+            ⚠️
+          </div>
+          <h2 className="text-xl font-bold mb-2">Une erreur est survenue</h2>
+          <p className="text-xs text-slate-400 mb-6 max-w-xs font-mono bg-slate-950 p-3 rounded-xl border border-slate-800 break-all">
+            {this.state.error?.message || 'Erreur d\'affichage de la commande'}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-500/30"
+          >
+            Recharger l'application
+          </button>
         </div>
       );
     }
@@ -38,3 +47,5 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+export default ErrorBoundary;

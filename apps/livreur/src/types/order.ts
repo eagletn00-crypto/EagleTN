@@ -1,75 +1,90 @@
-/**
- * ================================================
- * LIVREUR (DRIVER) APP TYPES
- * Uses canonical OrderStatus from @eagle/database
- * ================================================
- */
+export type OrderStatus = 
+  | 'pending'
+  | 'preparing'
+  | 'ready'
+  | 'accepted'
+  | 'picked_up'
+  | 'delivering'
+  | 'delivered'
+  | 'cancelled'
+  | 'EN_ROUTE'
+  | string;
 
-import type { OrderStatus } from '@eagle/database';
-import { normalizeOrderStatus } from '@eagle/database';
+export interface LocationCoordinates {
+  latitude: number;
+  longitude: number;
+  heading?: number;
+}
 
-/**
- * DeliveryOrder: Driver-specific order view
- * Maps from canonical database order to driver UI
- */
-export interface DeliveryOrder {
+export interface OrderItem {
+  id?: string;
+  menu_item_id?: string;
+  name: string;
+  quantity: number;
+  price?: number;
+  unit_price?: number;
+  total_price?: number;
+  options?: string[];
+}
+
+export interface Order {
   id: string;
-  order_code: string;
-  short_code: string;
-  restaurant_name: string;
-  restaurant_phone: string;
-  customer_name: string;
-  customer_phone: string;
-  customer_address: string;
+  created_at?: string;
+  updated_at?: string;
+  
+  order_code?: string;
+  short_code?: string;
+  
+  customer_id?: string;
+  client_id?: string;
+  partner_id?: string;
+  driver_id?: string;
+
+  customer_name?: string;
+  customer_phone?: string;
+  customer_address?: string;
+
+  partner_name?: string;
+  partner_address?: string;
+  restaurant_name?: string;
+  restaurant_phone?: string;
+
+  items?: OrderItem[];
+  subtotal?: number;
+  delivery_fee: number;
+  tax_amount?: number;
+  total_amount?: number;
+  order_value: number;
+  payment_method?: string;
+  payment_status?: string;
+
+  status: OrderStatus;
+
+  delivery_address?: string;
+  delivery_lat?: number;
+  delivery_lng?: number;
   lat: number;
   lng: number;
-  order_value: number; // Customer payment total
-  delivery_fee: number; // Driver earnings
-  status: OrderStatus; // Normalized canonical status
+  client_location?: LocationCoordinates;
+  partner_location?: LocationCoordinates;
+  driver_location?: LocationCoordinates;
+
+  verification_pin?: string;
+  pin_code?: string;
+  qr_code_data?: string;
 }
 
-/**
- * Delivery Status Issues
- */
-export type IssueReason = 
-  | 'RESTAURANT_CLOSED' 
-  | 'CLIENT_UNREACHABLE' 
-  | 'WRONG_ADDRESS' 
-  | 'VEHICLE_BREAKDOWN' 
-  | 'OTHER';
+export type DeliveryOrder = Order;
 
-/**
- * Map old driver statuses to canonical order statuses
- * For backward compatibility during migration
- */
-export function mapDriverStatusToOrderStatus(driverStatus: string): OrderStatus {
-  const statusMap: Record<string, OrderStatus> = {
-    'PREPARATION': 'preparing',
-    'EN_ROUTE': 'on_the_way',
-    'IN_TRANSIT': 'on_the_way',
-    'DELIVERED': 'delivered',
-    'CANCELLED': 'cancelled',
-    'FAILED': 'failed',
-  };
+export function normalizeOrderStatus(status: string): OrderStatus {
+  if (!status) return 'pending';
+  const upper = status.toUpperCase();
+  if (upper === 'EN_ROUTE') return 'EN_ROUTE';
   
-  return normalizeOrderStatus(statusMap[driverStatus] || driverStatus);
+  const normalized = status.toLowerCase() as OrderStatus;
+  const validStatuses: OrderStatus[] = [
+    'pending', 'preparing', 'ready', 'accepted', 
+    'picked_up', 'delivering', 'delivered', 'cancelled'
+  ];
+  return validStatuses.includes(normalized) ? normalized : 'pending';
 }
-
-/**
- * Map canonical order status to driver-friendly label
- */
-export function getDriverStatusLabel(status: OrderStatus): string {
-  const labels: Record<OrderStatus, string> = {
-    'pending': 'En attente',
-    'accepted': 'Acceptée',
-    'preparing': 'Préparation',
-    'on_the_way': 'En route',
-    'delivered': 'Livrée',
-    'cancelled': 'Annulée',
-    'failed': 'Échouée',
-  };
-  
-  return labels[status] || 'Inconnu';
-}
-
-export type { OrderStatus } from '@eagle/database';

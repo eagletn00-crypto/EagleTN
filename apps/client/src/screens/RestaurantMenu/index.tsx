@@ -1,131 +1,136 @@
-import React, { useState } from 'react';
-import { useRestaurantData } from './hooks/useRestaurantData';
-import RestaurantHeader from './components/RestaurantHeader';
-import CategorySelector from './components/CategorySelector';
-import MenuItemCard from './components/MenuItemCard';
-import SlideOverCartSheet from './components/SlideOverCartSheet';
-import ProductDetailModal from './components/ProductDetailModal';
-import OrderTracking from '../OrderTracking';
+import React, { useEffect, useState } from 'react';
+import { RestaurantHeader } from './components/RestaurantHeader';
+import { MenuItemCard } from './components/MenuItemCard';
+import { FloatingCartBar } from './components/FloatingCartBar';
+import { Partner } from '../../types/partner';
+import { fetchPartnerWithMenuByUuid } from '../../services/api';
+import { useCart } from '../../context/CartContext';
 
-export const RestaurantMenu = () => {
-  const { restaurant, categories, menuItems, isLoading } = useRestaurantData();
-  const [activeCategoryId, setActiveCategoryId] = useState('all');
-  const [cart, setCart] = useState<{ [key: string]: number }>({});
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any | null>(null);
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+export interface RestaurantMenuProps {
+  partner: Partner;
+  onBack: () => void;
+  onGoToCheckout: () => void;
+}
 
-  const handleAdd = (id: string, qty = 1) => {
-    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + qty }));
-  };
+export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
+  partner: initialPartner,
+  onBack,
+  onGoToCheckout,
+}) => {
+  const { addToCart } = useCart();
+  const [partner, setPartner] = useState<Partner>(initialPartner);
+  const [realMenuItems, setRealMenuItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const handleRemove = (id: string) => {
-    setCart((prev) => {
-      const updated = { ...prev };
-      if (updated[id] > 1) updated[id]--;
-      else delete updated[id];
-      return updated;
-    });
-  };
-
-  const filteredItems = activeCategoryId === 'all'
-    ? menuItems
-    : menuItems.filter((item) => item.category_id === activeCategoryId);
-
-  const cartItemsList = Object.entries(cart).map(([id, quantity]) => {
-    const item = menuItems.find((m) => m.id === id);
-    return {
-      id,
-      name: item?.name_fr || item?.name || 'Produit',
-      price: item?.price || 0,
-      quantity,
-    };
-  });
-
-  const cartTotalCount = Object.values(cart).reduce((a, b) => a + b, 0);
-  const cartSubTotal = cartItemsList.reduce((acc, i) => acc + i.price * i.quantity, 0);
-
-  // عند نجاح الطلب يتم تفريغ السلة وفتح شاشة التتبع
-  const handleOrderSuccess = (orderId: string) => {
-    setCart({});
-    setIsCartOpen(false);
-    setActiveOrderId(orderId);
-  };
-
-  if (activeOrderId) {
-    return (
-      <OrderTracking
-        orderId={activeOrderId}
-        onBackToHome={() => setActiveOrderId(null)}
-      />
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center text-zinc-400 font-bold text-sm">
-        Chargement de la carte...
-      </div>
-    );
-  }
+  useEffect(() => {
+    let isMounted = true;
+    if (initialPartner && initialPartner.id) {
+      setLoading(true);
+      fetchPartnerWithMenuByUuid(initialPartner.id).then(({ partner: remotePartner, menuItems }) => {
+        if (isMounted) {
+          if (remotePartner) {
+            setPartner(remotePartner);
+          }
+          setRealMenuItems(menuItems);
+          setLoading(false);
+        }
+      });
+    } else {
+      setLoading(false);
+    }
+    return () => { isMounted = false; };
+  }, [initialPartner]);
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] text-zinc-900 overflow-x-hidden relative">
-      <RestaurantHeader restaurant={restaurant} />
-
-      <CategorySelector
-        categories={categories}
-        activeCategoryId={activeCategoryId}
-        onSelectCategory={setActiveCategoryId}
+    <div className="min-h-screen bg-slate-50 dir-ltr pb-28 selection:bg-emerald-500 selection:text-white">
+      {/* Header Premium */}
+      <RestaurantHeader
+        name={partner?.name || 'Chez Om Ali'}
+        nameAr=""
+        rating={partner?.rating || 5.0}
+        deliveryTime={partner?.estimated_time || '15-25 min'}
+        deliveryFee={`${(partner?.delivery_fee || 2.5).toFixed(3)} DT`}
+        coverImage="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000"
+        onBack={onBack}
       />
 
-      <main className={`p-4 ${cartTotalCount > 0 ? 'pb-36' : 'pb-12'}`}>
-        <div className="grid grid-cols-2 gap-3.5">
-          {filteredItems.map((item) => (
+      {/* Dynamic Content Container */}
+      <div className="max-w-md mx-auto px-4 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <span>🔥</span> Carte & Menu Spécialités
+          </h2>
+          <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
+            Supabase Live Sync
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3 py-4">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-24 bg-white/60 animate-pulse rounded-2xl border border-slate-100 p-4 flex justify-between items-center">
+                <div className="space-y-2 flex-1 pr-4">
+                  <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                </div>
+                <div className="w-16 h-16 bg-slate-200 rounded-xl"></div>
+              </div>
+            ))}
+          </div>
+        ) : realMenuItems.length > 0 ? (
+          <div className="space-y-3">
+            {realMenuItems.map((item) => (
+              <MenuItemCard
+                key={item.id}
+                title={item.name || item.title || 'Spécialité Eagle'}
+                titleAr=""
+                price={typeof item.price === 'number' ? item.price.toFixed(3) : item.price}
+                prepTime={item.prep_time || '15 min'}
+                image={item.image_url || item.image || 'https://images.unsplash.com/photo-1541518763669-27fef04b14e8?w=500'}
+                onAdd={() =>
+                  addToCart({
+                    id: item.id,
+                    title: item.name || item.title,
+                    price: typeof item.price === 'number' ? item.price : parseFloat(item.price),
+                  })
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
             <MenuItemCard
-              key={item.id}
-              item={item}
-              count={cart[item.id] || 0}
-              onAdd={() => handleAdd(item.id)}
-              onRemove={() => handleRemove(item.id)}
-              onOpenDetails={() => setSelectedItem(item)}
+              title="Couscous Agneau Traditionnel"
+              price="18.500"
+              prepTime="20 min"
+              image="https://images.unsplash.com/photo-1541518763669-27fef04b14e8?w=500"
+              onAdd={() =>
+                addToCart({
+                  id: 'item-1',
+                  title: 'Couscous Agneau Traditionnel',
+                  price: 18.500,
+                })
+              }
             />
-          ))}
-        </div>
-      </main>
+            <MenuItemCard
+              title="Plat Tunisien Gargoulette"
+              price="14.000"
+              prepTime="15 min"
+              image="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500"
+              onAdd={() =>
+                addToCart({
+                  id: 'item-2',
+                  title: 'Plat Tunisien Gargoulette',
+                  price: 14.000,
+                })
+              }
+            />
+          </div>
+        )}
+      </div>
 
-      {cartTotalCount > 0 && (
-        <div className="fixed bottom-6 left-4 right-4 z-40">
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="w-full bg-emerald-600 shadow-xl shadow-emerald-900/20 text-white rounded-full py-3.5 px-5 flex items-center justify-between active:scale-98 transition-transform"
-          >
-            <div className="flex items-center gap-2">
-              <span className="bg-white/20 font-black text-xs px-2.5 py-1 rounded-full">
-                {cartTotalCount}
-              </span>
-              <span className="font-bold text-sm">Voir le panier</span>
-            </div>
-            <span className="font-black text-sm">{(cartSubTotal + 2.500 + 0.500).toFixed(3)} DT</span>
-          </button>
-        </div>
-      )}
-
-      <ProductDetailModal
-        item={selectedItem}
-        isOpen={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        onAddToCart={(qty) => selectedItem && handleAdd(selectedItem.id, qty)}
-      />
-
-      <SlideOverCartSheet
-        isOpen={isCartOpen}
-        cartItems={cartItemsList}
-        partnerId={restaurant?.id}
-        deliveryFee={restaurant?.delivery_fee || 2.500}
-        onClose={() => setIsCartOpen(false)}
-        onOrderSuccess={handleOrderSuccess}
-      />
+      {/* Floating Cart Bar Direct Binding */}
+      <FloatingCartBar onCheckout={onGoToCheckout} />
     </div>
   );
 };

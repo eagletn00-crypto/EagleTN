@@ -1,6 +1,6 @@
 {
   "short_name": "Eagle TN",
-  "name": "Eagle TN - Food & Delivery",
+  "name": "Eagle TN Delivery Platform",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +10,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#FDFBF7",
-  "background_color": "#FDFBF7"
+  "theme_color": "#004D40",
+  "background_color": "#F8F9FA"
 }

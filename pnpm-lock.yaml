@@ -250,6 +250,8 @@ importers:
         specifier: ^2.45.0
         version: 2.110.2
 
+  packages/types: {}
+
   packages/ui:
     dependencies:
       class-variance-authority:

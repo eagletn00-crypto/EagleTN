@@ -1,354 +1,302 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useRestaurantStore } from '../store/useRestaurantStore';
-import { Partner } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Partner } from '../types/partner';
+import { supabase } from '../lib/supabase';
 
-export const ClientHome: React.FC = () => {
-  const navigate = useNavigate();
-  const { restaurants, fetchRestaurants, isLoading, error } = useRestaurantStore();
-  const [showPromoBanner, setShowPromoBanner] = useState<boolean>(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'orders' | 'profile'>('home');
-  
-  // State for Dynamic Floating Cart Dock & Gamification
-  const [cartCount, setCartCount] = useState<number>(2);
-  const [cartTotal, setCartTotal] = useState<number>(24.500);
-  const [eaglePoints, setEaglePoints] = useState<number>(120);
+interface ClientHomeProps {
+  onSelectPartner?: (partner: Partner) => void;
+  onNavigate?: (screen: string) => void;
+}
+
+export const ClientHome: React.FC<ClientHomeProps> = ({ onSelectPartner, onNavigate }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [partners, setPartners] = useState<Partner[]>([]);
 
   useEffect(() => {
-    fetchRestaurants();
+    async function fetchPartners() {
+      try {
+        const { data, error } = await supabase
+          .from('partners')
+          .select('*')
+          .eq('is_active', true);
+
+        if (error || !data || data.length === 0) {
+          setPartners([
+            {
+              id: 'partner-om-ali',
+              name: 'Chez Om Ali (مطعم عم علي)',
+              legal_name: 'Chez Om Ali SARL',
+              tax_id: '1234567/A/M/000',
+              rating: 5.0,
+              delivery_fee: 2.500,
+              estimated_time: '15-25 min',
+              is_active: true,
+              latitude: 36.8065,
+              longitude: 10.1815,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'partner-el-mida',
+              name: 'RESTAURANT EL MIDA',
+              legal_name: 'EL MIDA SARL',
+              tax_id: '9876543/B/M/000',
+              rating: 4.8,
+              delivery_fee: 3.000,
+              estimated_time: '20-30 min',
+              is_active: true,
+              latitude: 36.8065,
+              longitude: 10.1815,
+              created_at: new Date().toISOString(),
+            }
+          ]);
+        } else {
+          setPartners(data);
+        }
+      } catch (err) {
+        console.error('Error fetching partners:', err);
+      }
+    }
+
+    fetchPartners();
   }, []);
 
+  // أيقونات SVG بريميوم فائقة الاحترافية ومريحة للبصر
   const categories = [
-    { id: 'TRADITIONNEL', label: 'Traditionnel', icon: '🍲', ringColor: 'border-amber-500/20', bgGlow: 'bg-amber-500/10' },
-    { id: 'PIZZA', label: 'Pizza', icon: '🍕', ringColor: 'border-rose-500/20', bgGlow: 'bg-rose-500/10' },
-    { id: 'BURGERS', label: 'Burgers', icon: '🍔', ringColor: 'border-orange-500/20', bgGlow: 'bg-orange-500/10' },
-    { id: 'SUSHI', label: 'Sushi', icon: '🍣', ringColor: 'border-pink-500/20', bgGlow: 'bg-pink-500/10' },
-    { id: 'BOISSONS', label: 'Boissons', icon: '🥤', ringColor: 'border-sky-500/20', bgGlow: 'bg-sky-500/10' },
+    {
+      id: 'rest',
+      label: 'Restaurants',
+      icon: (
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+          <path d="M7 2v20" />
+          <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+        </svg>
+      )
+    },
+    {
+      id: 'pat',
+      label: 'Pâtisserie',
+      icon: (
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />
+          <path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" />
+          <path d="M2 21h20" />
+          <path d="M7 8v3" /><path d="M12 8v3" /><path d="M17 8v3" />
+          <path d="M7 4h10" />
+        </svg>
+      )
+    },
+    {
+      id: 'mode',
+      label: 'Shopping',
+      icon: (
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <path d="M16 10a4 4 0 0 1-8 0" />
+        </svg>
+      )
+    },
+    {
+      id: 'cosm',
+      label: 'Cosmétique',
+      icon: (
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7Z" />
+        </svg>
+      )
+    },
   ];
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FAF7F2] to-[#FFFFFF] flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center animate-bounce shadow-lg shadow-amber-500/10 backdrop-blur-md">
-            <span className="text-3xl">🦅</span>
-          </div>
-          <span className="text-[11px] font-black tracking-widest text-slate-400 uppercase">Chargement de l'expérience...</span>
-        </div>
-      </div>
-    );
-  }
+  const filteredPartners = partners.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FAF7F2] via-[#F5EFF8]/30 to-[#FFFFFF] text-slate-900 pb-36 max-w-md mx-auto px-4 font-sans antialiased selection:bg-amber-500 selection:text-white">
+    <div className="min-h-screen bg-[#FAFAFC] text-slate-900 font-sans pb-36 antialiased select-none">
       
-      {/* 1. Sticky Control Center (Top Hierarchy) */}
-      <div className="sticky top-0 z-30 pt-3 pb-2 bg-[#FAF7F2]/80 backdrop-blur-xl space-y-3 -mx-4 px-4 transition-all border-b border-amber-900/5">
-        
-        {/* Compact Header Bar */}
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-2xl drop-shadow-sm">🦅</span>
-            <h1 className="text-xl font-black tracking-tight flex items-center">
-              <span className="text-slate-900 font-extrabold tracking-tighter">Eagle</span>
-              <span className="text-[#E53935] font-black ml-0.5">TN</span>
-              <span className="text-xs ml-1">🇹🇳</span>
-            </h1>
-          </div>
-
+      {/* Header Premium */}
+      <div className="bg-white px-5 pt-5 pb-4 border-b border-slate-100 sticky top-0 z-40 shadow-xs">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {/* Eagle Points Gamification Badge */}
-            <div className="flex items-center gap-1 bg-white/80 backdrop-blur-md border border-amber-500/30 px-3 py-1 rounded-full text-[11px] font-black text-amber-900 shadow-[0_4px_12px_rgba(217,119,6,0.1)]">
-              <span className="text-amber-500">💎</span>
-              <span>{eaglePoints} Pts</span>
-            </div>
-
-            {/* Dynamic Geo-Location Badge */}
-            <button className="flex items-center gap-1 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[11px] font-black text-slate-800 hover:bg-slate-50 active:scale-95 transition-all">
-              <span className="text-amber-500">📍</span>
-              <span>Tunis, El Manar 2</span>
-              <span className="text-[9px] text-slate-400 ml-0.5">▼</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Hybrid Ultra-Premium Search Box */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
-            <input
-              type="text"
-              placeholder="Chercher un plat, un restaurant..."
-              className="w-full bg-white/90 backdrop-blur-md py-2.5 pl-9 pr-4 rounded-2xl border border-slate-200/80 shadow-[0_4px_16px_rgba(0,0,0,0.03)] text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-            />
-          </div>
-          
-          {/* Centered Precision SVG Filter Accent Button */}
-          <button className="w-10 h-10 bg-[#8B2D0F] text-white rounded-2xl shadow-md shadow-[#8B2D0F]/20 hover:bg-[#72240b] active:scale-95 transition-all flex items-center justify-center shrink-0 border border-white/10">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m-9 12h9m-15-6h15M6 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 12a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm6-6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-            </svg>
-          </button>
-        </div>
-
-      </div>
-
-      {/* Main Content Body */}
-      <main className="mt-4 space-y-6">
-
-        {/* 2. Glassmorphic Circular Categories Architecture */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-              EXPLORER L'ÉCOSYSTÈME
-            </h2>
-          </div>
-          
-          <div className="flex gap-4 overflow-x-auto pb-2 pt-1 -mx-4 px-4 scrollbar-none snap-x">
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(isSelected ? 'ALL' : cat.id)}
-                  className="snap-start flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 group shrink-0"
-                >
-                  {/* Glassmorphic Spherical Icon Container */}
-                  <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all duration-300 border ${
-                      isSelected
-                        ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-900/25 scale-105'
-                        : `bg-white/80 backdrop-blur-md ${cat.ringColor} shadow-[0_8px_20px_-4px_rgba(0,0,0,0.06)] group-hover:bg-white group-hover:scale-105`
-                    }`}
-                  >
-                    <span className="filter drop-shadow-xs">{cat.icon}</span>
-                  </div>
-
-                  <span className={`text-[11px] font-black tracking-tight ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
-                    {cat.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* 3. Radiant High-Conversion Marketing Banner */}
-        {showPromoBanner && (
-          <section className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white rounded-3xl p-5 shadow-[0_16px_36px_-8px_rgba(234,88,12,0.35)] border border-white/20">
-            {/* Subtle Overlay Glow */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none" />
-
-            <button
-              onClick={() => setShowPromoBanner(false)}
-              className="absolute top-3.5 right-3.5 w-6 h-6 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white/90 text-[10px] font-bold backdrop-blur-md transition-colors z-20 border border-white/10"
-            >
-              ✕
-            </button>
-            
-            <div className="relative z-10 space-y-2.5 max-w-[68%]">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[10px] font-black tracking-wider uppercase shadow-xs">
-                <span>✨</span> 10% OFF COMMISSION
-              </div>
-
-              <div>
-                <h3 className="text-base font-black tracking-tight leading-tight drop-shadow-md">
-                  بنة عالمية وتوصيل في رمشة عين
-                </h3>
-                <p className="text-[11px] font-bold text-amber-50/90 mt-1 leading-snug drop-shadow-xs">
-                  Eagle TN - عيش تونسي ودعم المحلي
-                </p>
-              </div>
-            </div>
-
-            <div className="absolute -right-2 -bottom-2 text-7xl pointer-events-none drop-shadow-2xl opacity-95 animate-pulse">
-              🍔
-            </div>
-          </section>
-        )}
-
-        {/* 4. Soft Ambient Vendor Cards (Card Architecture) */}
-        <section className="space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-              NOS PARTENAIRES
-            </h2>
-            <span className="bg-emerald-500/10 text-emerald-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-emerald-500/20 backdrop-blur-xs">
-              12 مطعم متاح حالياً 🟢
+            <span className="text-2xl font-black tracking-tight text-slate-900">
+              Eagle <span className="text-red-600">TN</span>
+            </span>
+            <span className="text-xs bg-red-50 text-red-600 font-bold px-2 py-0.5 rounded-full border border-red-100">
+              🇹🇳 Tunisie
             </span>
           </div>
 
-          {error ? (
-            <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-xs font-bold text-center border border-red-100">
-              {error}
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {restaurants.map((partner: unknown) => {
-                const p = partner as Partner;
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => navigate(`/restaurant/${p.id}`)}
-                    className="group bg-white rounded-[32px] overflow-hidden border border-slate-200/60 shadow-[0_12px_30px_-5px_rgba(139,92,26,0.08)] hover:shadow-xl active:scale-[0.99] transition-all duration-300 cursor-pointer"
-                  >
-                    {/* Image Container */}
-                    <div className="relative aspect-[16/9] w-full bg-slate-900 overflow-hidden">
-                      <img
-                        src={p.cover || p.logo || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop'}
-                        alt={p.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-95"
-                      />
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
-
-                      {/* Top Badges */}
-                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-                        <div className="bg-slate-900/80 backdrop-blur-md text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-400/30 flex items-center gap-1 shadow-md">
-                          👑 موصى به
-                        </div>
-
-                        <div className="bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-black px-3 py-1 rounded-full flex items-center gap-1 border border-white/15 shadow-md">
-                          <span className="text-amber-400">⭐</span> {p.rating || '5.0'}
-                        </div>
-                      </div>
-
-                      {/* Partner Typography */}
-                      <div className="absolute bottom-3.5 left-4 right-4 flex items-end justify-between">
-                        <div className="pr-2 space-y-0.5">
-                          <h3 className="text-base font-black text-white drop-shadow-md">
-                            عند عم علي • Chez Am Ali
-                          </h3>
-                          <p className="text-[11px] font-bold text-slate-200/90 drop-shadow-sm">
-                            Cuisine Tunisienne • Kafteji • Mlawi
-                          </p>
-                        </div>
-
-                        {/* Live Status Indicator */}
-                        <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30 shrink-0">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                          </span>
-                          <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">
-                            Ouvert
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Integrated Logistics Footer */}
-                    <div className="p-4 bg-white flex items-center justify-between text-xs font-bold text-slate-600">
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-900 font-black flex items-center gap-1">
-                          <span>🛵</span> 13-25 min
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span>1.2 km</span>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-emerald-600 font-black">$$$</span>
-                      </div>
-
-                      <span className="bg-[#8B2D0F] text-white px-3.5 py-1.5 rounded-xl text-[11px] font-black shadow-sm group-hover:bg-[#72240b] transition-colors">
-                        Voir menu →
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-      </main>
-
-      {/* 5. Polished Floating Cart Dock (Glowing Capsule) */}
-      {cartCount > 0 && (
-        <div className="fixed bottom-[74px] left-3 right-3 max-w-md mx-auto z-40 animate-in slide-in-from-bottom-5 duration-300">
-          <div className="bg-gradient-to-r from-[#8B2D0F] via-[#B83214] to-[#E65100] text-white rounded-2xl p-3 shadow-xl shadow-orange-500/25 flex items-center justify-between border border-white/20 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="relative bg-white/20 w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-md text-lg border border-white/20">
-                🛒
-                <span className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-orange-500">
-                  {cartCount}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-black tracking-wider text-amber-100 block">
-                  Votre Panier
-                </span>
-                <span className="text-sm font-black">
-                  {cartTotal.toFixed(3)} DT
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => navigate('/cart')}
-              className="bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-md hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-1"
-            >
-              Voir commande <span>→</span>
-            </button>
-          </div>
+          <button 
+            onClick={() => alert('Service Client EAGLE TN: +216 98 000 000')}
+            className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-full transition active:scale-95 flex items-center gap-1.5"
+          >
+            <span>📞</span> Service Client
+          </button>
         </div>
-      )}
 
-      {/* 6. Root Navigation Bar (🏠 🔍 🛒 👤) */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-30 bg-white/85 backdrop-blur-xl border-t border-slate-200/80 px-6 py-2.5 flex items-center justify-between">
-        
-        <button
-          onClick={() => setActiveTab('home')}
-          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
-            activeTab === 'home' ? 'text-[#8B2D0F] font-black' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <span className="text-xl">🏠</span>
-          <span className="text-[10px] font-extrabold tracking-tight">Accueil</span>
-          {activeTab === 'home' && <span className="w-1 h-1 bg-[#8B2D0F] rounded-full animate-pulse" />}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('search')}
-          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
-            activeTab === 'search' ? 'text-[#8B2D0F] font-black' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <span className="text-xl">🔍</span>
-          <span className="text-[10px] font-extrabold tracking-tight">Recherche</span>
-          {activeTab === 'search' && <span className="w-1 h-1 bg-[#8B2D0F] rounded-full animate-pulse" />}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('orders')}
-          className={`relative flex flex-col items-center gap-1 transition-all active:scale-90 ${
-            activeTab === 'orders' ? 'text-[#8B2D0F] font-black' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <div className="relative">
-            <span className="text-xl">🛒</span>
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-2 bg-[#E53935] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                {cartCount}
-              </span>
-            )}
+        {/* Location Bar */}
+        <div className="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-2xl px-3.5 py-2 mb-3">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span className="text-xs font-bold text-slate-800 truncate">
+              Avenue Habib Bourguiba, Tunis
+            </span>
           </div>
-          <span className="text-[10px] font-extrabold tracking-tight">Commandes</span>
-          {activeTab === 'orders' && <span className="w-1 h-1 bg-[#8B2D0F] rounded-full animate-pulse" />}
-        </button>
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">Changer</span>
+        </div>
 
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
-            activeTab === 'profile' ? 'text-[#8B2D0F] font-black' : 'text-slate-400 hover:text-slate-600'
-          }`}
+        {/* Search Input */}
+        <div className="relative flex items-center">
+          <svg className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Chercher un restaurant, plat, produit..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200/80 rounded-2xl pl-10 pr-9 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 transition font-medium"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 text-slate-400 text-xs hover:text-slate-600">✕</button>
+          )}
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="mt-5 px-5">
+        <h3 className="text-[11px] font-black text-slate-400 tracking-wider uppercase mb-3">
+          Catégories
+        </h3>
+
+        <div className="grid grid-cols-4 gap-2.5">
+          {categories.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(isSelected ? 'all' : cat.id)}
+                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition duration-200 active:scale-95 ${
+                  isSelected 
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'bg-white border border-slate-200/70 text-slate-700 hover:border-slate-300 shadow-2xs'
+                }`}
+              >
+                <div className={isSelected ? 'text-white' : 'text-slate-700'}>
+                  {cat.icon}
+                </div>
+                <span className="text-[10px] font-bold tracking-tight text-center truncate w-full">
+                  {cat.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Hero Banner - Marketing & Appetite Psychology */}
+      <div className="mt-5 mx-5 bg-gradient-to-r from-red-600 to-amber-600 rounded-3xl p-4 text-white relative overflow-hidden shadow-lg shadow-red-950/10">
+        <div className="relative z-10">
+          <span className="bg-white/20 backdrop-blur-md text-[9px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full">
+            Livraison Express 🇹🇳
+          </span>
+          <h4 className="text-base font-black mt-2 leading-tight">
+            أبَنّ المأكولات التونسية
+          </h4>
+          <p className="text-xs text-red-100 font-medium mt-1">
+            وصول سريع، دفع عند الاستلام وسعر شفاف.
+          </p>
+        </div>
+        <div className="absolute -right-4 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+      </div>
+
+      {/* Partners Section */}
+      <div className="mt-6 px-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[11px] font-black text-slate-400 tracking-wider uppercase">
+            Nos Partenaires
+          </h3>
+          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+            {filteredPartners.length} Ouverts
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {filteredPartners.map((partner) => (
+            <div
+              key={partner.id}
+              onClick={() => {
+                if (onSelectPartner) {
+                  onSelectPartner(partner);
+                }
+              }}
+              className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-xs hover:shadow-md cursor-pointer active:scale-[0.98] transition duration-200 group"
+            >
+              <div className="relative h-44 bg-slate-900 overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80"
+                  alt={partner.name}
+                  className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition duration-500"
+                />
+                
+                {/* Badge */}
+                <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md text-slate-900 font-black text-[11px] px-3 py-1 rounded-full shadow-md">
+                  {partner.name}
+                </div>
+
+                {/* Rating */}
+                <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1">
+                  <span className="text-amber-400">★</span> {partner.rating} <span className="text-slate-300 font-normal">(142)</span>
+                </div>
+              </div>
+
+              {/* Bottom Metadata Bar */}
+              <div className="p-3.5 bg-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="bg-slate-100 text-slate-800 text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1">
+                    ⏱️ {partner.estimated_time}
+                  </span>
+                  <span className="bg-slate-100 text-slate-800 text-[11px] font-bold px-2.5 py-1 rounded-xl">
+                    🛵 {partner.delivery_fee.toFixed(3)} DT
+                  </span>
+                </div>
+
+                <span className="text-emerald-600 font-black text-[11px] flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Commander
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Floating Bottom Navigation Bar - Fixed */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-full p-1.5 shadow-2xl flex items-center justify-between z-50">
+        <button 
+          onClick={() => onNavigate && onNavigate('HOME')}
+          className="flex-1 py-2 rounded-full bg-slate-900 text-white shadow-xs flex items-center justify-center gap-2 font-bold text-xs"
         >
-          <span className="text-xl">👤</span>
-          <span className="text-[10px] font-extrabold tracking-tight">Compte</span>
-          {activeTab === 'profile' && <span className="w-1 h-1 bg-[#8B2D0F] rounded-full animate-pulse" />}
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+          Accueil
         </button>
 
-      </nav>
+        <button 
+          onClick={() => onNavigate && onNavigate('ORDER_TRACKING')}
+          className="flex-1 py-2 text-slate-500 hover:text-slate-900 flex items-center justify-center gap-2 font-bold text-xs transition"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Suivi
+        </button>
+      </div>
 
     </div>
   );

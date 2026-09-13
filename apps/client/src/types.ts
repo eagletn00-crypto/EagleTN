@@ -1,68 +1,85 @@
-export interface MenuItem {
-  id: string;
-  item_id?: string;
-  name?: string;
-  name_fr?: string;
-  name_ar?: string;
-  nameFr?: string;
-  nameAr?: string;
-  description?: string;
-  description_fr?: string;
-  description_ar?: string;
-  descriptionFr?: string;
-  descriptionAr?: string;
-  price: number;
-  base_price?: number;
-  image_url?: string;
-  imgUrl?: string;
-  category_id?: string;
-  categoryId?: string;
-}
+export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+export type PaymentMethod = 'cash' | 'card' | 'e_dinar';
+export type PaymentStatus = 'pending' | 'paid' | 'failed';
+export type UserRole = 'client' | 'driver' | 'partner' | 'admin';
 
 export interface Category {
   id: string;
-  category_id?: string;
-  name?: string;
-  name_fr?: string;
-  nameFr?: string;
-  category_name_fr?: string;
-  label?: string;
+  name: string;
+  slug?: string;
 }
 
-export type MenuCategory = Category;
+export interface MenuItem {
+  id: string;
+  name: string;
+  ArabicName?: string;
+  description?: string;
+  price: number;
+  image?: string;
+  category?: string;
+  categoryId?: string;
+  isAvailable?: boolean;
+}
 
 export interface MenuItemWithCategory extends MenuItem {
-  category?: Category;
+  category_details?: Category;
 }
 
 export interface Partner {
   id: string;
   name: string;
+  image?: string;
   logo?: string;
-  logo_url?: string;
   cover?: string;
-  image_url?: string;
-  rating?: number;
-  delivery_time?: string;
   address?: string;
+  rating?: number;
+  deliveryTime?: string;
+  deliveryFee?: number;
+  category?: string;
+}
+
+export interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  ArabicName?: string;
 }
 
 export interface DeliveryAddress {
   id?: string;
-  street?: string;
-  city?: string;
-  details?: string;
-  description?: string;
-  latitude?: number | null;
-  longitude?: number | null;
+  street: string;
+  city: string;
+  notes?: string;
 }
 
-export interface CartItem {
-  menuItem: MenuItem;
-  quantity: number;
-  price: number;
+export interface Order {
+  id: string;
+  user_id?: string;
+  client_id?: string;
+  partner_id: string;
+  status: OrderStatus;
+  payment_method: PaymentMethod;
+  total_amount: number;
+  delivery_fee: number;
+  items: OrderItem[];
+  created_at?: string;
 }
 
-// Import canonical types from shared database package
-export type { OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@eagle/database';
-export type { Order, OrderItem, OrderStatusHistory, Profile } from '@eagle/database';
+export interface OrderStatusHistory {
+  id: string;
+  order_id: string;
+  status: OrderStatus;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  full_name?: string;
+  phone?: string;
+  role: UserRole;
+}
+
+export const normalizeOrderStatus = (status: string): OrderStatus => (status as OrderStatus) || 'pending';
+export const normalizePaymentMethod = (method: string): PaymentMethod => (method as PaymentMethod) || 'cash';
+export const normalizeUserRole = (role: string): UserRole => (role as UserRole) || 'client';
