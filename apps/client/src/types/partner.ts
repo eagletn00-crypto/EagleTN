@@ -1,26 +1,57 @@
-export interface Partner {
-  id: string;
-  name: string;
-  legal_name?: string;
-  tax_id?: string;
-  logo_url?: string;
-  cover_url?: string;
-  rating: number;
-  delivery_fee: number;
-  estimated_time: string;
-  is_active: boolean;
-  latitude: number;
-  longitude: number;
-  created_at: string;
-}
-
 export interface MenuItem {
   id: string;
-  partner_id: string;
+  partner_id?: string;
+  category_id?: string;
   name: string;
   description?: string;
   price: number;
-  image_url?: string;
-  is_available: boolean;
-  category: string;
+  image_url?: string | null;
+  is_available?: boolean;
+  options?: any[];
+  [key: string]: any;
+}
+
+export interface Category {
+  id: string;
+  code?: string;
+  partner_id?: string;
+  name?: string;
+  name_fr?: string;
+  name_ar?: string;
+  sort_order?: number;
+  icon?: string;
+  items?: MenuItem[];
+  [key: string]: any;
+}
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  type?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
+  rating?: number | null;
+  review_count?: number;
+  delivery_time?: string;
+  delivery_fee?: number | null;
+  min_order?: number;
+  address?: string;
+  [key: string]: any;
+}
+
+export interface Partner {
+  id: string;
+  name: string;
+  type?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
+  rating?: number | null;
+  badge?: string | null;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  delivery_time?: string;
+  delivery_fee?: number | null;
+  is_active?: boolean;
+  [key: string]: any;
 }

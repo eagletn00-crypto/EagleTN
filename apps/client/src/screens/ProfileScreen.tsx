@@ -1,168 +1,172 @@
 import React, { useState } from 'react';
 
-export interface ProfileScreenProps {
+interface ProfileScreenProps {
   onBack?: () => void;
+  onNavigateAddresses?: () => void;
   onNavigateOrders?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onBack,
+  onNavigateAddresses,
   onNavigateOrders,
 }) => {
-  const [user] = useState({
-    name: 'Mohamed Ali Majri',
-    email: 'm.majri@eagletn.tn',
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [userProfile, setUserProfile] = useState({
+    name: 'Youssef Mansour',
     phone: '+216 98 123 456',
-    address: 'Avenue Habib Bourguiba, Tunis',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-    totalOrders: 14,
-    savedAddressesCount: 2,
+    email: 'youssef.mansour@gmail.com',
   });
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      // محاكاة طلب حذف الحساب والمعطيات وفق INPDP
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      alert('Votre demande de suppression définitive de compte et des données personnelles a été enregistrée conformément à la loi INPDP n° 2004-63.');
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Error deleting account:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 selection:bg-emerald-500 selection:text-white dir-ltr">
-      {/* Header Section */}
-      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white pt-8 pb-16 px-5 rounded-b-[2.5rem] shadow-xl overflow-hidden">
-        <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -ml-20 -mt-20 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-48 h-48 bg-teal-500/10 rounded-full blur-2xl -mr-10 -mb-10 pointer-events-none" />
-
-        {/* Top Bar */}
-        <div className="relative z-10 flex items-center justify-between mb-6">
-          {onBack ? (
-            <button
+    <div className="min-h-screen bg-slate-50 pb-24 text-slate-900">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-100 p-4 sticky top-0 z-30 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button 
               onClick={onBack}
-              className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all text-white"
+              className="w-9 h-9 rounded-full bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-all active:scale-90"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              ←
             </button>
-          ) : <div />}
-          
-          <h1 className="text-lg font-bold tracking-wide">Mon Profil</h1>
-          <button className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full hover:bg-emerald-500/20 transition-all">
-            Éditer
-          </button>
+          )}
+          <h1 className="font-bold text-base text-slate-900">Mon Profil Client</h1>
         </div>
+        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-emerald-200/60">
+          Compte Vérifié
+        </span>
+      </div>
 
+      <div className="p-4 space-y-5 max-w-lg mx-auto">
+        
         {/* User Card */}
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="relative mb-3">
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-24 h-24 rounded-full object-cover ring-4 ring-emerald-500/30 shadow-2xl"
-            />
-            <span className="absolute bottom-0 right-0 w-5 h-5 bg-emerald-500 border-2 border-slate-900 rounded-full" />
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-sm flex items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md">
+            {userProfile.name.charAt(0)}
           </div>
-          <h2 className="text-xl font-black text-white tracking-tight">{user.name}</h2>
-          <p className="text-xs text-slate-300 font-mono mt-0.5">{user.phone}</p>
-        </div>
-
-        {/* User Quick Stats */}
-        <div className="relative z-10 grid grid-cols-2 gap-3 mt-6 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-3">
-          <div 
-            onClick={onNavigateOrders}
-            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-all"
-          >
-            <span className="text-lg font-bold text-emerald-400">{user.totalOrders}</span>
-            <span className="text-xs text-slate-300">Commandes</span>
-          </div>
-          <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 border-l border-white/10">
-            <span className="text-lg font-bold text-amber-400">{user.savedAddressesCount}</span>
-            <span className="text-xs text-slate-300">Adresses</span>
+          <div className="flex-1">
+            <h2 className="font-bold text-sm text-slate-900">{userProfile.name}</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">{userProfile.phone}</p>
+            <p className="text-[11px] text-slate-400 font-medium">{userProfile.email}</p>
           </div>
         </div>
-      </div>
 
-      {/* Menu Options */}
-      <div className="max-w-md mx-auto px-4 -mt-6 relative z-20 space-y-4">
-        {/* Account Management */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-1">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2">GESTION DU COMPTE</h3>
-
-          <button 
-            onClick={onNavigateOrders}
-            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                📦
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-bold text-slate-800">Historique des Commandes</div>
-                <div className="text-xs text-slate-400">Suivi et commandes précédentes</div>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:translate-x-1 transition-transform">→</span>
-          </button>
-
-          <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                📍
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-bold text-slate-800">Adresses Enregistrées</div>
-                <div className="text-xs text-slate-400">{user.address}</div>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:translate-x-1 transition-transform">→</span>
-          </button>
-        </div>
-
-        {/* Preferences */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-1">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2">PRÉFÉRENCES</h3>
-
-          <div className="flex items-center justify-between p-3 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                🔔
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-bold text-slate-800">Notifications Push</div>
-                <div className="text-xs text-slate-400">Mises à jour en temps réel</div>
-              </div>
-            </div>
-            <button
-              onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-              className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
-                notificationsEnabled ? 'bg-emerald-500' : 'bg-slate-200'
-              }`}
+        {/* Quick Actions */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">GESTION DU COMPTE</p>
+          
+          <div className="bg-white rounded-3xl border border-slate-200/70 shadow-2xs overflow-hidden divide-y divide-slate-100">
+            <button 
+              onClick={onNavigateAddresses}
+              className="w-full p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors text-left"
             >
-              <div
-                className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
-                  notificationsEnabled ? 'translate-x-6' : 'translate-x-0'
-                }`}
-              />
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-sm font-bold border border-amber-100">📍</span>
+                <div>
+                  <h3 className="font-bold text-xs text-slate-900">Adresses de Livraison</h3>
+                  <p className="text-[10px] text-slate-400">Repères, quartiers et détails d'accès</p>
+                </div>
+              </div>
+              <span className="text-slate-400 text-xs font-bold">➔</span>
+            </button>
+
+            <button 
+              onClick={onNavigateOrders}
+              className="w-full p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-sm font-bold border border-emerald-100">📦</span>
+                <div>
+                  <h3 className="font-bold text-xs text-slate-900">Historique des Commandes</h3>
+                  <p className="text-[10px] text-slate-400">Factures et détails de suivi</p>
+                </div>
+              </div>
+              <span className="text-slate-400 text-xs font-bold">➔</span>
             </button>
           </div>
+        </div>
 
-          <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
-                🌐
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-bold text-slate-800">Langue</div>
-                <div className="text-xs text-slate-400">Français (TN)</div>
-              </div>
+        {/* Legal & INPDP Section */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">CONFIDENTIALITÉ & LÉGISLATION TUNISIENNE</p>
+          
+          <div className="bg-white rounded-3xl border border-slate-200/70 shadow-2xs p-4 space-y-3">
+            <div className="flex items-start gap-2.5 bg-slate-50 p-3 rounded-2xl border border-slate-200/60">
+              <span className="text-emerald-600 text-sm">🛡️</span>
+              <p className="text-[10px] text-slate-600 leading-relaxed font-medium">
+                Vos données sont protégées et traitées conformément à la <strong>loi n° 2004-63 du 27 juillet 2004</strong> relative à la protection des données à caractère personnel (INPDP Tunisie).
+              </p>
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">Modifier</span>
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs font-bold text-slate-700">Politique de Confidentialité</span>
+              <a href="#" className="text-xs font-bold text-emerald-600 hover:underline">Consulter ➔</a>
+            </div>
+          </div>
+        </div>
+
+        {/* Delete Account Button (INPDP Compliance) */}
+        <div className="pt-2">
+          <button 
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full bg-red-50 hover:bg-red-100/80 border border-red-200/80 text-red-700 py-3.5 rounded-2xl font-bold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <span>🗑️</span>
+            Supprimer mon compte et mes données (INPDP)
           </button>
         </div>
 
-        {/* Logout */}
-        <div className="pt-2">
-          <button className="w-full flex items-center justify-center gap-2 p-3.5 bg-rose-50 text-rose-600 font-bold rounded-2xl hover:bg-rose-100 active:scale-[0.98] transition-all border border-rose-100">
-            <span>Déconnexion</span>
-            <span>🚪</span>
-          </button>
-        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 text-xl font-bold border border-red-100 mx-auto">
+              ⚠️
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="font-bold text-sm text-slate-900">Suppression définitive ?</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                Conformément aux normes INPDP, cette action supprimera définitivement votre profil, vos adresses et l'historique de vos données.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-2xl font-bold text-xs shadow-md shadow-red-600/20 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Suppression en cours...' : 'Oui, supprimer définitivement'}
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-2xl font-bold text-xs transition-all"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

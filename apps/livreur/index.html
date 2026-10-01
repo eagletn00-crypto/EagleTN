@@ -1,13 +1,32 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="fr" dir="ltr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eagle Livreur</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>EAGLE TN • Livreur</title>
+    
+    <!-- Tailwind CSS CDN المباشر لتشغيل جميع كلاسات الواجهة فوراً -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- خط Plus Jakarta Sans الفاخر -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- أداة التطوير Eruda -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
+
+    <style>
+      * {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+      }
+      body {
+        background-color: #f9fafb !important;
+      }
+    </style>
   </head>
-  <body>
+  <body class="bg-gray-50 text-gray-900 antialiased selection:bg-emerald-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

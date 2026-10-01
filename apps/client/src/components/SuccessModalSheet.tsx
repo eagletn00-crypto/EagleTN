@@ -1,40 +1,62 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, X } from 'lucide-react';
 
 interface SuccessModalSheetProps {
   isOpen: boolean;
-  orderId: string | null;
-  onTrackOrder: (orderId: string) => void;
   onClose: () => void;
+  title?: string;
+  description?: string;
+  actionText?: string;
+  onAction?: () => void;
 }
 
-export function SuccessModalSheet({ isOpen, orderId, onTrackOrder }: SuccessModalSheetProps) {
-  if (!isOpen || !orderId) return null;
+export const SuccessModalSheet: React.FC<SuccessModalSheetProps> = ({
+  isOpen,
+  onClose,
+  title = "تمت العملية بنجاح",
+  description = "تم حفظ التغييرات والبيانات بنجاح في النظام.",
+  actionText = "متابعة",
+  onAction,
+}) => {
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end justify-center p-0 md:p-4">
-      <div className="bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl p-6 text-center space-y-5 animate-in slide-in-from-bottom duration-300">
-        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-          <CheckCircle2 size={36} />
-        </div>
-        
-        <div>
-          <h2 className="text-xl font-black text-slate-900">Commande Confirmée! 🎉</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Votre commande <span className="font-mono font-bold text-emerald-600">#{orderId.slice(0, 8).toUpperCase()}</span> a été transmise avec succès.
-          </p>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div 
+        className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-100 transform transition-all animate-in slide-in-from-bottom duration-300 font-['Plus_Jakarta_Sans']"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full sm:hidden mx-auto -mr-6" />
         </div>
 
-        <button
-          onClick={() => onTrackOrder(orderId)}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
-        >
-          <span>Suivre ma commande</span>
-          <ArrowRight size={18} />
-        </button>
+        <div className="flex flex-col items-center text-center p-2">
+          <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4 text-emerald-500">
+            <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
+          </div>
+
+          <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed max-w-sm">{description}</p>
+
+          <button
+            onClick={() => {
+              if (onAction) onAction();
+              onClose();
+            }}
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all active:scale-[0.98]"
+          >
+            {actionText}
+          </button>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default SuccessModalSheet;

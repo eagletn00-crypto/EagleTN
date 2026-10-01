@@ -14,27 +14,43 @@ export const useCartStore = create<CartState>((set) => ({
   items: [],
   addItem: (item) =>
     set((state) => {
-      const existing = state.items.find((i) => i.id === item.id);
+      const itemId = item.id || (item as any).item_id || Math.random().toString();
+      const itemName = item.name || (item as any).name_fr || (item as any).name_ar || 'Article';
+      const existing = state.items.find((i) => i.id === itemId);
+
       if (existing) {
         return {
           items: state.items.map((i) =>
-            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+            i.id === itemId ? { ...i, quantity: i.quantity + 1 } : i
           ),
         };
       }
-      return { items: [...state.items, { id: item.id, name: item.name, price: item.price, quantity: 1 }] };
+      return {
+        items: [
+          ...state.items,
+          { id: itemId, name: itemName, price: item.price || 0, quantity: 1 },
+        ],
+      };
     }),
   addToCart: (item) =>
     set((state) => {
-      const existing = state.items.find((i) => i.id === item.id);
+      const itemId = item.id || (item as any).item_id || Math.random().toString();
+      const itemName = item.name || (item as any).name_fr || (item as any).name_ar || 'Article';
+      const existing = state.items.find((i) => i.id === itemId);
+
       if (existing) {
         return {
           items: state.items.map((i) =>
-            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+            i.id === itemId ? { ...i, quantity: i.quantity + 1 } : i
           ),
         };
       }
-      return { items: [...state.items, { id: item.id, name: item.name, price: item.price, quantity: 1 }] };
+      return {
+        items: [
+          ...state.items,
+          { id: itemId, name: itemName, price: item.price || 0, quantity: 1 },
+        ],
+      };
     }),
   removeItem: (id) =>
     set((state) => ({ items: state.items.filter((i) => i.id !== id) })),

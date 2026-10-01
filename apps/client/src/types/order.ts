@@ -1,18 +1,4 @@
-export type OrderStatus = 
-  | 'pending'
-  | 'preparing'
-  | 'ready'
-  | 'accepted'
-  | 'picked_up'
-  | 'delivering'
-  | 'delivered'
-  | 'cancelled';
-
-export interface LocationCoordinates {
-  latitude: number;
-  longitude: number;
-  heading?: number;
-}
+export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'picking_up' | 'delivering' | 'completed' | 'cancelled';
 
 export interface OrderItem {
   id?: string;
@@ -21,45 +7,39 @@ export interface OrderItem {
   quantity: number;
   price?: number;
   unit_price?: number;
-  total_price: number;
-  options?: string[];
+  total_price?: number;
+  options?: any[];
+  [key: string]: any;
 }
 
 export interface Order {
   id: string;
-  created_at?: string;
-  updated_at?: string;
-  
-  // الأطراف
-  customer_id?: string;
-  client_id?: string;
-  partner_id?: string;
-  driver_id?: string;
-
-  // الحسابات المالية
+  customer_id: string;
+  partner_id: string;
   items: OrderItem[];
-  subtotal?: number;
-  delivery_fee?: number;
-  tax_amount?: number;
+  subtotal: number;
+  delivery_fee: number;
+  tax_amount: number;
   total_amount: number;
-  payment_method?: string;
-  payment_status?: string;
-
-  // الحالة
-  status: OrderStatus;
-
-  // العناوين والمواقع
+  payment_method: string;
+  payment_status: string;
+  status: OrderStatus | string;
   delivery_address: string;
-  delivery_lat?: number;
-  delivery_lng?: number;
-  client_location?: LocationCoordinates;
-  partner_location?: LocationCoordinates;
-  driver_location?: LocationCoordinates;
-
-  // أمان الـ Handshake الميداني
   verification_pin?: string;
-  pin_code?: string;
   qr_code_data?: string;
-}
+  created_at: string;
 
-export type OrderDetails = Order;
+  // الحقول الميدانية الحية للتتبع والتنسيق
+  courier_id?: string | null;
+  courier_name?: string | null;
+  courier_phone?: string | null;
+  courier_vehicle?: string | null;
+  courier_lat?: number | null;
+  courier_lng?: number | null;
+  partner_lat?: number | null;
+  partner_lng?: number | null;
+  client_lat?: number | null;
+  client_lng?: number | null;
+  eta_minutes?: number | null;
+  [key: string]: any;
+}

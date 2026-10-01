@@ -23,7 +23,7 @@ export const adaptPartnerToUI = (partner: PartnerDB): PartnerUI => {
     reviewsCount: 120, // يمكن ربطها بجدول التقييمات مستقبلاً
     deliveryTime: '20-30 min', // تجسير ديناميكي حسب الموقع الميداني
     deliveryFee: '2.500 DT',
-    isOpen: partner.is_active,
+    isOpen: Boolean(partner.is_active),
     isVerified: true,
     badge: partner.is_active ? 'DISPONIBLE' : undefined,
     image: partner.cover || partner.logo || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80',

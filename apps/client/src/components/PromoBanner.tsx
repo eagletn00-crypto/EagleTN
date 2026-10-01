@@ -1,45 +1,45 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Sparkles, X } from 'lucide-react';
 
-export const PromoBanner: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(true);
+interface PromoBannerProps {
+  onClose?: () => void;
+}
 
-  if (!isVisible) return null;
-
+export const PromoBanner: React.FC<PromoBannerProps> = ({ onClose }) => {
   return (
-    <div className="px-4 py-1">
-      <div className="relative bg-white/60 border border-white/80 rounded-2xl p-3.5 shadow-[0_2px_15px_rgba(0,0,0,0.015)] space-y-1.5 overflow-hidden">
-        <button 
-          onClick={() => setIsVisible(false)}
-          className="absolute top-2.5 right-2.5 text-slate-400 hover:text-slate-600 bg-white/80 rounded-full p-1 transition-colors"
+    <div className="relative p-5 bg-gradient-to-br from-slate-950 via-slate-900 to-black text-white rounded-3xl transition-all duration-300 space-y-3 shadow-[0_12px_30px_rgba(15,23,42,0.12)] border border-slate-800/80 overflow-hidden select-none">
+      <div className="absolute -right-8 -top-8 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
           aria-label="Fermer"
         >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-4 h-4 stroke-[2]" />
         </button>
+      )}
 
-        <div className="space-y-0.5 font-['Plus_Jakarta_Sans']">
-          <h3 className="text-xs font-black text-slate-900 tracking-tight">
-            Eagle TN - Votre destination gourmande.
-          </h3>
-          <p className="text-[10.5px] font-bold text-slate-600">
-            La qualité supérieure, le goût local.
-          </p>
+      <div className="space-y-1">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/15 text-[9px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md">
+          <Sparkles className="w-3 h-3 text-amber-400" />
+          <span>EXCELLENCE GUARANTEED</span>
         </div>
-
-        {/* Hyper-Local Tunsi Copywriting */}
-        <p className="text-xs font-bold text-amber-900 font-['Cairo'] dir-rtl">
-          بنة عالمية وتوصيل في رمشة عين 🛵
+        <h3 className="text-base font-black tracking-tight text-white pt-1">
+          EAGLE TN • <span className="text-[#E70013]">DIGYTAL SYSTEM</span>
+        </h3>
+        <p className="text-[11px] font-medium text-slate-300 tracking-tight">
+          L'excellence à votre porte.
         </p>
+      </div>
 
-        <div className="pt-1 border-t border-slate-200/40 flex flex-col gap-0.5">
-          <span className="text-[9.5px] font-black text-slate-500 tracking-wider font-['Plus_Jakarta_Sans']">
-            10% DE COMMISSION SUR VOS COMMANDES
-          </span>
-          <span className="text-[10.5px] font-black text-emerald-700 font-['Cairo'] dir-rtl">
-            عيش تونسي ودعم المحلي.
-          </span>
-        </div>
+      <div className="pt-2 flex items-center justify-between border-t border-white/10">
+        <span className="text-[11px] font-bold text-amber-300/90 tracking-tight">
+          بنة عالمية وتوصيل في رمشة عين 🛵
+        </span>
+        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+          PREMIUM
+        </span>
       </div>
     </div>
   );

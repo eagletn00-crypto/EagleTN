@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Partner, Category, MenuItem } from '../types';
+import { Partner, Category } from '../types';
 
 export const categoryService = {
   async getAll(): Promise<Category[]> {
@@ -15,9 +15,9 @@ export const categoryService = {
           { id: '2', name: 'PÂTISSERIE', slug: 'patisserie' },
           { id: '3', name: 'MODE & SHOPPING', slug: 'mode' },
           { id: '4', name: 'COSMÉTIQUE', slug: 'cosmetique' },
-        ];
+        ] as Category[];
       }
-      return data;
+      return data as Category[];
     } catch (e) {
       console.warn('Supabase fetch fallback for categories:', e);
       return [
@@ -25,7 +25,7 @@ export const categoryService = {
         { id: '2', name: 'PÂTISSERIE', slug: 'patisserie' },
         { id: '3', name: 'MODE & SHOPPING', slug: 'mode' },
         { id: '4', name: 'COSMÉTIQUE', slug: 'cosmetique' },
-      ];
+      ] as Category[];
     }
   }
 };
@@ -59,9 +59,9 @@ export const partnerService = {
             address: 'Avenue Habib Bourguiba, Tunis',
             category: 'RESTAURANTS'
           }
-        ];
+        ] as Partner[];
       }
-      return data;
+      return data as Partner[];
     } catch (e) {
       console.warn('Supabase fetch fallback for partners:', e);
       return [
@@ -75,7 +75,7 @@ export const partnerService = {
           address: 'Avenue Habib Bourguiba, Tunis',
           category: 'RESTAURANTS'
         }
-      ];
+      ] as Partner[];
     }
   }
 };

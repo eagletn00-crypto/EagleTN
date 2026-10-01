@@ -1,17 +1,74 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Search, SlidersHorizontal, Zap, Star, Bike, Clock } from 'lucide-react';
 
-export const SearchBar: React.FC = () => {
+interface SearchBarProps {
+  onSearchChange?: (query: string) => void;
+  onFilterSelect?: (filterId: string) => void;
+}
+
+export const SearchBar: React.FC<SearchBarProps> = ({
+  onSearchChange,
+  onFilterSelect,
+}) => {
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  const filterChips = [
+    { id: 'express', label: 'Rapide (-20 min)', icon: Zap },
+    { id: 'top_rated', label: 'Top Noté', icon: Star },
+    { id: 'free_delivery', label: 'Livraison 0 DT', icon: Bike },
+    { id: 'open_now', label: 'Ouvert', icon: Clock },
+  ];
+
+  const handleFilterClick = (id: string) => {
+    const nextFilter = activeFilter === id ? 'all' : id;
+    setActiveFilter(nextFilter);
+    if (onFilterSelect) onFilterSelect(nextFilter);
+  };
+
   return (
-    <div className="px-4 py-1 sticky top-[52px] z-30">
-      <div className="relative group">
-        <input 
-          type="text" 
-          placeholder="Chercher un plat, un restaurant..." 
-          className="w-full bg-white/60 backdrop-blur-md border border-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] rounded-full py-3.5 pl-11 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white/90 transition-all duration-300"
+    <div className="w-full space-y-3.5 my-3 select-none">
+      {/* Search Input Container */}
+      <div className="relative flex items-center group">
+        <Search className="absolute left-4 w-4 h-4 text-slate-400 stroke-[2.2] group-focus-within:text-slate-900 transition-colors pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Chercher un restaurant, pâtisserie, boutique..."
+          onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+          className="w-full h-12 pl-11 pr-11 bg-slate-50/80 border border-slate-200/60 rounded-2xl text-xs font-semibold text-slate-900 placeholder-slate-400/90 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)] font-['Plus_Jakarta_Sans']"
         />
-        <svg className="w-4 h-4 absolute left-4 top-4 text-slate-400 group-focus-within:text-amber-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+        <button
+          type="button"
+          aria-label="Filtres avancés"
+          className="absolute right-3.5 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100/80 rounded-xl transition-all"
+        >
+          <SlidersHorizontal className="w-4 h-4 stroke-[2.2]" />
+        </button>
+      </div>
+
+      {/* Ultra Clean Filter Chips Horizontal Scroll */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth">
+        {filterChips.map((chip) => {
+          const isActive = activeFilter === chip.id;
+          const Icon = chip.icon;
+
+          return (
+            <button
+              key={chip.id}
+              onClick={() => handleFilterClick(chip.id)}
+              type="button"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all duration-200 active:scale-95 font-['Plus_Jakarta_Sans'] ${
+                isActive
+                  ? 'bg-slate-950 text-white shadow-md shadow-slate-950/10 ring-1 ring-slate-900'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200/60 hover:bg-slate-100/80 hover:text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 stroke-[2.2] ${
+                isActive ? 'text-amber-400' : 'text-slate-400'
+              }`} />
+              <span>{chip.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,59 +1,67 @@
 import React from 'react';
 
-export type TabType = 'HOME' | 'ORDERS' | 'PROFILE';
+export type TabType = 'home' | 'search' | 'orders' | 'profile' | 'accueil' | 'recherche' | 'commandes' | 'profil';
 
-interface BottomNavigationProps {
-  activeTab: TabType;
-  onTabChange: (tab: TabType) => void;
+export interface BottomNavigationProps {
+  activeTab: TabType | string;
+  onTabChange: (tab: 'home' | 'search' | 'orders' | 'profile') => void;
 }
+
+export interface NavItem {
+  id: 'home' | 'search' | 'orders' | 'profile';
+  aliases: string[];
+  label: string;
+  icon: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'home', aliases: ['home', 'accueil'], label: 'Accueil', icon: '🏠' },
+  { id: 'search', aliases: ['search', 'recherche'], label: 'Recherche', icon: '🔍' },
+  { id: 'orders', aliases: ['orders', 'commandes'], label: 'Commandes', icon: '🛍️' },
+  { id: 'profile', aliases: ['profile', 'profil'], label: 'Profil', icon: '👤' },
+];
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   activeTab,
   onTabChange,
 }) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto px-4 pb-4">
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 text-white rounded-3xl p-2 shadow-2xl flex items-center justify-around">
-        {/* Accueil */}
-        <button
-          onClick={() => onTabChange('HOME')}
-          className={`flex flex-col items-center justify-center py-1.5 px-4 rounded-2xl transition-all duration-300 ${
-            activeTab === 'HOME'
-              ? 'bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/30 scale-105'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="text-lg">🏠</span>
-          <span className="text-[10px] mt-0.5 tracking-wide">Accueil</span>
-        </button>
+    <nav 
+      aria-label="Navigation principale"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200/80 px-2 py-1.5 shadow-xl select-none pb-[max(0.625rem,env(safe-area-inset-bottom))]"
+    >
+      <div className="max-w-md mx-auto flex items-center justify-around">
+        {NAV_ITEMS.map((tab) => {
+          const isActive = tab.aliases.includes(activeTab);
 
-        {/* Commandes */}
-        <button
-          onClick={() => onTabChange('ORDERS')}
-          className={`flex flex-col items-center justify-center py-1.5 px-4 rounded-2xl transition-all duration-300 ${
-            activeTab === 'ORDERS'
-              ? 'bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/30 scale-105'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="text-lg">📦</span>
-          <span className="text-[10px] mt-0.5 tracking-wide">Commandes</span>
-        </button>
-
-        {/* Mon Profil */}
-        <button
-          onClick={() => onTabChange('PROFILE')}
-          className={`flex flex-col items-center justify-center py-1.5 px-4 rounded-2xl transition-all duration-300 ${
-            activeTab === 'PROFILE'
-              ? 'bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/30 scale-105'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="text-lg">👤</span>
-          <span className="text-[10px] mt-0.5 tracking-wide">Profil</span>
-        </button>
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              type="button"
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex flex-col items-center justify-center min-w-[64px] min-h-[44px] py-1 px-2 rounded-xl transition-all duration-200 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-[#E70013]/40 ${
+                isActive
+                  ? 'text-[#E70013] font-extrabold scale-105'
+                  : 'text-slate-500 hover:text-slate-800 font-bold'
+              }`}
+            >
+              <span 
+                className={`text-xl leading-none mb-1 transition-transform ${
+                  isActive ? 'drop-shadow-sm scale-110' : 'opacity-80'
+                }`}
+                aria-hidden="true"
+              >
+                {tab.icon}
+              </span>
+              <span className="text-[11px] tracking-tight leading-tight">
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </nav>
   );
 };
 

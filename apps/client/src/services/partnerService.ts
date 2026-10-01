@@ -1,62 +1,48 @@
 import { supabase } from '../lib/supabase';
-import { Partner as SchemaPartner } from '../types/schema';
+import { Partner, Category, MenuItem } from '../types/partner';
 
-export type Partner = SchemaPartner;
-
-export interface MenuItem {
-  id: string;
-  partner_id: string;
-  category_id: string;
-  name_fr: string;
-  name_ar?: string;
-  description_fr?: string;
-  current_price: number;
-  image_url?: string;
-  is_available: boolean;
-}
-
-export interface Category {
-  id: string;
-  name_fr: string;
-  name_ar: string;
-  sort_order: number;
-}
-
-export async function getPartnerDetailsWithMenu(partnerId: string) {
-  const [partnerRes, categoriesRes, itemsRes] = await Promise.all([
-    supabase.from('partners').select('*').eq('id', partnerId).single(),
-    supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-    supabase.from('menu_items').select('*').eq('partner_id', partnerId).eq('is_available', true)
-  ]);
-
-  if (partnerRes.error) throw partnerRes.error;
-  if (categoriesRes.error) throw categoriesRes.error;
-  if (itemsRes.error) throw itemsRes.error;
-
-  return {
-    partner: partnerRes.data as unknown as Partner,
-    categories: categoriesRes.data as Category[],
-    items: itemsRes.data as MenuItem[],
-  };
-}
-
-export async function getActivePartners(): Promise<Partner[]> {
-  const { data, error } = await supabase
-    .from('partners')
-    .select('*')
-    .eq('is_active', true);
-
-  if (error) throw error;
-  return data as unknown as Partner[];
-}
+export type { Partner, Category, MenuItem };
 
 export const partnerService = {
-  getPartnerDetailsWithMenu,
-  getActivePartners,
-  getPartners: getActivePartners,
-  getPartnerById: async (id: string) => {
-    const { data, error } = await supabase.from('partners').select('*').eq('id', id).single();
-    if (error) throw error;
-    return data as unknown as Partner;
+  async getPartners(): Promise<Partner[]> {
+    const { data, error } = await supabase.from('partners').select('*').eq('is_active', true);
+    if (error) {
+      console.warn('Supabase fetch partners failed:', error);
+      return [];
+    }
+    return data || [];
+  },
+
+  async getActivePartners(): Promise<Partner[]> {
+    return this.getPartners();
+  },
+
+  async getPartnerById(partnerId: string): Promise<Partner | null> {
+    const { data, error } = await supabase.from('partners').select('*').eq('id', partnerId).single();
+    if (error) return null;
+    return data;
+  },
+
+  async getPartnerDetailsWithMenu(partnerId: string): Promise<{
+    partner: Partner | null;
+    categories: Category[];
+    items: MenuItem[];
+  }> {
+    try {
+      const [partnerRes, categoriesRes, itemsRes] = await Promise.all([
+        supabase.from('partners').select('*').eq('id', partnerId).single(),
+        supabase.from('categories').select('*'),
+        supabase.from('menu_items').select('*').eq('partner_id', partnerId)
+      ]);
+
+      return {
+        partner: partnerRes.data || null,
+        categories: categoriesRes.data || [],
+        items: itemsRes.data || []
+      };
+    } catch (err) {
+      console.error('Error fetching partner details:', err);
+      return { partner: null, categories: [], items: [] };
+    }
   }
 };

@@ -1,225 +1,232 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLivreurOrders } from '../hooks/useLivreurOrders';
+import { BottomNav, TabType } from '../components/BottomNav';
+import { OrderMap } from '../components/OrderMap';
 
 export default function LivreurDashboard() {
-  const {
-    isOnline,
-    setIsOnline,
-    activeTab,
-    setActiveTab,
-    activeOrders,
-    stats,
-    loading,
-    confirmOrder,
-    setConfirmOrder,
-    handleOpenNavigation,
-    handleStartTrip,
-    handleFinalizeDelivery,
-  } = useLivreurOrders();
+  const [activeTab, setActiveTab] = useState<TabType>('commandes');
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [selectedMapOrder, setSelectedMapOrder] = useState<string | null>(null);
+  const { orders, loading, acceptOrder, deliverOrder } = useLivreurOrders();
+
+  const activeOrders = orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled');
+  const completedOrders = orders.filter((o) => o.status === 'delivered');
+
+  const cashInHand = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const netEarnings = completedOrders.reduce((sum, o) => sum + o.deliveryFee, 0);
+  const cashLimit = 150.0;
+
+  const handleAccept = async (id: string) => {
+    await acceptOrder(id);
+    setSelectedMapOrder(id); // فتح الخريطة تلقائياً فور قبول الطلب
+  };
+
+  const handleDeliver = async (id: string) => {
+    if (window.confirm("Confirmez-vous l'encaissement de la commande et la livraison au client ?")) {
+      await deliverOrder(id);
+    }
+  };
 
   return (
-    <div dir="ltr" className="min-h-screen bg-[#f8f9fa] text-slate-900 flex flex-col font-sans pb-28 select-none">
-      
-      {/* 1. HEADER */}
-      <header className="bg-white border-b border-slate-100 px-4 py-2.5 sticky top-0 z-20 flex justify-between items-center shadow-2xs">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white font-black text-sm">
-            E
-          </div>
-          <div>
-            <h1 className="text-sm font-extrabold tracking-tight text-slate-900 leading-none">
-              Eagle<span className="text-red-600">.Livreur</span>
-            </h1>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-              ZONE: TUNIS CAPITAL
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans pb-24 select-none">
+      {/* Header */}
+      <header className="bg-white px-4 py-3 border-b border-gray-100 flex justify-between items-center sticky top-0 z-40 shadow-2xs">
+        <div>
+          <span className="text-[10px] font-black text-emerald-600 tracking-wider uppercase block">
+            EAGLE TN • LIVREUR
+          </span>
+          <h1 className="text-lg font-black text-gray-900 tracking-tight">EAGLE Rider 🛵</h1>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="w-8 h-8 rounded-full bg-rose-50 border border-rose-100 text-rose-500 flex items-center justify-center text-xs font-bold">
-            ⚠️
-          </button>
-          <button
-            onClick={() => setIsOnline(!isOnline)}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 transition-all ${
-              isOnline
-                ? 'bg-emerald-500 text-white shadow-xs'
-                : 'bg-slate-200 text-slate-600'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-white animate-pulse' : 'bg-slate-400'}`} />
-            {isOnline ? 'EN LIGNE' : 'HORS LIGNE'}
-          </button>
-        </div>
+        <button
+          onClick={() => setIsOnline(!isOnline)}
+          className={`px-3 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-1.5 border shadow-2xs ${
+            isOnline
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-red-50 text-red-600 border-red-200'
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+          {isOnline ? 'En Ligne' : 'Hors Ligne'}
+        </button>
       </header>
 
-      {/* MAIN CONTAINER */}
-      <main className="p-4 max-w-md mx-auto w-full space-y-4 flex-1">
-        
-        {/* 2. PERFORMANCE HEADER */}
-        <div className="bg-[#0b1329] text-white p-5 rounded-2xl shadow-md relative overflow-hidden">
-          <div className="flex justify-between items-start mb-3">
-            <div>
-              <span className="text-[9px] font-extrabold tracking-wider text-slate-400 uppercase block">
-                GAINS D'AUJOURD'HUI
-              </span>
-              <div className="text-2xl font-black tracking-tight text-white mt-0.5">
-                +{stats.dailyEarnings.toFixed(3)} <span className="text-xs font-bold text-slate-300">TND</span>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <span className="text-[9px] font-extrabold tracking-wider text-slate-400 uppercase block">
-                COURSES EFFECTUÉES
-              </span>
-              <div className="text-xl font-black text-white mt-0.5">
-                {stats.completedTripsToday} <span className="text-xs text-slate-400 font-normal">Courses</span>
-              </div>
-            </div>
+      {/* Content */}
+      <main className="flex-1 p-4 max-w-md mx-auto w-full">
+        {!isOnline && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center space-y-1 mb-4 shadow-2xs">
+            <span className="text-sm font-black text-amber-800 block">Vous êtes Hors Ligne 🔴</span>
+            <p className="text-xs text-amber-600">Passez en ligne pour recevoir les missions disponibles.</p>
           </div>
+        )}
 
-          <div className="bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/50">
-            <div className="flex justify-between text-[10px] font-extrabold mb-1.5">
-              <span className="text-amber-400">⚡ Prime du jour: +{stats.bonusAmount.toFixed(3)} DT</span>
-              <span className="text-slate-400">{stats.completedTripsToday}/{stats.targetTrips} Courses</span>
-            </div>
-            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-amber-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (stats.completedTripsToday / stats.targetTrips) * 100)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* CASH WARNING */}
-        <div className="bg-[#fefce8] border border-amber-200/60 p-3.5 rounded-2xl flex items-center justify-between shadow-2xs">
-          <div className="text-xs">
-            <p className="font-extrabold text-amber-900 text-[11px]">Attention: Seuil Caisse Proche</p>
-            <p className="text-amber-700 text-[10px] mt-0.5">
-              Vous avez <strong className="font-black text-amber-900">{stats.cashInHand.toFixed(3)} DT</strong> en caisse (Limite: {stats.cashLimit} DT)
-            </p>
-          </div>
-          <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs">
-            🛡️
-          </div>
-        </div>
-
-        {/* 3. ORDERS LIST */}
-        {activeTab === 'encours' && (
+        {/* TAB 1: COMMANDES */}
+        {activeTab === 'commandes' && (
           <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-black text-gray-900 tracking-tight">
+                Missions En Cours ({activeOrders.length})
+              </h2>
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-0.5 rounded-md">
+                GPS Actif 📍
+              </span>
+            </div>
+
             {loading ? (
-              <div className="text-center py-12 text-slate-400 text-xs font-semibold">
-                Chargement des courses...
+              <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center shadow-2xs">
+                <p className="text-xs font-bold text-gray-400">Chargement des missions...</p>
               </div>
             ) : activeOrders.length === 0 ? (
-              <div className="bg-white rounded-2xl p-10 text-center border border-slate-100 shadow-2xs">
-                <p className="text-slate-400 text-xs font-extrabold flex items-center justify-center gap-2">
-                  📦 Aucune course active pour le moment
-                </p>
+              <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-xs font-medium">
+                Aucune mission attribuée pour le moment.
               </div>
             ) : (
-              activeOrders.map(order => (
-                <div
-                  key={order.id}
-                  className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-4 space-y-3 relative overflow-hidden"
-                >
-                  {/* Order Code & Status */}
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                    <div>
-                      <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
-                        CODE COMMANDE
-                      </span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="font-black text-xs text-slate-900">{order.order_code}</span>
-                        <span className="text-[11px] font-black text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                          #{order.short_code}
+              activeOrders.map((order) => {
+                const isMapOpen = selectedMapOrder === order.id;
+
+                return (
+                  <div
+                    key={order.id}
+                    className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3 relative overflow-hidden"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md">
+                            #{order.short_code}
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                            Code: {order.verificationCode}
+                          </span>
+                        </div>
+                        <h3 className="font-extrabold text-gray-900 text-base">{order.restaurantName}</h3>
+                        <p className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+                          📍 {order.deliveryAddress}
+                        </p>
+                        <p className="text-xs font-bold text-gray-700">
+                          👤 {order.clientName} (
+                          <a href={`tel:${order.clientPhone}`} className="text-emerald-600 underline">
+                            {order.clientPhone}
+                          </a>
+                          )
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-black text-emerald-600 block">
+                          +{order.deliveryFee.toFixed(3)} DT
                         </span>
+                        <span className="text-[10px] text-gray-400 font-bold block">Gain Course</span>
                       </div>
                     </div>
 
-                    <span
-                      className={`text-[9px] font-black px-2.5 py-1 rounded-full tracking-wider uppercase ${
-                        order.status === 'EN_ROUTE'
-                          ? 'bg-blue-50 text-blue-600 border border-blue-100'
-                          : 'bg-amber-50 text-amber-600 border border-amber-100'
-                      }`}
-                    >
-                      {order.status === 'EN_ROUTE' ? '⌛ EN ROUTE' : '⏳ EN PREPARATION'}
-                    </span>
-                  </div>
-
-                  {/* Partner & Client Info */}
-                  <div className="space-y-2 bg-slate-50/70 p-3 rounded-xl border border-slate-100 text-xs">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">RESTAURANT / PARTENAIRE</span>
-                        <p className="font-extrabold text-slate-800 text-xs mt-0.5">🏪 {order.restaurant_name}</p>
-                      </div>
-                      {order.restaurant_phone && (
-                        <a
-                          href={`tel:${order.restaurant_phone}`}
-                          className="px-2.5 py-1 bg-white border border-slate-200 text-emerald-600 rounded-lg text-[10px] font-bold shadow-2xs flex items-center gap-1"
-                        >
-                          📞 Appeler
-                        </a>
-                      )}
+                    <div className="bg-amber-50/80 p-2.5 rounded-xl border border-amber-100 text-xs flex justify-between items-center">
+                      <span className="font-bold text-amber-900">💵 Encaissement Client (COD):</span>
+                      <span className="text-amber-800 font-black text-sm">{order.totalAmount.toFixed(3)} DT</span>
                     </div>
 
-                    <div className="border-t border-slate-200/60 pt-2 flex justify-between items-center">
-                      <div>
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">CLIENT & ADRESSE</span>
-                        <p className="font-extrabold text-slate-800 text-xs mt-0.5">👤 {order.customer_name}</p>
-                        <p className="text-[10px] text-slate-500 font-medium">{order.customer_address}</p>
-                      </div>
-                      {order.customer_phone && (
-                        <a
-                          href={`tel:${order.customer_phone}`}
-                          className="px-2.5 py-1 bg-white border border-slate-200 text-emerald-600 rounded-lg text-[10px] font-bold shadow-2xs flex items-center gap-1"
-                        >
-                          📞 Appeler
-                        </a>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Financial Details */}
-                  <div className="bg-[#0b1329] text-white p-3 rounded-xl flex justify-between items-center">
-                    <div>
-                      <span className="text-[9px] text-slate-400 font-bold block">Gain Livreur:</span>
-                      <span className="text-emerald-400 font-black text-xs">+{order.delivery_fee.toFixed(3)} DT</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] text-slate-400 font-bold block">À Collecter (Cash):</span>
-                      <span className="text-white font-black text-sm">{order.order_value.toFixed(3)} DT</span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="space-y-2 pt-1">
-                    <button
-                      onClick={() => handleOpenNavigation(order.lat, order.lng)}
-                      className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider"
-                    >
-                      ⚠️ OUVRIR DANS GOOGLE MAPS
-                    </button>
-
-                    {order.status !== 'EN_ROUTE' ? (
-                      <button
-                        onClick={() => handleStartTrip(order.id)}
-                        className="w-full py-3 bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white font-black text-xs rounded-xl shadow-md transition-all uppercase tracking-wider"
-                      >
-                        🚀 COMMENCER COURSE
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmOrder(order)}
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-black text-xs rounded-xl shadow-md transition-all uppercase tracking-wider"
-                      >
-                        ✅ CONFIRMER LIVRAISON
-                      </button>
+                    {/* الخريطة عند الطلب */}
+                    {isMapOpen && (
+                      <OrderMap
+                        pickupLat={order.pickupCoords.lat}
+                        pickupLng={order.pickupCoords.lng}
+                        dropoffLat={order.dropoffCoords.lat}
+                        dropoffLng={order.dropoffCoords.lng}
+                        clientAddress={order.deliveryAddress}
+                      />
                     )}
+
+                    <div className="pt-1 flex gap-2">
+                      <button
+                        onClick={() => handleAccept(order.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black py-3 rounded-xl shadow-xs transition-all active:scale-98 flex justify-center items-center gap-1"
+                      >
+                        {isMapOpen ? 'Itinéraire Actif 🗺️' : 'Accepter la Course 🛵'}
+                      </button>
+                      
+                      <button
+                        onClick={() => setSelectedMapOrder(isMapOpen ? null : order.id)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-3 rounded-xl transition-all"
+                        title="Afficher la Carte"
+                      >
+                        🗺️
+                      </button>
+
+                      <button
+                        onClick={() => handleDeliver(order.id)}
+                        className="bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-gray-800 text-xs font-black px-4 py-3 rounded-xl transition-all active:scale-98 border border-gray-200"
+                      >
+                        Terminer ✅
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: FINANCE */}
+        {activeTab === 'finance' && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-black text-gray-900 tracking-tight">Tableau de Bord Financier</h2>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs space-y-1">
+                <span className="text-[10px] font-bold text-gray-400 block">Cash en Main (COD)</span>
+                <span className="text-lg font-black text-amber-600 block">{cashInHand.toFixed(3)} DT</span>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                  <div
+                    className="bg-amber-500 h-1.5 rounded-full"
+                    style={{ width: `${Math.min((cashInHand / cashLimit) * 100, 100)}%` }}
+                  ></div>
+                </div>
+                <span className="text-[9px] text-gray-400 font-semibold block pt-1">
+                  Plafond autorisé: {cashLimit} DT
+                </span>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs space-y-1">
+                <span className="text-[10px] font-bold text-gray-400 block">Gains Nets Journée</span>
+                <span className="text-lg font-black text-emerald-600 block">+{netEarnings.toFixed(3)} DT</span>
+                <span className="text-[9px] text-emerald-600 font-bold block pt-1">
+                  Revenus livraisons accumulés
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-4.5 rounded-2xl text-white shadow-md space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-emerald-100">Versement Espèces Requis</span>
+                <span className="text-xs font-black bg-white/20 px-2 py-0.5 rounded-md">Agence / Dépôt</span>
+              </div>
+              <p className="text-2xl font-black">{cashInHand.toFixed(3)} DT</p>
+              <button
+                onClick={() => alert("Code QR généré pour le dépôt agence.")}
+                className="w-full bg-white text-emerald-800 text-xs font-black py-2.5 rounded-xl shadow-xs transition-all active:scale-98"
+              >
+                Générer Code de Dépôt QR 📲
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: JOURNAL */}
+        {activeTab === 'journal' && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-black text-gray-900 tracking-tight">Journal des Courses ({completedOrders.length})</h2>
+            {completedOrders.length === 0 ? (
+              <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-xs">
+                Aucune livraison enregistrée dans le journal aujourd'hui.
+              </div>
+            ) : (
+              completedOrders.map((order) => (
+                <div key={order.id} className="bg-white p-3.5 rounded-2xl border border-gray-100 flex justify-between items-center shadow-2xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 block">#{order.short_code}</span>
+                    <p className="text-xs font-extrabold text-gray-800">{order.restaurantName}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-emerald-600 block">+{order.deliveryFee.toFixed(3)} DT</span>
                   </div>
                 </div>
               ))
@@ -227,84 +234,27 @@ export default function LivreurDashboard() {
           </div>
         )}
 
-        {/* WALLET TAB */}
-        {activeTab === 'wallet' && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs text-center space-y-4">
-            <h3 className="text-xs font-bold text-slate-800">Mon Portefeuille Caisse</h3>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-bold">Total en Caisse</span>
-              <span className="text-2xl font-black text-slate-900">{stats.cashInHand.toFixed(3)} TND</span>
+        {/* TAB 4: PROFIL */}
+        {activeTab === 'profil' && (
+          <div className="space-y-4">
+            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 font-black text-lg flex items-center justify-center border border-emerald-200">
+                ER
+              </div>
+              <div>
+                <h3 className="font-extrabold text-gray-900 text-sm">EAGLE Rider TN</h3>
+                <p className="text-xs text-gray-500 font-semibold">+216 20 000 000</p>
+              </div>
             </div>
           </div>
         )}
       </main>
 
-      {/* CONFIRMATION MODAL */}
-      {confirmOrder && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
-            <h3 className="text-sm font-black text-slate-900 text-center">Valider la Livraison</h3>
-            <p className="text-xs text-slate-500 text-center">
-              Avez-vous bien encaissé la somme de <strong className="text-slate-900 font-black">{confirmOrder.order_value.toFixed(3)} DT</strong> ?
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmOrder(null)}
-                className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleFinalizeDelivery}
-                className="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-md"
-              >
-                Confirmer ✅
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. BOTTOM NAVIGATION */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 py-2 px-6 z-30 shadow-lg">
-        <div className="max-w-md mx-auto flex justify-between items-center">
-          <button
-            onClick={() => setActiveTab('encours')}
-            className={`flex-1 max-w-[100px] py-2 text-center rounded-2xl text-[10px] font-extrabold flex flex-col items-center justify-center transition-all ${
-              activeTab === 'encours'
-                ? 'bg-red-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-700'
-            }`}
-          >
-            <span>🚲</span>
-            <span className="mt-0.5">En Cours ({activeOrders.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('livre')}
-            className={`flex-1 max-w-[100px] py-2 text-center rounded-2xl text-[10px] font-extrabold flex flex-col items-center justify-center transition-all ${
-              activeTab === 'livre'
-                ? 'bg-red-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-700'
-            }`}
-          >
-            <span>📋</span>
-            <span className="mt-0.5">Livré ({stats.completedTripsToday})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('wallet')}
-            className={`flex-1 max-w-[100px] py-2 text-center rounded-2xl text-[10px] font-extrabold flex flex-col items-center justify-center transition-all ${
-              activeTab === 'wallet'
-                ? 'bg-red-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-700'
-            }`}
-          >
-            <span>💼</span>
-            <span className="mt-0.5">Caisse / Wallet</span>
-          </button>
-        </div>
-      </nav>
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        activeOrdersCount={activeOrders.length}
+      />
     </div>
   );
 }

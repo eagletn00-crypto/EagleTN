@@ -1,224 +1,134 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@eagle/database';
-import type { OrderStatus } from '../types/order';
-import { normalizeOrderStatus } from '../types/order';
-import { DeliveryOrder } from '../types/order';
+import { supabase } from '../lib/supabaseClient';
+import { RawOrderFromSupabase, MappedLivreurOrder } from '../types/order';
 
-const CACHE_KEY_ORDERS = 'eagle_livreur_orders_cache';
-const CACHE_KEY_STATS = 'eagle_livreur_stats_cache';
+export const useLivreurOrders = () => {
+  const [orders, setOrders] = useState<MappedLivreurOrder[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-export function useLivreurOrders() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [activeTab, setActiveTab] = useState<'encours' | 'livre' | 'wallet'>('encours');
-  
-  // 1. القراءة الفورية من الـ Local Cache لتجنب الشاشة البيضاء والتأخير
-  const [orders, setOrders] = useState<DeliveryOrder[]>(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY_ORDERS);
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
+  const mapOrder = (order: RawOrderFromSupabase): MappedLivreurOrder => {
+    const shortCode = order.id.slice(0, 8);
+    const dropLat = order.delivery_lat ?? 36.8188;
+    const dropLng = order.delivery_lng ?? 10.1658;
 
-  const [stats, setStats] = useState(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY_STATS);
-      return cached ? JSON.parse(cached) : {
-        dailyEarnings: 0,
-        completedTripsToday: 0,
-        targetTrips: 10,
-        bonusAmount: 10.000,
-        cashInHand: 0,
-        cashLimit: 300.000,
-        netEarnings: 0,
-      };
-    } catch {
-      return {
-        dailyEarnings: 0,
-        completedTripsToday: 0,
-        targetTrips: 10,
-        bonusAmount: 10.000,
-        cashInHand: 0,
-        cashLimit: 300.000,
-        netEarnings: 0,
-      };
-    }
-  });
-
-  const [loading, setLoading] = useState(orders.length === 0);
-  const [confirmOrder, setConfirmOrder] = useState<DeliveryOrder | null>(null);
-  const [issueOrder, setIssueOrder] = useState<DeliveryOrder | null>(null);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    fetchOrders();
-
-    const channel = supabase
-      .channel('orders-livreur-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => fetchOrders()
-      )
-      .subscribe();
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      supabase.removeChannel(channel);
+    return {
+      id: order.id,
+      order_code: `CMD-${shortCode}`,
+      short_code: shortCode,
+      partnerId: order.partner_id,
+      restaurantName: 'Chez Om Ali',
+      restaurant_name: 'Chez Om Ali',
+      restaurant_phone: '+216 71 000 000',
+      clientName: order.client_name || 'Client',
+      customer_name: order.client_name || 'Client',
+      clientPhone: order.client_phone || '20000000',
+      customer_phone: order.client_phone || '20000000',
+      deliveryAddress: order.delivery_address || 'Tunis',
+      customer_address: order.delivery_address || 'Tunis',
+      delivery_address: order.delivery_address || 'Tunis',
+      totalAmount: order.total_amount || 0,
+      total_amount: order.total_amount || 0,
+      order_value: order.total_amount || 0,
+      deliveryFee: order.delivery_fee || 3.5,
+      delivery_fee: order.delivery_fee || 3.5,
+      status: order.status,
+      verificationCode: order.verification_code || '0000',
+      pickupCoords: {
+        lat: order.pickup_lat ?? 36.8065,
+        lng: order.pickup_lng ?? 10.1815,
+      },
+      dropoffCoords: {
+        lat: dropLat,
+        lng: dropLng,
+      },
+      lat: dropLat,
+      lng: dropLng,
+      createdAt: order.created_at,
+      created_at: order.created_at,
     };
-  }, []);
+  };
 
-  const fetchOrders = async () => {
+  const fetchLivreurOrders = async () => {
     try {
+      setLoading(true);
+      // جلب الطلبات وجعل الفلترة في الكود تجنباً لأخطاء Enum في Postgres
       const { data, error } = await supabase
         .from('orders')
-        .select(`
-          id,
-          invoice_reference,
-          total_ttc,
-          delivery_fee,
-          status,
-          delivery_latitude,
-          delivery_longitude,
-          delivery_address_text,
-          client_phone,
-          client_name,
-          partners ( name, phone )
-        `)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (error) {
-        console.warn('Supabase Fetch Warning/Error:', error.message);
+        console.error('[useLivreurOrders] Error fetching orders:', error);
+        return;
       }
 
       if (data) {
-        const mappedOrders: DeliveryOrder[] = data.map((item: any) => ({
-          id: item.id || '',
-          order_code: item.invoice_reference || `#${(item.id || '').slice(0, 7)}`,
-          short_code: (item.id || '0000').slice(-4).toUpperCase(),
-          restaurant_name: item.partners?.name || 'Partner',
-          restaurant_phone: item.partners?.phone || '',
-          customer_name: item.client_name || 'Client',
-          customer_phone: item.client_phone || '',
-          customer_address: item.delivery_address_text || 'Adresse non spécifiée',
-          lat: item.delivery_latitude || 36.8588,
-          lng: item.delivery_longitude || 10.1597,
-          order_value: item.total_ttc || 0,
-          delivery_fee: item.delivery_fee || 2.5,
-          status: normalizeOrderStatus(item.status),
-        }));
-
-        setOrders(mappedOrders);
-
-        const delivered = mappedOrders.filter(o => o.status === 'delivered');
-        const totalCash = delivered.reduce((acc, curr) => acc + (curr.order_value || 0), 0);
-        const totalProfit = delivered.reduce((acc, curr) => acc + (curr.delivery_fee || 0), 0);
-
-        const newStats = {
-          dailyEarnings: totalProfit,
-          completedTripsToday: delivered.length,
-          targetTrips: 10,
-          bonusAmount: 10.000,
-          cashInHand: totalCash,
-          cashLimit: 300.000,
-          netEarnings: totalProfit,
-        };
-
-        setStats(newStats);
-
-        // 2. تحديث الـ Cache المحلي
-        localStorage.setItem(CACHE_KEY_ORDERS, JSON.stringify(mappedOrders));
-        localStorage.setItem(CACHE_KEY_STATS, JSON.stringify(newStats));
+        // فلترة الطلبات المتاحة للفارس (الطلبات غير المنتهية/الملغاة)
+        const activeData = (data as RawOrderFromSupabase[]).filter(
+          (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+        );
+        const mappedData = activeData.map(mapOrder);
+        setOrders(mappedData);
       }
     } catch (err) {
-      console.error('Error fetching orders:', err);
+      console.error('[useLivreurOrders] Error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenNavigation = (lat: number, lng: number) => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+  const acceptOrder = async (orderId: string) => {
+    // تحديث الحالة محلياً في الواجهة فوراً
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: 'accepted' } : o))
+    );
   };
 
-  const handleStartTrip = async (id: string) => {
-    // Optimistic UI Update with canonical status
-    setOrders(prev => {
-      const updated = prev.map(ord => ord.id === id ? { ...ord, status: 'on_the_way' } : ord);
-      localStorage.setItem(CACHE_KEY_ORDERS, JSON.stringify(updated));
-      return updated;
-    });
-
+  const deliverOrder = async (orderId: string) => {
     try {
-      await supabase.rpc('update_order_status', {
-        p_order_id: id,
-        p_new_status: 'on_the_way',
-        p_note: 'Driver picked up order and en route',
-      });
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: 'delivered',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (!error) {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      } else {
+        console.error('Error delivering order:', error);
+      }
     } catch (err) {
-      console.error('Error updating order status:', err);
-      // Revert optimistic update on error
-      setOrders(prev => prev.filter(o => o.id !== id));
+      console.error('Error delivering order:', err);
     }
   };
 
-  const handleFinalizeDelivery = async () => {
-    if (!confirmOrder) return;
+  useEffect(() => {
+    fetchLivreurOrders();
 
-    const targetId = confirmOrder.id;
-    
-    // Optimistic UI Update with canonical status
-    setOrders(prev => {
-      const updated = prev.map(ord => ord.id === targetId ? { ...ord, status: 'delivered' } : ord);
-      localStorage.setItem(CACHE_KEY_ORDERS, JSON.stringify(updated));
-      return updated;
-    });
+    const channel = supabase
+      .channel('livreur_orders_channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          fetchLivreurOrders();
+        }
+      )
+      .subscribe();
 
-    setConfirmOrder(null);
-
-    try {
-      await supabase.rpc('update_order_status', {
-        p_order_id: targetId,
-        p_new_status: 'delivered',
-        p_note: 'Order delivered to customer',
-      });
-    } catch (err) {
-      console.error('Error finalizing delivery:', err);
-      // Revert optimistic update on error
-      setOrders(prev => prev.filter(o => o.id !== targetId));
-    }
-  };
-
-  const handleReportIssue = async (reason: string) => {
-    if (!issueOrder) return;
-    alert(`تم تسجيل البلاغ (${reason}) بنجاح.`);
-    setIssueOrder(null);
-  };
-
-  const activeOrders = orders.filter(o => o.status !== 'delivered');
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return {
-    isOnline,
-    setIsOnline,
-    activeTab,
-    setActiveTab,
-    activeOrders,
-    stats,
+    orders,
     loading,
-    confirmOrder,
-    setConfirmOrder,
-    issueOrder,
-    setIssueOrder,
-    handleOpenNavigation,
-    handleStartTrip,
-    handleFinalizeDelivery,
-    handleReportIssue,
+    acceptOrder,
+    deliverOrder,
+    refetch: fetchLivreurOrders,
   };
-}
+};

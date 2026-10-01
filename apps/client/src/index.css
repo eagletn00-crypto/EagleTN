@@ -1,18 +1,107 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand-surface: #FDFBF7;
-  --color-brand-primary: #F59E0B;
-  --color-brand-dark: #0F172A;
+@layer base {
+  :root {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #EAEAEA;
+    color: #0F172A;
+    overflow-x: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
-@utility bg-brand-surface {
-  background-color: var(--color-brand-surface);
+/* Custom Scrollbar Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
-body {
-  background-color: #FDFBF7;
-  color: #0F172A;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  -webkit-tap-highlight-color: transparent;
+/* Smooth Behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* --- Skeuomorphic White Capsule Effect --- */
+.skeuo-pill {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%);
+  border: 1.5px solid rgba(203, 213, 225, 0.8);
+  box-shadow: 
+    0px 4px 10px rgba(0, 0, 0, 0.04),
+    inset 0px 2px 2px rgba(255, 255, 255, 0.9),
+    inset 0px -2px 2px rgba(0, 0, 0, 0.03);
+}
+
+.skeuo-pill-active {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FFF5F5 100%);
+  border: 1.5px solid #E70013;
+  box-shadow: 
+    0px 0px 12px rgba(231, 0, 19, 0.2),
+    inset 0px 2px 2px rgba(255, 255, 255, 1);
+}
+
+/* --- Claymorphism Custom Effects --- */
+.clay-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 
+    0px 10px 25px -5px rgba(0, 0, 0, 0.05),
+    0px 4px 10px -2px rgba(0, 0, 0, 0.02),
+    inset 0px 2px 4px 0px rgba(255, 255, 255, 0.9);
+}
+
+.clay-card-interactive {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clay-card-interactive:active {
+  transform: scale(0.97);
+  box-shadow:
+    0px 4px 12px -2px rgba(0, 0, 0, 0.04),
+    inset 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+/* --- Glassmorphism Custom Effects --- */
+.glass-header {
+  background: rgba(234, 234, 234, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.5);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0px 15px 35px -5px rgba(15, 23, 42, 0.1),
+    0px 0px 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+/* Skeleton Loading Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite ease-in-out;
 }
