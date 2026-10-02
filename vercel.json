@@ -1,11 +1,47 @@
 {
-  "version": 2,
-  "buildCommand": "pnpm --filter client build",
-  "outputDirectory": "apps/client/dist",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "admin": {
+      "root": "apps/admin",
+      "framework": "vite"
+    },
+    "client": {
+      "root": "apps/client",
+      "framework": "vite"
+    },
+    "livreur": {
+      "root": "apps/livreur",
+      "framework": "vite"
+    },
+    "partner": {
+      "root": "apps/partner",
+      "framework": "vite"
+    }
+  },
   "rewrites": [
     {
+      "source": "/admin/(.*)",
+      "destination": {
+        "service": "admin"
+      }
+    },
+    {
+      "source": "/partner/(.*)",
+      "destination": {
+        "service": "partner"
+      }
+    },
+    {
+      "source": "/livreur/(.*)",
+      "destination": {
+        "service": "livreur"
+      }
+    },
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": {
+        "service": "client"
+      }
     }
   ]
 }
