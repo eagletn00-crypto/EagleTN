@@ -1,44 +1,62 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ShieldCheck, ArrowRight, Sparkles, Lock, Mail, User } from 'lucide-react';
+import { Sparkles, Lock, Mail, User, Phone, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
+    setSuccessMsg(null);
 
     try {
       if (isSignUp) {
+        // 1. التحقق من إدخال رقم الهاتف عند التسجيل
+        if (!phone || phone.trim().length < 8) {
+          throw new Error('Veuillez entrer un numéro de téléphone valide (ex: 216XXXXXXXX).');
+        }
+
+        const formattedPhone = phone.startsWith('+') ? phone : `+216${phone.replace(/\s+/g, '')}`;
+
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: {
-              full_name: fullName || 'Client Privilégié'
-            }
-          }
+              full_name: fullName.trim() || 'Client VIP',
+              phone: formattedPhone,
+              role: 'client',
+            },
+          },
         });
 
         if (error) throw error;
 
-        if (data.user) {
+        // 2. التحقق مما إذا كان يتطلب تأكيد البريد الإلكتروني
+        if (data?.user && !data.session) {
+          setSuccessMsg('Compte créé avec succès ! Veuillez vérifier votre boîte mail pour confirmer votre inscription.');
+          return;
+        }
+
+        if (data.session) {
           navigate('/app', { replace: true });
         }
       } else {
+        // تسجيل الدخول
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
+          email: email.trim(),
+          password,
         });
 
         if (error) throw error;
@@ -49,7 +67,17 @@ export const AuthScreen: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Auth Error Details:', err);
-      const msg = err?.error_description || err?.message || (typeof err === 'string' ? err : 'Erreur d\'authentification serveur');
+      let msg = err?.error_description || err?.message || 'Erreur d\'authentification serveur';
+      
+      // تحسين رسائل الخطأ الشائعة
+      if (msg.includes('Invalid login credentials')) {
+        msg = 'Identifiants incorrects. Veuillez vérifier votre email et mot de passe.';
+      } else if (msg.includes('User already registered')) {
+        msg = 'Un compte existe déjà avec cette adresse email.';
+      } else if (msg.includes('Password should be at least')) {
+        msg = 'Le mot de passe doit contenir au moins 6 caractères.';
+      }
+
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -61,8 +89,8 @@ export const AuthScreen: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/app`
-        }
+          redirectTo: `${window.location.origin}/app`,
+        },
       });
       if (error) throw error;
     } catch (err: any) {
@@ -72,14 +100,14 @@ export const AuthScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center p-4 font-sans relative overflow-hidden">
-      {/* خلفية جمالية فائقة السلاسة بلمسات ناعمة */}
+      {/* خلفية جمالية */}
       <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-[#D4AF37]/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-[#E21A22]/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* كارت البطاقة الأبيض الفاخر النقي */}
-      <div className="w-full max-w-md bg-white/80 border border-slate-200/80 rounded-3xl p-7 sm:p-9 backdrop-blur-2xl shadow-2xl shadow-slate-200/50 z-10">
-        
-        {/* الهيدر والعلامة التجارية */}
+      {/* بطاقة التسجيل البيضاء الفاخرة */}
+      <div className="w-full max-w-md bg-white/90 border border-slate-200/80 rounded-3xl p-7 sm:p-9 backdrop-blur-2xl shadow-2xl shadow-slate-200/50 z-10">
+
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 text-[10px] font-mono tracking-widest text-[#B8952B] uppercase bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-3.5 py-1.5 rounded-full mb-4 shadow-sm">
             <Sparkles className="w-3 h-3 text-[#D4AF37] animate-pulse" />
@@ -93,33 +121,59 @@ export const AuthScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* تنبيه الأخطاء الأنيق */}
+        {/* رسائل الأخطاء والتأكيد */}
         {errorMsg && (
-          <div className="mb-5 p-3.5 bg-red-50 border border-red-200/60 rounded-2xl text-xs text-red-600 font-mono break-words flex items-center gap-2 shadow-sm">
-            <span>⚠️</span>
+          <div className="mb-5 p-3.5 bg-red-50 border border-red-200/60 rounded-2xl text-xs text-red-600 font-medium flex items-center gap-2 shadow-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* نموذج الإدخال الأبيض الأنيق */}
+        {successMsg && (
+          <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200/60 rounded-2xl text-xs text-emerald-700 font-medium flex items-center gap-2 shadow-sm">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {/* نموذج الإدخال */}
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
-            <div>
-              <label className="block text-[11px] font-semibold uppercase text-slate-500 tracking-wider mb-1.5 ml-1">
-                Nom & Prénom
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required={isSignUp}
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Ex: Youssef Ben Ali"
-                  className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all shadow-inner"
-                />
+            <>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-slate-500 tracking-wider mb-1.5 ml-1">
+                  Nom & Prénom
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required={isSignUp}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ex: Youssef Ben Ali"
+                    className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all shadow-inner"
+                  />
+                </div>
               </div>
-            </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-slate-500 tracking-wider mb-1.5 ml-1">
+                  Numéro de Téléphone
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    required={isSignUp}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Ex: 216 98 123 456"
+                    className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all font-mono shadow-inner"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           <div>
@@ -156,7 +210,6 @@ export const AuthScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* زر التأكيد الرئيسي الفاخر بالذهبي والأسود الملكي */}
           <button
             type="submit"
             disabled={loading}
@@ -173,13 +226,13 @@ export const AuthScreen: React.FC = () => {
           </button>
         </form>
 
-        {/* التحويل بين التسجيل والدخول */}
         <div className="mt-5 text-center">
           <button
             type="button"
             onClick={() => {
               setIsSignUp(!isSignUp);
               setErrorMsg(null);
+              setSuccessMsg(null);
             }}
             className="text-xs text-slate-600 hover:text-[#B8952B] font-semibold underline underline-offset-4 transition-colors"
           >
@@ -187,7 +240,6 @@ export const AuthScreen: React.FC = () => {
           </button>
         </div>
 
-        {/* الفاصل الأنيق */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-slate-200"></div>
@@ -197,7 +249,6 @@ export const AuthScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* زر جوجل الفخم */}
         <button
           onClick={() => handleOAuth('google')}
           type="button"

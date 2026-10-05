@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
+import { AnimatePresence, motion, Variants } from 'framer-motion';
 import SplashScreen from './screens/SplashScreen';
 import ClientHome from './screens/ClientHome';
 import RestaurantMenu from './screens/RestaurantMenu/index';
@@ -6,109 +7,90 @@ import Checkout from './screens/Checkout';
 import OrderTracking from './screens/OrderTracking';
 import ProfileScreen from './screens/ProfileScreen';
 import SupportModal from './screens/SupportModal';
-import BottomNavigation, { TabType } from './components/BottomNavigation';
+import BottomNavigation from './components/BottomNavigation';
 import ErrorBoundary from './components/ErrorBoundary';
+import { useAppStore, ScreenType, TabType } from './store/useAppStore';
+import { fetchPartners } from './services/api';
+import { supabase } from './lib/supabase';
 import { Partner } from './types/partner';
-import { Order, OrderItem } from './types/order';
-import { fetchPartners, createRemoteOrder } from './services/api';
+import { Order } from './types/order';
 
-export type ScreenType =
-  | 'SPLASH'
-  | 'HOME'
-  | 'RESTAURANT_MENU'
-  | 'CHECKOUT'
-  | 'ORDER_TRACKING'
-  | 'PROFILE';
+const pageVariants: Variants = {
+  initial: { opacity: 0, y: 8, scale: 0.99 },
+  animate: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1, 
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } 
+  },
+  exit: { 
+    opacity: 0, 
+    y: -6, 
+    scale: 0.99, 
+    transition: { duration: 0.15, ease: [0.7, 0, 0.84, 0] } 
+  },
+};
 
 export const AppRoutes: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<ScreenType>('SPLASH');
-  const [activeTab, setActiveTab] = useState<TabType>('home');
-  const [partners, setPartners] = useState<Partner[]>([]);
-  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
-  const [cartItems, setCartItems] = useState<OrderItem[]>([]);
-  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
-  const [isSupportOpen, setIsSupportOpen] = useState<boolean>(false);
+  const currentScreen = useAppStore((s) => s.currentScreen);
+  const activeTab = useAppStore((s) => s.activeTab);
+  const selectedPartner = useAppStore((s) => s.selectedPartner);
+  const cartItems = useAppStore((s) => s.cartItems);
+  const currentOrder = useAppStore((s) => s.currentOrder);
+  const customerAddress = useAppStore((s) => s.customerAddress);
+  const isSupportOpen = useAppStore((s) => s.isSupportOpen);
 
-  const defaultPartner: Partner = {
-    id: 'partner-om-ali',
-    name: 'Chez Am Ali',
-    name_ar: 'مطعم عم علي',
-    legal_name: 'Chez Am Ali SARL',
-    tax_id: '1234567/A/M/000',
-    rating: 5.0,
-    delivery_fee: 2.000,
-    estimated_time: '20-30 min',
-    delivery_time: '20-30 min',
-    distance: '1.2 km',
-    address: 'Tunis',
-    cover_url: null,
-    logo_url: null,
-    logo: null,
-    cover: null,
-    type: 'restaurant',
-    phone: null,
-    specialties: ['ROI DU HERGMA', 'Plats'],
-    is_active: true,
-    opening_hours: '11:00 - 22:00',
-    latitude: 36.8065,
-    longitude: 10.1815,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  const setCurrentScreen = useAppStore((s) => s.setCurrentScreen);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const setPartners = useAppStore((s) => s.setPartners);
+  const setSelectedPartner = useAppStore((s) => s.setSelectedPartner);
+  const setIsSupportOpen = useAppStore((s) => s.setIsSupportOpen);
+  const addToCart = useAppStore((s) => s.addToCart);
+  const removeFromCart = useAppStore((s) => s.removeFromCart);
+  const clearCart = useAppStore((s) => s.clearCart);
+  const selectPartnerWithIsolation = useAppStore((s) => s.selectPartnerWithIsolation);
+  const setCurrentOrder = useAppStore((s) => s.setCurrentOrder);
 
   useEffect(() => {
     let isMounted = true;
-    fetchPartners().then((data) => {
-      if (!isMounted) return;
-      if (data && data.length > 0) {
-        setPartners(data as unknown as Partner[]);
-      } else {
-        setPartners([defaultPartner]);
-      }
-    }).catch(() => {
-      if (isMounted) setPartners([defaultPartner]);
-    });
+    fetchPartners()
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          setPartners(data as unknown as Partner[]);
+        }
+      })
+      .catch((err) => console.error('[EAGLE TN Engine] Remote fetch failed:', err));
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [setPartners]);
 
-  const handleSplashFinish = () => {
-    setCurrentScreen('HOME');
-  };
+  const handleSplashFinish = useCallback(() => {
+    if (currentOrder && ['pending', 'accepted', 'delivering'].includes(currentOrder.status)) {
+      setActiveTab('orders');
+      setCurrentScreen('ORDER_TRACKING');
+    } else {
+      setCurrentScreen('HOME');
+    }
+  }, [currentOrder, setActiveTab, setCurrentScreen]);
 
-  const handleSelectPartner = (partner: Partner) => {
-    setSelectedPartner(partner);
-    setCurrentScreen('RESTAURANT_MENU');
-  };
-
-  const handleAddToCart = (item: { id: string; title: string; price: number }) => {
-    setCartItems((prevItems) => {
-      const existing = prevItems.find((i) => i.menu_item_id === item.id);
-      if (existing) {
-        return prevItems.map((i) =>
-          i.menu_item_id === item.id
-            ? { ...i, quantity: i.quantity + 1, total_price: (i.quantity + 1) * (i.unit_price || 0) }
-            : i
+  const handlePartnerSelect = useCallback(
+    (partner: Partner) => {
+      const success = selectPartnerWithIsolation(partner);
+      if (!success) {
+        const confirmSwitch = window.confirm(
+          'Votre panier contient des articles d\'un autre établissement. Voulez-vous le réinitialiser ?'
         );
+        if (confirmSwitch) {
+          clearCart();
+          setSelectedPartner(partner);
+          setCurrentScreen('RESTAURANT_MENU');
+        }
       }
-      return [
-        ...prevItems,
-        {
-          menu_item_id: item.id,
-          name: item.title,
-          quantity: 1,
-          unit_price: item.price,
-          total_price: item.price,
-        },
-      ];
-    });
-  };
-
-  const handleGoToCheckout = () => {
-    setCurrentScreen('CHECKOUT');
-  };
+    },
+    [selectPartnerWithIsolation, clearCart, setSelectedPartner, setCurrentScreen]
+  );
 
   const handleConfirmOrder = async (orderData: {
     address: string;
@@ -117,132 +99,175 @@ export const AppRoutes: React.FC = () => {
     pin: string;
     totalAmount: number;
   }) => {
-    const activePartner = selectedPartner || partners[0] || defaultPartner;
-    const resolvedDeliveryFee = activePartner.delivery_fee ?? 2.000;
+    if (!selectedPartner) return;
 
-    const newOrder: Order = {
-      id: `EAGLE-${Math.floor(100000 + Math.random() * 900000)}`,
-      customer_id: 'cust-2026-field',
-      partner_id: activePartner.id,
-      items: cartItems.length > 0 ? cartItems : [{ menu_item_id: 'm1', name: 'Plat Eagle', quantity: 1, unit_price: 18.5, total_price: 18.5 }],
-      subtotal: cartItems.reduce((acc, i) => acc + (i.total_price || 0), 0) || 18.5,
-      delivery_fee: resolvedDeliveryFee,
-      tax_amount: 0,
-      total_amount: orderData.totalAmount || 20.500,
-      payment_method: 'COD',
-      payment_status: 'PENDING',
+    // استخراج بيانات المستخدم المسجل إن وجد
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const deliveryFee = Number((selectedPartner.delivery_fee ?? 2.5).toFixed(3));
+    const subtotal = Number(cartItems.reduce((acc, i) => acc + (i.total_price || (i.price * i.quantity) || 0), 0).toFixed(3));
+    const finalAddress = orderData.address || customerAddress || 'Tunis, Tunisie';
+    const pin = orderData.pin || Math.floor(1000 + Math.random() * 9000).toString();
+
+    const orderPayload: Record<string, any> = {
+      partner_id: selectedPartner.id,
+      user_id: user?.id || null,
       status: 'pending',
-      delivery_address: orderData.address || 'Avenue Habib Bourguiba, Tunis',
-      delivery_lat: activePartner.latitude ?? 36.8065,
-      delivery_lng: activePartner.longitude ?? 10.1815,
-      verification_pin: orderData.pin || '1234',
-      qr_code_data: `EAGLE-TN-${orderData.pin || '1234'}`,
-      created_at: new Date().toISOString(),
+      subtotal_ht: subtotal,
+      delivery_fee: deliveryFee,
+      total_amount: Number((subtotal + deliveryFee).toFixed(3)),
+      grand_total: Number((subtotal + deliveryFee).toFixed(3)),
+      payment_method: 'COD',
+      delivery_address: finalAddress,
+      delivery_lat: selectedPartner.latitude ?? 36.8065,
+      delivery_lng: selectedPartner.longitude ?? 10.1815,
+      delivery_latitude: selectedPartner.latitude ?? 36.8065,
+      delivery_longitude: selectedPartner.longitude ?? 10.1815,
+      verification_code: pin,
+      client_name: user?.user_metadata?.full_name || 'Client EAGLE TN',
+      client_phone: orderData.phone || user?.user_metadata?.phone || '21600000000',
+      client_notes: orderData.notes || '',
     };
 
     try {
-      await createRemoteOrder({
-        partner_id: activePartner.id,
-        items: newOrder.items,
-        total_amount: newOrder.total_amount,
-        delivery_fee: resolvedDeliveryFee,
-        delivery_address: newOrder.delivery_address,
-        verification_pin: newOrder.verification_pin,
-      });
-    } catch (err) {
-      console.warn('Sauvegarde Supabase ignorée:', err);
-    }
+      const { data: newOrder, error: orderError } = await supabase
+        .from('orders')
+        .insert([orderPayload])
+        .select()
+        .single();
 
-    setCurrentOrder(newOrder);
-    setCartItems([]);
-    setActiveTab('orders');
-    setCurrentScreen('ORDER_TRACKING');
-  };
+      if (orderError) {
+        console.error('❌ Supabase Order Insert Error:', orderError);
+        alert(`خطأ Supabase: ${orderError.message}`);
+        return;
+      }
 
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    if (tab === 'home' || tab === 'accueil' || tab === 'search' || tab === 'recherche') {
-      setCurrentScreen('HOME');
-    } else if (tab === 'profile' || tab === 'profil') {
-      setCurrentScreen('PROFILE');
-    } else if (tab === 'orders' || tab === 'commandes') {
+      if (cartItems.length > 0 && newOrder) {
+        const orderItemsPayload = cartItems.map((item) => ({
+          order_id: newOrder.id,
+          menu_item_id: item.menu_item_id || item.id,
+          item_name: item.name || 'Article',
+          quantity: item.quantity,
+          unit_price: item.unit_price || item.price,
+          total_price: item.total_price || (item.quantity * item.price),
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(orderItemsPayload);
+
+        if (itemsError) {
+          console.warn('⚠️ Order created, but failed to insert order_items:', itemsError.message);
+        }
+      }
+
+      const createdOrder: Order = {
+        ...(newOrder as unknown as Order),
+        items: cartItems,
+      };
+
+      setCurrentOrder(createdOrder);
+      clearCart();
+      setActiveTab('orders');
       setCurrentScreen('ORDER_TRACKING');
+    } catch (err: any) {
+      console.error('❌ Network or Unknown Error:', err);
+      alert(`خطأ غير متوقع: ${err?.message || err}`);
     }
   };
 
-  const showBottomNav = ['HOME', 'PROFILE', 'ORDER_TRACKING'].includes(currentScreen);
+  const handleTabChange = useCallback(
+    (tab: TabType) => {
+      setActiveTab(tab);
+      const tabMap: Record<string, ScreenType> = {
+        home: 'HOME',
+        accueil: 'HOME',
+        search: 'HOME',
+        recherche: 'HOME',
+        profile: 'PROFILE',
+        profil: 'PROFILE',
+        orders: 'ORDER_TRACKING',
+        commandes: 'ORDER_TRACKING',
+      };
+      if (tabMap[tab]) {
+        setCurrentScreen(tabMap[tab]);
+      }
+    },
+    [setActiveTab, setCurrentScreen]
+  );
+
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const showBottomNav = ['HOME', 'PROFILE', 'ORDER_TRACKING'].includes(currentScreen);
 
   return (
     <ErrorBoundary>
-      <div className="w-full min-h-screen bg-[#EAEAEA] font-sans antialiased text-slate-800 pb-16 selection:bg-[#E70013] selection:text-white">
-        {currentScreen === 'SPLASH' && (
-          <SplashScreen onFinish={handleSplashFinish} />
-        )}
+      <div className="w-full min-h-screen bg-[#FAFAFA] font-sans antialiased text-slate-900 pb-16 selection:bg-[#059669] selection:text-white relative overflow-x-hidden">
+        <AnimatePresence mode="wait">
+          {currentScreen === 'SPLASH' && (
+            <motion.div key="splash" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <SplashScreen onFinish={handleSplashFinish} />
+            </motion.div>
+          )}
 
-        {currentScreen === 'HOME' && (
-          <ClientHome
-            cartCount={totalCartCount}
-            onSelectPartner={(p: Partner) => handleSelectPartner(p || defaultPartner)}
-            onNavigateCart={() => setCurrentScreen('CHECKOUT')}
-          />
-        )}
+          {currentScreen === 'HOME' && (
+            <motion.div key="home" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <ClientHome
+                cartCount={totalCartCount}
+                onSelectPartner={handlePartnerSelect}
+                onNavigateCart={() => selectedPartner && cartItems.length > 0 && setCurrentScreen('CHECKOUT')}
+              />
+            </motion.div>
+          )}
 
-        {currentScreen === 'RESTAURANT_MENU' && (
-          <RestaurantMenu
-            partner={selectedPartner || defaultPartner}
-            cartItems={cartItems}
-            onAddToCart={handleAddToCart}
-            onBack={() => setCurrentScreen('HOME')}
-            onGoToCheckout={handleGoToCheckout}
-          />
-        )}
+          {currentScreen === 'RESTAURANT_MENU' && selectedPartner && (
+            <motion.div key="menu" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <RestaurantMenu
+                partner={selectedPartner}
+                cartItems={cartItems}
+                onAddToCart={(item, qty = 1) => addToCart({ id: item.id, menu_item_id: item.id, name: item.title, price: item.price, quantity: qty, unit_price: item.price, total_price: item.price * qty })}
+                onRemoveFromCart={removeFromCart}
+                onBack={() => setCurrentScreen('HOME')}
+                onGoToCheckout={() => setCurrentScreen('CHECKOUT')}
+              />
+            </motion.div>
+          )}
 
-        {currentScreen === 'CHECKOUT' && (
-          <Checkout
-            partner={selectedPartner || defaultPartner}
-            cartItems={cartItems}
-            customerAddress="Avenue Habib Bourguiba, Tunis"
-            customerPhone="+216 98 000 000"
-            onConfirmOrder={handleConfirmOrder}
-            onBack={() => setCurrentScreen('RESTAURANT_MENU')}
-          />
-        )}
+          {currentScreen === 'CHECKOUT' && selectedPartner && (
+            <motion.div key="checkout" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <Checkout
+                partner={selectedPartner}
+                cartItems={cartItems}
+                customerAddress={customerAddress}
+                customerPhone=""
+                onConfirmOrder={handleConfirmOrder}
+                onBack={() => setCurrentScreen('RESTAURANT_MENU')}
+              />
+            </motion.div>
+          )}
 
-        {currentScreen === 'ORDER_TRACKING' && (
-          <OrderTracking
-            order={currentOrder}
-            onBackToHome={() => {
-              setActiveTab('home');
-              setCurrentScreen('HOME');
-            }}
-            onOpenSupport={() => setIsSupportOpen(false)}
-          />
-        )}
+          {currentScreen === 'ORDER_TRACKING' && (
+            <motion.div key="tracking" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <OrderTracking
+                order={currentOrder}
+                onBackToHome={() => handleTabChange('home')}
+                onOpenSupport={() => setIsSupportOpen(true)}
+              />
+            </motion.div>
+          )}
 
-        {currentScreen === 'PROFILE' && (
-          <ProfileScreen
-            onBack={() => {
-              setActiveTab('home');
-              setCurrentScreen('HOME');
-            }}
-            onNavigateOrders={() => {
-              setActiveTab('orders');
-              setCurrentScreen('ORDER_TRACKING');
-            }}
-          />
-        )}
+          {currentScreen === 'PROFILE' && (
+            <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+              <ProfileScreen
+                onBack={() => handleTabChange('home')}
+                onNavigateOrders={() => handleTabChange('orders')}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {isSupportOpen && (
-          <SupportModal onClose={() => setIsSupportOpen(false)} />
-        )}
+        {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
 
-        {showBottomNav && (
-          <BottomNavigation
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-          />
-        )}
+        {showBottomNav && <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
       </div>
     </ErrorBoundary>
   );
