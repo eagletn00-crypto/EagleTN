@@ -4,3 +4,4 @@ export * from './RestaurantCard';
 export * from './ClientHeader';
 export * from './MobileContainer';
 export * from './ErrorBoundary';
+export * from './JoinUsModal';

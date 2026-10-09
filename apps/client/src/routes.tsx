@@ -17,17 +17,17 @@ import { Order } from './types/order';
 
 const pageVariants: Variants = {
   initial: { opacity: 0, y: 8, scale: 0.99 },
-  animate: { 
-    opacity: 1, 
-    y: 0, 
-    scale: 1, 
-    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } 
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] },
   },
-  exit: { 
-    opacity: 0, 
-    y: -6, 
-    scale: 0.99, 
-    transition: { duration: 0.15, ease: [0.7, 0, 0.84, 0] } 
+  exit: {
+    opacity: 0,
+    y: -6,
+    scale: 0.99,
+    transition: { duration: 0.15, ease: [0.7, 0, 0.84, 0] },
   },
 };
 
@@ -99,80 +99,32 @@ export const AppRoutes: React.FC = () => {
     pin: string;
     totalAmount: number;
   }) => {
-    if (!selectedPartner) return;
+    // دالة توافقية عند استدعائها من المكون الميداني
+    console.log('[EAGLE TN] Order Data Confirmed:', orderData);
+  };
 
-    // استخراج بيانات المستخدم المسجل إن وجد
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const deliveryFee = Number((selectedPartner.delivery_fee ?? 2.5).toFixed(3));
-    const subtotal = Number(cartItems.reduce((acc, i) => acc + (i.total_price || (i.price * i.quantity) || 0), 0).toFixed(3));
-    const finalAddress = orderData.address || customerAddress || 'Tunis, Tunisie';
-    const pin = orderData.pin || Math.floor(1000 + Math.random() * 9000).toString();
-
-    const orderPayload: Record<string, any> = {
-      partner_id: selectedPartner.id,
-      user_id: user?.id || null,
-      status: 'pending',
-      subtotal_ht: subtotal,
-      delivery_fee: deliveryFee,
-      total_amount: Number((subtotal + deliveryFee).toFixed(3)),
-      grand_total: Number((subtotal + deliveryFee).toFixed(3)),
-      payment_method: 'COD',
-      delivery_address: finalAddress,
-      delivery_lat: selectedPartner.latitude ?? 36.8065,
-      delivery_lng: selectedPartner.longitude ?? 10.1815,
-      delivery_latitude: selectedPartner.latitude ?? 36.8065,
-      delivery_longitude: selectedPartner.longitude ?? 10.1815,
-      verification_code: pin,
-      client_name: user?.user_metadata?.full_name || 'Client EAGLE TN',
-      client_phone: orderData.phone || user?.user_metadata?.phone || '21600000000',
-      client_notes: orderData.notes || '',
-    };
-
+  const handleOrderSuccess = async (orderId: string) => {
     try {
-      const { data: newOrder, error: orderError } = await supabase
+      // جلب بيانات الطلب المنشأ حديثاً وتحديث الـ Store للواجهة
+      const { data: fetchOrder } = await supabase
         .from('orders')
-        .insert([orderPayload])
-        .select()
+        .select('*')
+        .eq('id', orderId)
         .single();
 
-      if (orderError) {
-        console.error('❌ Supabase Order Insert Error:', orderError);
-        alert(`خطأ Supabase: ${orderError.message}`);
-        return;
+      if (fetchOrder) {
+        const fullOrder: Order = {
+          ...(fetchOrder as unknown as Order),
+          items: cartItems,
+        };
+        setCurrentOrder(fullOrder);
       }
-
-      if (cartItems.length > 0 && newOrder) {
-        const orderItemsPayload = cartItems.map((item) => ({
-          order_id: newOrder.id,
-          menu_item_id: item.menu_item_id || item.id,
-          item_name: item.name || 'Article',
-          quantity: item.quantity,
-          unit_price: item.unit_price || item.price,
-          total_price: item.total_price || (item.quantity * item.price),
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(orderItemsPayload);
-
-        if (itemsError) {
-          console.warn('⚠️ Order created, but failed to insert order_items:', itemsError.message);
-        }
-      }
-
-      const createdOrder: Order = {
-        ...(newOrder as unknown as Order),
-        items: cartItems,
-      };
-
-      setCurrentOrder(createdOrder);
+    } catch (e) {
+      console.warn('Order sync warning:', e);
+    } finally {
       clearCart();
       setActiveTab('orders');
       setCurrentScreen('ORDER_TRACKING');
-    } catch (err: any) {
-      console.error('❌ Network or Unknown Error:', err);
-      alert(`خطأ غير متوقع: ${err?.message || err}`);
     }
   };
 
@@ -224,7 +176,17 @@ export const AppRoutes: React.FC = () => {
               <RestaurantMenu
                 partner={selectedPartner}
                 cartItems={cartItems}
-                onAddToCart={(item, qty = 1) => addToCart({ id: item.id, menu_item_id: item.id, name: item.title, price: item.price, quantity: qty, unit_price: item.price, total_price: item.price * qty })}
+                onAddToCart={(item, qty = 1) =>
+                  addToCart({
+                    id: item.id,
+                    menu_item_id: item.id,
+                    name: item.title,
+                    price: item.price,
+                    quantity: qty,
+                    unit_price: item.price,
+                    total_price: item.price * qty,
+                  })
+                }
                 onRemoveFromCart={removeFromCart}
                 onBack={() => setCurrentScreen('HOME')}
                 onGoToCheckout={() => setCurrentScreen('CHECKOUT')}
@@ -239,7 +201,13 @@ export const AppRoutes: React.FC = () => {
                 cartItems={cartItems}
                 customerAddress={customerAddress}
                 customerPhone=""
+                onRemoveItem={(itemId) => removeFromCart(itemId)}
+                onRequireAuth={() => {
+                  setActiveTab('profile');
+                  setCurrentScreen('PROFILE');
+                }}
                 onConfirmOrder={handleConfirmOrder}
+                onOrderSuccess={handleOrderSuccess}
                 onBack={() => setCurrentScreen('RESTAURANT_MENU')}
               />
             </motion.div>

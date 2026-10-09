@@ -1,62 +1,74 @@
 import { supabase } from '../lib/supabase';
-import { Partner } from '../types/partner';
 
 export interface MenuItem {
   id: string;
-  partner_id?: string;
+  partner_id: string;
+  category_id?: string;
   name: string;
+  name_fr?: string;
+  name_ar?: string;
   description?: string;
+  description_fr?: string;
+  description_ar?: string;
   price: number;
+  current_price?: number;
   image_url?: string;
-  category?: string;
+  current_photo_url?: string;
+  img?: string;
   is_available?: boolean;
+  is_popular?: boolean;
+  is_recommended?: boolean;
+  badge?: string;
 }
 
-export const MOCK_PARTNERS: Partner[] = [
-  {
-    id: 'a1b2c3d4-a5f6-7890-abcd-111122223333',
-    name: 'Chez Am Ali - عم علي',
-    category: 'Cuisine Tunisienne',
-    rating: 4.9,
-    review_count: 128,
-    delivery_time: '20-30 min',
-    delivery_fee: 2.500,
-    min_order: 10.000,
-    image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
-    is_active: true,
-    latitude: 36.8065,
-    longitude: 10.1815,
-  }
-];
-
-export const fetchPartners = async (): Promise<Partner[]> => {
+export async function fetchPartners() {
   try {
     const { data, error } = await supabase
       .from('partners')
-      .select('*')
-      .eq('is_active', true);
+      .select('*');
 
-    if (error || !data || data.length === 0) {
-      return MOCK_PARTNERS;
+    if (error) {
+      console.error('Error fetching partners:', error);
+      return [];
     }
-    return data as unknown as Partner[];
-  } catch {
-    return MOCK_PARTNERS;
+    return data || [];
+  } catch (err) {
+    console.error('Fetch partners exception:', err);
+    return [];
   }
-};
+}
 
-export const fetchMenuItemsByPartner = async (partnerId: string): Promise<MenuItem[]> => {
+export async function fetchMenuItemsByPartner(partnerId: string): Promise<MenuItem[]> {
   try {
-    const { data, error } = await supabase
+    // 1. جلب المنتجات بواسطة partner_id المباشر
+    let { data, error } = await supabase
       .from('menu_items')
       .select('*')
       .eq('partner_id', partnerId);
 
-    if (error || !data) {
-      return [];
+    if (error || !data || data.length === 0) {
+      // 2. المحاولة عبر slug لعم علي
+      const { data: amAliPartner } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('slug', 'chez-am-ali')
+        .maybeSingle();
+
+      if (amAliPartner?.id) {
+        const { data: amAliItems } = await supabase
+          .from('menu_items')
+          .select('*')
+          .eq('partner_id', amAliPartner.id);
+
+        if (amAliItems && amAliItems.length > 0) {
+          return amAliItems as MenuItem[];
+        }
+      }
     }
-    return data as MenuItem[];
-  } catch {
+
+    return (data as MenuItem[]) || [];
+  } catch (err) {
+    console.error('Error fetching menu items:', err);
     return [];
   }
-};
+}

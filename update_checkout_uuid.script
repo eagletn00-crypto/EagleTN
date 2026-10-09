@@ -1,0 +1,5 @@
+// ابحث عن شرط الفحص بـ Checkout/index.tsx وحدثه ليدعم الربط المباشر بـ UUID المطعم الحقيقي:
+
+const targetPartnerId = partner?.id === 'chez-am-ali' || !isValidUUID(partner?.id)
+  ? 'a1b2c3d4-a5f6-7890-abcd-111122223333'
+  : partner.id;

@@ -1,34 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowLeft, Star, Clock, Banknote, ShoppingBag, ShieldCheck, ChevronRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, Star, Clock, Banknote, ShieldCheck, ChevronRight, Sparkles, Search, X, ShoppingBag } from 'lucide-react';
 import { Partner } from '../../types/partner';
 import { OrderItem } from '../../types/order';
-import { fetchMenuItemsByPartner } from '../../services/api';
+import { fetchMenuItemsByPartner, MenuItem } from '../../services/api';
 import { supabase } from '../../lib/supabase';
 
 import CategorySelector, { Category } from './components/CategorySelector';
 import MenuItemCard from './components/MenuItemCard';
 import ProductDetailModal from './components/ProductDetailModal';
-
-export interface MenuItem {
-  id: string;
-  partner_id: string;
-  category_id?: string;
-  name: string;
-  name_fr?: string;
-  name_ar?: string;
-  description?: string;
-  description_fr?: string;
-  description_ar?: string;
-  price: number;
-  current_price?: number;
-  image_url?: string;
-  current_photo_url?: string;
-  img?: string;
-  is_available?: boolean;
-  is_popular?: boolean;
-  is_recommended?: boolean;
-  badge?: string;
-}
 
 interface RestaurantMenuProps {
   partner: Partner;
@@ -51,6 +30,7 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('incontournables');
   const [selectedProduct, setSelectedProduct] = useState<MenuItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -82,11 +62,7 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
 
         const data = await fetchMenuItemsByPartner(partner.id);
         if (isMounted) {
-          if (data && Array.isArray(data)) {
-            setMenuItems(data as unknown as MenuItem[]);
-          } else {
-            setMenuItems([]);
-          }
+          setMenuItems(data || []);
         }
       } catch (err) {
         console.error('Error fetching Supabase data:', err);
@@ -97,7 +73,6 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
     }
 
     initData();
-
     return () => {
       isMounted = false;
     };
@@ -110,6 +85,11 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
+      const title = getCleanTitle(item).toLowerCase();
+      const matchesSearch = searchQuery === '' || title.includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
       if (selectedCategoryId === 'incontournables') {
         return item.is_popular === true || item.is_recommended === true;
       }
@@ -118,7 +98,7 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
       }
       return item.category_id === selectedCategoryId;
     });
-  }, [menuItems, selectedCategoryId]);
+  }, [menuItems, selectedCategoryId, searchQuery, getCleanTitle]);
 
   const { totalCartCount, totalCartPrice } = useMemo(() => {
     const count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -164,7 +144,9 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
   );
 
   const displayName = useMemo(() => {
-    return partner.name?.includes('Royal') ? 'Chez Om Ali (عم علي)' : partner.name || 'Restaurant';
+    return partner.name?.includes('Royal') || partner.name?.includes('Hergma')
+      ? 'Chez Am Ali - عم علي'
+      : partner.name || 'Chez Am Ali - عم علي';
   }, [partner.name]);
 
   return (
@@ -205,7 +187,7 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
 
             <div className="flex items-center gap-1 bg-amber-50/90 border border-amber-200/80 px-2.5 py-1 rounded-xl text-xs font-black text-amber-700 shadow-2xs backdrop-blur-xs">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>{partner.rating || 5.0}</span>
+              <span>{partner.rating || 4.9}</span>
             </div>
           </div>
 
@@ -217,7 +199,7 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
 
             <span className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200/70 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-2xs">
               <Banknote className="w-3.5 h-3.5 text-[#059669] stroke-[2.2]" />
-              {(partner.delivery_fee ?? 2.5).toFixed(3)} DT
+              {(partner.delivery_fee ?? 2.0).toFixed(3)} DT
             </span>
 
             <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200/70 text-[#059669] text-[10px] font-black px-2.5 py-1.5 rounded-xl shadow-2xs uppercase tracking-wider ml-auto">
@@ -228,11 +210,33 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
         </div>
       </div>
 
-      <CategorySelector
-        categories={categories}
-        selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
-      />
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/60 p-3 space-y-2">
+        <div className="relative w-full">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Chercher un plat..."
+            className="w-full h-10 pl-9 pr-9 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-900 transition-all"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <CategorySelector
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryId}
+        />
+      </div>
 
       <main className="p-4 space-y-3.5 min-h-[300px]">
         {loading ? (
@@ -242,7 +246,7 @@ export const RestaurantMenu: React.FC<RestaurantMenuProps> = ({
               <div className="absolute inset-0 rounded-full border-2 border-[#059669] border-t-transparent animate-spin" />
             </div>
             <p className="text-xs font-bold text-slate-400 tracking-wide uppercase">
-              Chargement de la carte...
+              Chargement des plats...
             </p>
           </div>
         ) : filteredItems.length === 0 ? (
