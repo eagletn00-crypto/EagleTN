@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Clock, Bike } from 'lucide-react';
+import { Star, Clock } from 'lucide-react';
 
 interface RestaurantCardProps {
   name: string;
@@ -8,7 +8,7 @@ interface RestaurantCardProps {
   rating?: number;
   reviewCount?: number;
   deliveryTime?: string;
-  deliveryFee?: string;
+  deliveryFee?: string | number;
   isOpen?: boolean;
   onClick?: () => void;
 }
@@ -24,51 +24,58 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   isOpen = true,
   onClick,
 }) => {
+  const formatFee = (val: string | number): string => {
+    const raw = val.toString().replace(/dt/i, '').trim();
+    const parsed = Number(raw);
+    if (!isNaN(parsed)) return `${parsed.toFixed(3)} DT`;
+    return val.toString().includes('DT') ? val.toString() : `${val} DT`;
+  };
+
   return (
     <div
       onClick={onClick}
-      className="relative w-full bg-slate-900 rounded-[28px] overflow-hidden shadow-lg border border-slate-200/50 cursor-pointer select-none my-3"
+      className="relative w-full rounded-[2.2rem] bg-[#E9EBEF] p-1.5 shadow-[6px_6px_16px_#c8cacb,-6px_-6px_16px_#ffffff] cursor-pointer select-none active:scale-[0.99] transition-transform duration-200 mb-5"
     >
-      {/* Container Image */}
-      <div className="relative w-full h-56 bg-slate-950">
+      {/* Conteneur Image avec Bord Arrondi Épais */}
+      <div className="relative w-full h-56 rounded-[1.8rem] overflow-hidden bg-stone-900">
         <img
           src={image}
           alt={name}
           className="w-full h-full object-cover"
+          loading="lazy"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
 
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-          {/* Custom Red Crown Badge (Replaced Orange with Red) */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#E70013] text-white shadow-md">
+        {/* Badges Supérieurs */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+          <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#E57E24] text-stone-900 font-black text-[11px] shadow-md tracking-wider">
             <span className="text-xs">👑</span>
-            <span className="text-[11px] font-black uppercase tracking-wide">
-              {tag}
-            </span>
+            <span className="font-extrabold">{tag}</span>
           </div>
 
-          {/* Rating Badge */}
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-2xl bg-white/90 backdrop-blur-md text-slate-900 shadow-md">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 stroke-none" />
-            <span className="text-xs font-black">{rating.toFixed(1)}</span>
-            <span className="text-[10px] text-slate-500 font-bold">({reviewCount})</span>
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-md text-stone-900 font-black text-xs shadow-md border border-white/60">
+            <Star className="w-3.5 h-3.5 fill-[#EAB308] text-[#EAB308] stroke-none" />
+            <span>{rating.toFixed(1)}</span>
+            <span className="text-[10px] text-stone-500 font-bold">({reviewCount})</span>
           </div>
         </div>
 
-        {/* Floating Bottom Info Pill (Exact match to screenshot 3) */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-md text-slate-900 text-xs font-black">
-            <Clock className="w-3.5 h-3.5 text-slate-600" />
+        {/* Barre d'Informations Inférieure : 3 Capsules Neumorphiques */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-1.5 z-10">
+          {/* 1. Temps */}
+          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-full bg-white/30 backdrop-blur-md border border-white/40 text-white font-extrabold text-[11px]">
+            <Clock className="w-3.5 h-3.5 text-white/90" />
             <span>{deliveryTime}</span>
           </div>
 
-          <div className="flex items-center gap-1 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-md text-slate-900 text-xs font-black">
-            <Bike className="w-3.5 h-3.5 text-slate-600" />
-            <span>{deliveryFee}</span>
+          {/* 2. Frais */}
+          <div className="flex-1 flex items-center justify-center py-2 px-2 rounded-full bg-white/85 backdrop-blur-md text-stone-900 font-black text-[11px] shadow-sm">
+            <span>{formatFee(deliveryFee)}</span>
           </div>
 
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl shadow-md text-xs font-black text-white ${
-            isOpen ? 'bg-emerald-600' : 'bg-rose-600'
+          {/* 3. Statut */}
+          <div className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-full font-black text-[11px] shadow-sm ${
+            isOpen ? 'bg-[#00A86B] text-white' : 'bg-rose-600 text-white'
           }`}>
             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
             <span>{isOpen ? 'OUVERT' : 'FERMÉ'}</span>

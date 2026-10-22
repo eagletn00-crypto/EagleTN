@@ -1,361 +1,118 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ChefHat, Clock, AlertCircle, RefreshCw, CheckCircle2, User, Printer, XCircle } from 'lucide-react';
-import { supabase } from '../utils/location';
-import AudioAlertManager from '../components/AudioAlertManager';
-import OrderTrackingMap from '../components/OrderTrackingMap';
+import React, { useState } from 'react';
+import KitchenOrderCard, { Order } from '../components/kitchen/KitchenOrderCard';
+import { usePartnerOrders } from '../hooks/usePartnerOrders';
 
-interface OrderItem {
-  id: string;
-  item_name: string;
-  quantity: number;
-  options?: any[];
-  unit_price?: number;
+interface KitchenKDSProps {
+  partnerId: string;
 }
 
-interface Order {
-  id: string;
-  pin_code?: string;
-  customer_name?: string;
-  customer_phone?: string;
-  delivery_address?: string;
-  status: string;
-  created_at: string;
-  total_amount: number;
-  order_items?: OrderItem[];
-}
+export default function KitchenKDS({ partnerId }: KitchenKDSProps) {
+  const { orders = [], updateOrderStatus, isLoading, error } = usePartnerOrders(partnerId);
+  const [activeTab, setActiveTab] = useState<'live' | 'encours' | 'journal'>('live');
 
-export const KitchenKDS: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [autoAcceptTimers, setAutoAcceptTimers] = useState<{ [key: string]: number }>({});
-
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!supabase) {
-        setError('Connexion Supabase non disponible.');
-        return;
-      }
-
-      const { data, error: fetchErr } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .in('status', ['pending', 'accepted', 'in_preparation', 'ready_for_pickup'])
-        .order('created_at', { ascending: false });
-
-      if (fetchErr) throw fetchErr;
-
-      const fetchedOrders = data || [];
-      setOrders(fetchedOrders);
-
-      const initialTimers: { [key: string]: number } = {};
-      fetchedOrders.forEach((o) => {
-        if (o.status === 'pending') {
-          initialTimers[o.id] = 10;
-        }
-      });
-      setAutoAcceptTimers(initialTimers);
-    } catch (err: any) {
-      console.error('[KitchenKDS] Fetch Error:', err);
-      setError(err.message || 'Erreur lors du chargement des commandes.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOrders();
-
-    if (!supabase) return;
-
-    const channel = supabase
-      .channel('kds-live-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchOrders]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAutoAcceptTimers((prev) => {
-        const next = { ...prev };
-        let updated = false;
-
-        Object.keys(next).forEach((id) => {
-          if (next[id] > 1) {
-            next[id] -= 1;
-            updated = true;
-          } else if (next[id] === 1) {
-            updateOrderStatus(id, 'in_preparation');
-            delete next[id];
-            updated = true;
-          }
-        });
-
-        return updated ? next : prev;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const updateOrderStatus = async (orderId: string, nextStatus: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#E9EBEF] flex items-center justify-center">
+        <div className="w-16 h-16 rounded-full border-4 border-[#E9EBEF] shadow-[inset_6px_6px_12px_#c8cad0,inset_-6px_-6px_12px_#ffffff] border-t-amber-500 animate-spin"></div>
+      </div>
     );
+  }
 
-    try {
-      if (!supabase) return;
-      const { error: updateErr } = await supabase
-        .from('orders')
-        .update({ status: nextStatus })
-        .eq('id', orderId);
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#E9EBEF] flex items-center justify-center p-6">
+        <div className="p-8 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_8px_8px_16px_#c8cad0,inset_-8px_-8px_16px_#ffffff] text-center max-w-md mx-auto">
+          <svg className="w-12 h-12 text-rose-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          <h2 className="text-lg font-black text-stone-800 mb-2">Erreur de Synchronisation</h2>
+          <p className="text-sm text-stone-500 font-medium">Connexion au flux des commandes interrompue.</p>
+        </div>
+      </div>
+    );
+  }
 
-      if (updateErr) throw updateErr;
-    } catch (err: any) {
-      console.error('[KitchenKDS] Status Update Error:', err);
-      fetchOrders();
-    }
-  };
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const liveOrders = safeOrders.filter((o): o is Order => o?.status === 'pending');
+  const enCoursOrders = safeOrders.filter((o): o is Order => ['accepted', 'in_preparation', 'ready_for_pickup'].includes(o?.status));
+  const journalOrders = safeOrders.filter((o): o is Order => ['delivered', 'cancelled'].includes(o?.status));
 
-  const handlePrintReceipt = (order: Order) => {
-    const printWindow = window.open('', '_blank', 'width=380,height=600');
-    if (!printWindow) return;
-
-    const itemsHtml = order.order_items
-      ?.map(
-        (i) =>
-          `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-            <span>${i.quantity}x ${i.item_name}</span>
-            <span style="font-weight:bold;">${i.unit_price ? (i.unit_price * i.quantity).toFixed(3) : ''} DT</span>
-          </div>`
-      )
-      .join('') || '';
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Reçu Ticket - ${order.id.substring(0, 8)}</title>
-          <style>
-            body { font-family: monospace; padding: 12px; margin: 0; width: 280px; }
-            h2 { text-align: center; margin: 0 0 4px 0; font-size: 16px; }
-            p { text-align: center; margin: 0 0 12px 0; font-size: 10px; color: #555; }
-            .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
-            .total { font-weight: bold; font-size: 14px; text-align: right; }
-          </style>
-        </head>
-        <body>
-          <h2>RESTAURANT AM ALI</h2>
-          <p>Rue El Gharbi El Issaoui, Cité Ibn Khaldoun</p>
-          <div class="divider"></div>
-          <div><strong>Ticket ID:</strong> #${order.id.substring(0, 8).toUpperCase()}</div>
-          <div><strong>Client:</strong> ${order.customer_name || 'Client Passager'}</div>
-          <div><strong>Date:</strong> ${new Date(order.created_at).toLocaleTimeString('fr-FR')}</div>
-          <div class="divider"></div>
-          ${itemsHtml}
-          <div class="divider"></div>
-          <div class="total">TOTAL: ${Number(order.total_amount || 0).toFixed(3)} DT</div>
-          <div class="divider"></div>
-          <p style="margin-top:12px;">Merci de votre confiance ! - EAGLE TN</p>
-          <script>
-            window.onload = function() { window.print(); window.close(); }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  const hasNewPending = orders.some((o) => o.status === 'pending');
+  const displayOrders = activeTab === 'live' ? liveOrders : activeTab === 'encours' ? enCoursOrders : journalOrders;
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4 font-sans text-slate-900 pb-36">
-      <div className="flex items-center justify-between bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100/80">
-            <ChefHat className="w-5 h-5" />
+    <div className="w-full min-h-screen bg-[#E9EBEF] p-4 md:p-6 pb-28 font-sans antialiased selection:bg-amber-500/20">
+      
+      {/* HEADER BRANDING ULTRA PREMIUM */}
+      <header className="flex items-center justify-between mb-8 px-1 pt-2 max-w-md mx-auto">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-center border border-white/50 relative overflow-hidden">
+            <span className="text-2xl drop-shadow-md z-10">🦅</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent z-0"></div>
           </div>
-          <div>
-            <h1 className="text-base font-black tracking-tight text-slate-900">Commandes Cuisine</h1>
-            <p className="text-xs text-slate-500 font-semibold">Gérance en direct - Restaurant Am Ali</p>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-black text-stone-800 tracking-tighter uppercase leading-none">EAGLE TN</h1>
+            <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] mt-1">Espace Partenaire</p>
           </div>
         </div>
+        
+        <div className="flex flex-col items-end">
+          <div className="w-12 h-12 rounded-2xl bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] flex items-center justify-center font-black text-xl text-stone-800 border border-white/40">
+            {liveOrders.length + enCoursOrders.length}
+          </div>
+          <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest mt-1.5 mr-1">Actives</span>
+        </div>
+      </header>
 
-        <div className="flex items-center gap-2">
-          <AudioAlertManager hasNewOrder={hasNewPending} />
-          <button
-            onClick={fetchOrders}
-            disabled={loading}
-            className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+      {/* Tabs Neumorphism */}
+      <div className="flex bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] rounded-2xl p-1.5 mb-8 max-w-md mx-auto border border-white/20">
+        <button 
+          onClick={() => setActiveTab('live')}
+          className={`flex-1 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 flex items-center justify-center gap-2 ${
+            activeTab === 'live' ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] text-rose-600' : 'text-stone-500'
+          }`}
+        >
+          {liveOrders.length > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]" />}
+          Live ({liveOrders.length})
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('encours')}
+          className={`flex-1 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 ${
+            activeTab === 'encours' ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] text-amber-600' : 'text-stone-500'
+          }`}
+        >
+          En Cours ({enCoursOrders.length})
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('journal')}
+          className={`flex-1 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 ${
+            activeTab === 'journal' ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] text-stone-800' : 'text-stone-500'
+          }`}
+        >
+          Journal
+        </button>
       </div>
 
-      {error && (
-        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Commandes En Cours</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black">
-            {orders.length}
-          </span>
-        </div>
+      {/* Rendu dynamique des commandes */}
+      <div className="flex flex-col gap-6 max-w-md mx-auto">
+        {displayOrders.length === 0 ? (
+          <div className="w-full h-48 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex flex-col items-center justify-center border border-white/30">
+            <div className="w-16 h-16 rounded-full bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+            </div>
+            <span className="text-[11px] font-black text-stone-400 uppercase tracking-widest">Aucune commande</span>
+            <span className="text-[10px] font-bold text-stone-400 mt-1">La cuisine est calme pour le moment</span>
+          </div>
+        ) : (
+          displayOrders.map((order) => (
+            <KitchenOrderCard 
+              key={order.id} 
+              order={order} 
+              onUpdateStatus={updateOrderStatus} 
+            />
+          ))
+        )}
       </div>
-
-      {loading && orders.length === 0 ? (
-        <div className="py-20 text-center text-xs font-bold text-slate-400">
-          Chargement du flux cuisine...
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="py-20 text-center bg-white rounded-3xl border border-slate-200/80 p-8 shadow-2xs space-y-2">
-          <ChefHat className="w-12 h-12 mx-auto text-emerald-400 mb-2" />
-          <h3 className="text-sm font-black text-slate-900">Aucune commande active pour le moment</h3>
-          <p className="text-xs font-semibold text-slate-400 max-w-sm mx-auto">
-            Les nouvelles commandes des clients s'afficheront ici en temps réel avec notification sonore.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((order) => {
-            const shortId = order.id.substring(0, 8).toUpperCase();
-            const isPending = order.status === 'pending' || order.status === 'accepted';
-            const isPreparing = order.status === 'in_preparation';
-            const autoTimer = autoAcceptTimers[order.id];
-
-            return (
-              <div
-                key={order.id}
-                className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4 hover:border-emerald-200/80 transition-all"
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-emerald-600 text-white text-xs font-black px-3 py-1 rounded-xl shadow-2xs">
-                      #{shortId}
-                    </span>
-                    {order.pin_code && (
-                      <span className="bg-slate-100 text-slate-700 text-xs font-black px-2.5 py-1 rounded-xl">
-                        PIN: {order.pin_code}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handlePrintReceipt(order)}
-                      className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-all"
-                      title="Imprimer le Reçu"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Ticket</span>
-                    </button>
-
-                    <span className="flex items-center gap-1.5 text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200/60 text-xs font-extrabold">
-                      <Clock className="w-3.5 h-3.5" />
-                      {isPending ? 'Nouveau' : isPreparing ? 'En Préparation' : 'Prêt'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="flex-1 bg-slate-50/90 p-3 rounded-2xl border border-slate-100 text-xs font-semibold text-slate-800 flex items-center gap-2.5">
-                    <User className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Client</p>
-                      <p className="font-extrabold text-slate-900 truncate">{order.customer_name || 'Client Passager'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <OrderTrackingMap customerAddress={order.delivery_address || 'Cité Ibn Khaldoun, Tunis'} />
-
-                <div className="space-y-2">
-                  {order.order_items && order.order_items.length > 0 ? (
-                    order.order_items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start justify-between bg-slate-50/70 p-3 rounded-2xl border border-slate-100"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0 shadow-2xs">
-                            {item.quantity}x
-                          </span>
-                          <span className="text-xs font-extrabold text-slate-900">{item.item_name}</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-xs text-slate-400 italic">Aucun article enregistré.</div>
-                  )}
-                </div>
-
-                <div className="pt-2 space-y-2">
-                  {isPending && (
-                    <div className="space-y-2">
-                      {autoTimer !== undefined && (
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[10px] font-extrabold text-emerald-800">
-                            <span>Acceptation automatique imminente...</span>
-                            <span>{autoTimer}s</span>
-                          </div>
-                          <div className="w-full bg-emerald-100 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className="bg-emerald-600 h-full transition-all duration-1000 ease-linear"
-                              style={{ width: `${(autoTimer / 10) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'in_preparation')}
-                          className="sm:col-span-3 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 shadow-xs"
-                        >
-                          <ChefHat className="w-4 h-4" />
-                          <span>Accepter & Lancer la Préparation</span>
-                        </button>
-
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                          className="py-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 text-rose-700 active:scale-98 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <XCircle className="w-4 h-4 text-rose-600" />
-                          <span>Refuser</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {isPreparing && (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'ready_for_pickup')}
-                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                      <span>Marquer la Commande Comme Prête</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      
     </div>
   );
-};
-
-export default KitchenKDS;
+}

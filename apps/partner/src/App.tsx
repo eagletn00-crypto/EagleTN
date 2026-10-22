@@ -1,12 +1,19 @@
-import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import React, { useState } from 'react';
 import PartnerDashboard from './screens/PartnerDashboard';
+import { PartnerLogin } from './components/auth/PartnerLogin';
 
 export const App: React.FC = () => {
+  // تم ضبط الحالة الافتراضية إلى true لتجاوز تسجيل الدخول مؤقتاً
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+
   return (
-    <BrowserRouter>
-      <PartnerDashboard />
-    </BrowserRouter>
+    <div>
+      {!isAuthenticated ? (
+        <PartnerLogin onSuccess={() => setIsAuthenticated(true)} />
+      ) : (
+        <PartnerDashboard />
+      )}
+    </div>
   );
 };
 

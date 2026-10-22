@@ -1,49 +1,29 @@
 import React from 'react';
-import { useAdminStore } from '../stores/useAdminStore';
+import { Terminal } from 'lucide-react';
 
-interface LogItem {
-  id: string;
-  action: string;
-  operator: string;
-  timestamp: string;
-}
-
-const mockLogs: LogItem[] = [
-  { id: '1', action: 'DISPUTE_HOLD_PLACED', operator: 'System_Auto', timestamp: '17:58:12' },
-  { id: '2', action: 'CASH_THRESHOLD_WARNING', operator: 'Livreur_42', timestamp: '17:57:45' },
-  { id: '3', action: 'HANDSHAKE_OTP_VERIFIED', operator: 'Partenaire_09', timestamp: '17:55:01' },
-  { id: '4', action: 'ZONE_DISPATCH_UPDATED', operator: 'HQ_Admin', timestamp: '17:50:22' },
-];
-
-export const TerminalLogs: React.FC = () => {
-  const { manualMode } = useAdminStore();
-
+export default function TerminalLogs() {
   return (
-    <div className="p-4 bg-[#05070a] border border-[#1e293b] rounded-xl font-mono text-xs h-full flex flex-col justify-between">
-      <div>
-        <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#1e293b]">
-          <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            FLUX D'AUDIT OPÉRATIONNEL
-          </span>
-          <span className="text-[10px] text-slate-400">Réseau Synchrone: 100%</span>
-        </div>
-        
-        <div className="space-y-2.5 max-h-[220px] overflow-y-auto">
-          {mockLogs.map((log) => (
-            <div key={log.id} className="text-slate-300 flex justify-between gap-2 text-[11px]">
-              <span className="text-slate-500">{log.timestamp}</span>
-              <span className="text-cyan-400 font-semibold">{log.action}</span>
-              <span className="text-slate-400">{log.operator}</span>
-            </div>
-          ))}
-        </div>
+    <div className="bg-[#E9EBEF] p-5 rounded-[2rem] shadow-[inset_6px_6px_12px_#c8cad0,inset_-6px_-6px_12px_#ffffff] border border-white/40 flex flex-col gap-4 h-full">
+      <div className="flex justify-between items-center px-1">
+        <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-1.5"><Terminal className="w-4 h-4"/> Flux d'Audit</span>
       </div>
-
-      <div className="mt-4 pt-2 border-t border-[#1e293b] text-[10px] text-slate-500 flex justify-between items-center">
-        <span>Statut Serveurs: Operational</span>
-        <span>{manualMode ? 'Dispatch: MANUEL' : 'Dispatch: AUTOMATIQUE'}</span>
+      <div className="flex-1 bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] rounded-xl p-4 font-mono text-[10px] space-y-3 overflow-y-auto border border-white/20">
+        <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-start border-b border-stone-300/50 pb-2">
+          <span className="text-stone-400">17:58:12</span>
+          <span className="text-stone-700 font-bold">DISPUTE_HOLD_PLACED</span>
+          <span className="text-stone-500">System_Auto</span>
+        </div>
+        <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-start border-b border-stone-300/50 pb-2">
+          <span className="text-stone-400">17:57:45</span>
+          <span className="text-amber-600 font-bold">CASH_THRESHOLD_WARNING</span>
+          <span className="text-stone-500">Livreur_42</span>
+        </div>
+        <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-start border-b border-stone-300/50 pb-2">
+          <span className="text-stone-400">17:55:01</span>
+          <span className="text-emerald-600 font-bold">HANDSHAKE_OTP_VERIFIED</span>
+          <span className="text-stone-500">Partenaire_01</span>
+        </div>
       </div>
     </div>
   );
-};
+}

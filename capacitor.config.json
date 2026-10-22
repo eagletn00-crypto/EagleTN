@@ -1,0 +1,8 @@
+{
+  "appId": "tn.eagle.app",
+  "appName": "EAGLE TN",
+  "webDir": "apps/client/dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

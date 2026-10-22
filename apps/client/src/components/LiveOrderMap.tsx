@@ -3,117 +3,127 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// أيقونة السائق الميدانية (EAGLE TN Scooter Icon)
-const courierIcon = new L.DivIcon({
-  html: `<div class="w-10 h-10 bg-emerald-600 text-white rounded-full border-2 border-white shadow-lg flex items-center justify-center text-lg transform -translate-x-1/2 -translate-y-1/2 animate-pulse">🛵</div>`,
-  className: 'custom-courier-marker',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
+// أيقونات Leaflet مخصصة واحترافية (🛵 و 🧑‍🍳) مع تصميم دقيق غير مسطح
+const partnerIcon = L.divIcon({
+  className: 'custom-leaflet-marker',
+  html: `
+    <div style="
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 12px 25px -5px rgba(245, 158, 11, 0.4);
+      border: 3px solid #ffffff;
+    ">
+      🧑‍🍳
+    </div>
+  `,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
 });
 
-// أيقونة المطعم / الشريك
-const partnerIcon = new L.DivIcon({
-  html: `<div class="w-8 h-8 bg-slate-900 text-white rounded-xl border-2 border-white shadow-md flex items-center justify-center text-sm transform -translate-x-1/2 -translate-y-1/2">🍳</div>`,
-  className: 'custom-partner-marker',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+const clientIcon = L.divIcon({
+  className: 'custom-leaflet-marker',
+  html: `
+    <div style="
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 12px 25px -5px rgba(5, 150, 105, 0.4);
+      border: 3px solid #ffffff;
+    ">
+      🛵
+    </div>
+  `,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
 });
-
-// أيقونة موقع التسليم (العميل)
-const clientIcon = new L.DivIcon({
-  html: `<div class="w-8 h-8 bg-emerald-500 text-white rounded-full border-2 border-white shadow-md flex items-center justify-center text-sm transform -translate-x-1/2 -translate-y-1/2">📍</div>`,
-  className: 'custom-client-marker',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
-interface Location {
-  lat: number;
-  lng: number;
-}
 
 interface LiveOrderMapProps {
-  courierLoc?: Location;
-  partnerLoc: Location;
-  clientLoc: Location;
-  status: string;
+  partnerLoc: { lat: number; lng: number };
+  clientLoc: { lat: number; lng: number };
+  status?: string;
 }
 
-// مكون فرعي لإعادة ضبط مركز الخريطة عند تحرك السائق
-const MapViewController: React.FC<{ center: [number, number] }> = ({ center }) => {
+// مكون ضبط حدود الخريطة أوتوماتيكياً
+const MapBoundsAdjuster: React.FC<{ partnerLoc: { lat: number; lng: number }; clientLoc: { lat: number; lng: number } }> = ({ partnerLoc, clientLoc }) => {
   const map = useMap();
+
   useEffect(() => {
-    map.flyTo(center, map.getZoom(), { animate: true, duration: 1.5 });
-  }, [center, map]);
+    if (partnerLoc.lat && clientLoc.lat) {
+      const bounds = L.latLngBounds(
+        [partnerLoc.lat, partnerLoc.lng],
+        [clientLoc.lat, clientLoc.lng]
+      );
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+    }
+  }, [partnerLoc, clientLoc, map]);
+
   return null;
 };
 
-export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
-  courierLoc,
-  partnerLoc,
-  clientLoc,
-  status,
-}) => {
-  // تحديد المركز الافتراضي للخريطة (موقع السائق أو المطعم)
-  const currentCenter: [number, number] = courierLoc
-    ? [courierLoc.lat, courierLoc.lng]
-    : [partnerLoc.lat, partnerLoc.lng];
-
-  // رسم مسار التسليم بناءً على حالة الطلب
-  const routePositions: [number, number][] = [];
-  if (courierLoc) {
-    routePositions.push([courierLoc.lat, courierLoc.lng]);
-    if (status === 'preparing' || status === 'accepted' || status === 'picking_up') {
-      routePositions.push([partnerLoc.lat, partnerLoc.lng]);
-    }
-    routePositions.push([clientLoc.lat, clientLoc.lng]);
-  } else {
-    routePositions.push([partnerLoc.lat, partnerLoc.lng], [clientLoc.lat, clientLoc.lng]);
-  }
+export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ partnerLoc, clientLoc }) => {
+  const centerLat = (partnerLoc.lat + clientLoc.lat) / 2 || 36.8188;
+  const centerLng = (partnerLoc.lng + clientLoc.lng) / 2 || 10.1658;
 
   return (
-    <div className="w-full h-full relative z-0">
+    <div className="relative w-full h-full">
+      {/* تنسيقات نظيفة لإلغاء أي علامات مائية أو حدود افتراضية مزعجة */}
+      <style>{`
+        .leaflet-control-attribution {
+          display: none !important;
+        }
+        .custom-leaflet-marker {
+          background: transparent !important;
+          border: none !important;
+        }
+      `}</style>
+
       <MapContainer
-        center={currentCenter}
+        center={[centerLat, centerLng]}
         zoom={14}
         scrollWheelZoom={false}
+        className="w-full h-full z-0"
         zoomControl={false}
-        className="w-full h-full"
       >
+        {/* استخدام بلاطات OpenStreetMap الرسمية المستقرة والمجانية تماماً لتجنب مشاكل CARTO API Key */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
-        <MapViewController center={currentCenter} />
-
-        {/* موقع المطعم */}
         <Marker position={[partnerLoc.lat, partnerLoc.lng]} icon={partnerIcon}>
-          <Popup>المطعم / الشريك</Popup>
+          <Popup>Partenaire Cuisine - Tunis (🧑‍🍳)</Popup>
         </Marker>
 
-        {/* موقع العميل */}
         <Marker position={[clientLoc.lat, clientLoc.lng]} icon={clientIcon}>
-          <Popup>نقطة التسليم</Popup>
+          <Popup>Destination Livraison (🛵)</Popup>
         </Marker>
 
-        {/* موقع السائق اللحظي */}
-        {courierLoc && (
-          <Marker position={[courierLoc.lat, courierLoc.lng]} icon={courierIcon}>
-            <Popup>السائق في الطريق</Popup>
-          </Marker>
-        )}
-
-        {/* المسار الميداني بين النقاط */}
         <Polyline
-          positions={routePositions}
+          positions={[
+            [partnerLoc.lat, partnerLoc.lng],
+            [clientLoc.lat, clientLoc.lng],
+          ]}
           pathOptions={{
-            color: '#10b981',
-            weight: 4,
+            color: '#059669',
+            weight: 5,
             dashArray: '8, 8',
-            opacity: 0.8,
+            opacity: 0.85,
+            lineCap: 'round',
           }}
         />
+
+        <MapBoundsAdjuster partnerLoc={partnerLoc} clientLoc={clientLoc} />
       </MapContainer>
     </div>
   );

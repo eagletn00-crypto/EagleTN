@@ -1,58 +1,88 @@
 import { supabase } from '../lib/supabase';
 
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  notes?: string;
+}
+
 export interface OrderPayload {
-  clientId?: string;
-  client_id?: string;
-  partnerId?: string;
-  partner_id?: string;
-  totalAmount?: number;
-  total_amount?: number;
-  deliveryFee?: number;
-  delivery_fee?: number;
+  partnerId: string;
+  clientId?: string;      // من المفترض أنك تستخدم Supabase Auth للعميل
+  customerName?: string;
   deliveryAddress?: string;
-  delivery_address?: string;
-  paymentMethod?: 'CASH' | 'WALLET' | 'cash' | 'wallet';
-  payment_method?: 'CASH' | 'WALLET' | 'cash' | 'wallet';
-  items: Array<{
-    menu_item_id: string;
-    quantity: number;
-    unit_price: number;
-  }>;
+  deliveryFee: number;
+  subtotal: number;       // المجموع قبل الأداءات
+  tvaAmount: number;      // قيمة الـ TVA
+  timbreFiscal: number;   // الطابع الجبائي (مثلاً 1.000 د.ت)
+  grandTotal: number;     // المجموع النهائي المطلوب دفعه
+  paymentMethod: 'COD' | 'Card';
+  items: CartItem[];
+  changeNeededFor?: number | null;
 }
 
-export async function createOrderRPC(payload: OrderPayload) {
-  const p_client_id = payload.clientId || payload.client_id;
-  const p_partner_id = payload.partnerId || payload.partner_id;
-  const p_total_amount = payload.totalAmount ?? payload.total_amount ?? 0;
-  const p_delivery_fee = payload.deliveryFee ?? payload.delivery_fee ?? 0;
-  const p_delivery_address = payload.deliveryAddress || payload.delivery_address || '';
-  const rawPayment = (payload.paymentMethod || payload.payment_method || 'CASH').toUpperCase();
-  const p_payment_method = rawPayment === 'CASH' ? 'CASH' : 'WALLET';
+export const submitOrder = async (payload: OrderPayload) => {
+  try {
+    // 1. إنشاء الطلب الأساسي بناءً على الأعمدة الدقيقة التي اكتشفناها في التشخيص
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .insert([
+        {
+          partner_id: payload.partnerId,
+          client_id: payload.clientId || null,
+          customer_name: payload.customerName || 'Client EAGLE',
+          delivery_address: payload.deliveryAddress || 'Adresse non spécifiée',
+          status: 'pending',
+          
+          // التفصيل المالي الدقيق
+          subtotal_ht: payload.subtotal,
+          tva_amount: payload.tvaAmount,
+          timbre_fiscal: payload.timbreFiscal,
+          delivery_fee: payload.deliveryFee,
+          total_amount: payload.subtotal, // كقيمة احتياطية للـ Edge Function
+          grand_total: payload.grandTotal,
+          
+          payment_method: payload.paymentMethod,
+          change_needed_for: payload.changeNeededFor || null,
+        }
+      ])
+      .select('id')
+      .single();
 
-  const { data, error } = await supabase.rpc('create_order_rpc', {
-    p_client_id,
-    p_partner_id,
-    p_total_amount,
-    p_delivery_fee,
-    p_delivery_address,
-    p_payment_method,
-    p_items: payload.items,
-  });
+    if (orderError || !orderData) {
+      console.error("[EAGLE TN - Client] Erreur création commande:", orderError);
+      throw new Error("Impossible de créer la commande.");
+    }
 
-  if (error) {
-    console.error('Failed to create atomic order:', error);
-    throw error;
-  }
+    const orderId = orderData.id;
 
-  return data;
-}
+    // 2. إدخال محتويات السلة في order_items كما برمجنا سابقاً
+    const orderItemsToInsert = payload.items.map((item) => ({
+      order_id: orderId,
+      item_id: item.id,
+      item_name: item.name,
+      quantity: item.quantity,
+      unit_price: item.price,
+      total_price: item.price * item.quantity,
+      options: item.notes || null 
+    }));
 
-export const orderService = {
-  createOrder: createOrderRPC,
-  createOrderRPC,
-  getOrderById: async (orderId: string) => {
-    const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
-    if (error) throw error;
-    return data;
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItemsToInsert);
+
+    if (itemsError) {
+      console.error("[EAGLE TN - Client] Erreur insertion items:", itemsError);
+      await supabase.from('orders').delete().eq('id', orderId); // Rollback
+      throw new Error("Erreur lors de l'enregistrement des articles.");
+    }
+
+    return { success: true, orderId };
+
+  } catch (error) {
+    console.error("[EAGLE TN - Client] Échec critique du Checkout:", error);
+    return { success: false, error };
   }
 };

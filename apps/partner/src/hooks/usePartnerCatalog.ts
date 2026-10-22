@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from "../lib/supabase/client";
 
 export interface PartnerProduct {
   id: string;
@@ -22,33 +22,50 @@ export interface PartnerSettings {
   is_active: boolean;
 }
 
+const PARTNER_ID = 'c468b8f6-46ec-4653-8f43-7b387c719e80';
+
+// Typage des réponses de la base de données
+interface SupabaseResponse<T> {
+  data: T | null;
+  error: Error | null;
+}
+
 export const usePartnerCatalog = () => {
   const [products, setProducts] = useState<PartnerProduct[]>([]);
   const [settings, setSettings] = useState<PartnerSettings | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchCatalogAndSettings = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
+      if (!supabase) {
+        throw new Error('Supabase client non disponible');
       }
 
-      // جلب بيانات الشريك الإدارية والضريبية
-      const { data: partner } = await supabase
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Délai de connexion dépassé (Timeout)')), 4000)
+      );
+
+      const partnerPromise = supabase
         .from('partners')
         .select('id, name, matricule_fiscal, tva_rate, opening_time, closing_time, is_active')
-        .eq('user_id', user.id)
+        .eq('id', PARTNER_ID)
         .maybeSingle();
 
+      const partnerRes = await Promise.race([partnerPromise, timeoutPromise]) as SupabaseResponse<Partial<PartnerSettings>>;
+
+      if (partnerRes.error) {
+        throw partnerRes.error;
+      }
+
+      const partner = partnerRes.data;
+
       if (partner) {
-        setPartnerId(partner.id);
         setSettings({
-          id: partner.id,
-          name: partner.name || 'Chez Om Ali',
+          id: partner.id || PARTNER_ID,
+          name: partner.name || 'Restaurant Am Ali',
           matricule_fiscal: partner.matricule_fiscal || '1234567/A/M/000',
           tva_rate: partner.tva_rate || 7.0,
           opening_time: partner.opening_time || '08:00',
@@ -56,17 +73,31 @@ export const usePartnerCatalog = () => {
           is_active: partner.is_active ?? true,
         });
 
-        // جلب قائمة الأطباق والمنتجات الحقيقية
-        const { data: prods } = await supabase
+        const prodsPromise = supabase
           .from('partner_products')
           .select('*')
-          .eq('partner_id', partner.id)
+          .eq('partner_id', PARTNER_ID)
           .order('created_at', { ascending: false });
 
-        setProducts(prods || []);
+        const prodsRes = await Promise.race([prodsPromise, timeoutPromise]) as SupabaseResponse<PartnerProduct[]>;
+
+        if (!prodsRes.error) {
+          setProducts(prodsRes.data || []);
+        }
+      } else {
+        setSettings({
+          id: PARTNER_ID,
+          name: 'Restaurant Am Ali',
+          matricule_fiscal: '1234567/A/M/000',
+          tva_rate: 7.0,
+          opening_time: '08:00',
+          closing_time: '23:00',
+          is_active: true,
+        });
       }
     } catch (err) {
       console.error('❌ Error fetching catalog:', err);
+      setError(err instanceof Error ? err.message : 'Erreur de chargement');
     } finally {
       setLoading(false);
     }
@@ -76,59 +107,60 @@ export const usePartnerCatalog = () => {
     fetchCatalogAndSettings();
   }, [fetchCatalogAndSettings]);
 
-  // إضافة أو إغلاق توفر طبق في المخزون
   const toggleProductAvailability = async (productId: string, currentStatus: boolean) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === productId ? { ...p, is_available: !currentStatus } : p))
     );
-
-    await supabase
-      .from('partner_products')
-      .update({ is_available: !currentStatus })
-      .eq('id', productId);
+    try {
+      if (!supabase) return;
+      await supabase
+        .from('partner_products')
+        .update({ is_available: !currentStatus })
+        .eq('id', productId);
+    } catch (err) {
+      console.error('Toggle availability error:', err);
+      fetchCatalogAndSettings();
+    }
   };
 
-  // حفظ أو تحديث منتج
   const saveProduct = async (productData: Partial<PartnerProduct>) => {
-    if (!partnerId) return;
+    try {
+      if (!supabase) return;
 
-    if (productData.id) {
-      // تحديث
-      const { error } = await supabase
-        .from('partner_products')
-        .update({ ...productData, updated_at: new Date().toISOString() })
-        .eq('id', productData.id);
-
-      if (!error) fetchCatalogAndSettings();
-    } else {
-      // إنشاء جديد
-      const { error } = await supabase.from('partner_products').insert([
-        {
-          partner_id: partnerId,
+      if (productData.id) {
+        const { error } = await supabase
+          .from('partner_products')
+          .update({ ...productData, updated_at: new Date().toISOString() })
+          .eq('id', productData.id);
+        if (!error) fetchCatalogAndSettings();
+      } else {
+        const { error } = await supabase.from('partner_products').insert([{
+          partner_id: PARTNER_ID,
           name: productData.name,
           description_fr: productData.description_fr,
           description_ar: productData.description_ar,
           price: productData.price,
           image_url: productData.image_url,
           is_available: true,
-        },
-      ]);
-
-      if (!error) fetchCatalogAndSettings();
+        }]);
+        if (!error) fetchCatalogAndSettings();
+      }
+    } catch (err) {
+      console.error('Save product error:', err);
     }
   };
 
-  // رفع صورة المنتج إلى Supabase Storage
   const uploadProductImage = async (file: File): Promise<string | null> => {
     try {
+      if (!supabase) return null;
       const fileExt = file.name.split('.').pop();
-      const fileName = `${partnerId}/${Date.now()}.${fileExt}`;
+      const fileName = `${PARTNER_ID}/${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('products')
         .upload(fileName, file, { upsert: true });
-
+        
       if (uploadError) throw uploadError;
-
+      
       const { data } = supabase.storage.from('products').getPublicUrl(fileName);
       return data.publicUrl;
     } catch (err) {
@@ -137,28 +169,31 @@ export const usePartnerCatalog = () => {
     }
   };
 
-  // تحديث إعدادات الشريك الرقمية والضريبية
   const updateSettings = async (newSettings: Partial<PartnerSettings>) => {
-    if (!partnerId) return;
-
     setSettings((prev) => (prev ? { ...prev, ...newSettings } : null));
-
-    await supabase
-      .from('partners')
-      .update({
-        matricule_fiscal: newSettings.matricule_fiscal,
-        tva_rate: newSettings.tva_rate,
-        opening_time: newSettings.opening_time,
-        closing_time: newSettings.closing_time,
-        is_active: newSettings.is_active,
-      })
-      .eq('id', partnerId);
+    try {
+      if (!supabase) return;
+      await supabase
+        .from('partners')
+        .update({
+          matricule_fiscal: newSettings.matricule_fiscal,
+          tva_rate: newSettings.tva_rate,
+          opening_time: newSettings.opening_time,
+          closing_time: newSettings.closing_time,
+          is_active: newSettings.is_active,
+        })
+        .eq('id', PARTNER_ID);
+    } catch (err) {
+      console.error('Update settings error:', err);
+      fetchCatalogAndSettings();
+    }
   };
 
   return {
     products,
     settings,
     loading,
+    error,
     toggleProductAvailability,
     saveProduct,
     uploadProductImage,

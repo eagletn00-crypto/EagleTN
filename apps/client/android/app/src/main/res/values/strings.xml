@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EAGLE TN</string>
+    <string name="title_activity_main">EAGLE TN</string>
+    <string name="package_name">tn.eagle.app</string>
+    <string name="custom_url_scheme">tn.eagle.app</string>
+</resources>

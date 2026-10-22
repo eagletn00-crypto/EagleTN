@@ -1,134 +1,174 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { create } from 'zustand';
 import { supabase } from '../lib/supabaseClient';
-import { RawOrderFromSupabase, MappedLivreurOrder } from '../types/order';
 
-export const useLivreurOrders = () => {
-  const [orders, setOrders] = useState<MappedLivreurOrder[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+export interface OrderLocation {
+  lat: number;
+  lng: number;
+}
 
-  const mapOrder = (order: RawOrderFromSupabase): MappedLivreurOrder => {
-    const shortCode = order.id.slice(0, 8);
-    const dropLat = order.delivery_lat ?? 36.8188;
-    const dropLng = order.delivery_lng ?? 10.1658;
+export interface LivreurOrder {
+  id: string;
+  short_code: string;
+  verificationCode: string;
+  restaurantName: string;
+  deliveryAddress: string;
+  clientName: string;
+  clientPhone: string;
+  deliveryFee: number;
+  totalAmount: number;
+  status: 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
+  pickupCoords: OrderLocation;
+  dropoffCoords: OrderLocation;
+}
 
-    return {
-      id: order.id,
-      order_code: `CMD-${shortCode}`,
-      short_code: shortCode,
-      partnerId: order.partner_id,
-      restaurantName: 'Chez Om Ali',
-      restaurant_name: 'Chez Om Ali',
-      restaurant_phone: '+216 71 000 000',
-      clientName: order.client_name || 'Client',
-      customer_name: order.client_name || 'Client',
-      clientPhone: order.client_phone || '20000000',
-      customer_phone: order.client_phone || '20000000',
-      deliveryAddress: order.delivery_address || 'Tunis',
-      customer_address: order.delivery_address || 'Tunis',
-      delivery_address: order.delivery_address || 'Tunis',
-      totalAmount: order.total_amount || 0,
-      total_amount: order.total_amount || 0,
-      order_value: order.total_amount || 0,
-      deliveryFee: order.delivery_fee || 3.5,
-      delivery_fee: order.delivery_fee || 3.5,
-      status: order.status,
-      verificationCode: order.verification_code || '0000',
-      pickupCoords: {
-        lat: order.pickup_lat ?? 36.8065,
-        lng: order.pickup_lng ?? 10.1815,
-      },
-      dropoffCoords: {
-        lat: dropLat,
-        lng: dropLng,
-      },
-      lat: dropLat,
-      lng: dropLng,
-      createdAt: order.created_at,
-      created_at: order.created_at,
-    };
-  };
+interface LivreurState {
+  orders: LivreurOrder[];
+  loading: boolean;
+  driverId: string | null;
+  isInitialized: boolean;
+  initDriverSession: () => Promise<void>;
+  fetchOrders: () => Promise<void>;
+  acceptOrder: (orderId: string) => Promise<void>;
+  deliverOrder: (orderId: string) => Promise<void>;
+  setupRealtime: () => void;
+}
 
-  const fetchLivreurOrders = async () => {
+let realtimeChannel: any = null;
+
+// 1. إنشاء محرك Zustand الاحترافي كمركز قيادة أحادي
+const useLivreurStore = create<LivreurState>((set, get) => ({
+  orders: [],
+  loading: true,
+  driverId: null,
+  isInitialized: false,
+
+  initDriverSession: async () => {
+    if (get().isInitialized) return;
     try {
-      setLoading(true);
-      // جلب الطلبات وجعل الفلترة في الكود تجنباً لأخطاء Enum في Postgres
+      // جلب سائق حقيقي من القاعدة لتجنب أخطاء PostgreSQL
+      const { data } = await supabase.from('drivers').select('id').eq('status', 'available').limit(1).single();
+      if (data) {
+        set({ driverId: data.id, isInitialized: true });
+        get().fetchOrders();
+        get().setupRealtime();
+      }
+    } catch (err) {
+      console.error("[EAGLE TN] Erreur init:", err);
+    }
+  },
+
+  fetchOrders: async () => {
+    const { driverId } = get();
+    if (!driverId) return;
+
+    try {
+      set({ loading: true });
+      const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .select(`
+          id, status, total_amount, delivery_fee, delivery_address,
+          customer_name, client_name, client_phone, verification_code,
+          pin_code, pickup_lat, pickup_lng, delivery_lat, delivery_lng, created_at
+        `)
+        .gte('created_at', last24Hours)
+        .or(`status.eq.ready_for_pickup,and(driver_id.eq.${driverId},status.in.("on_the_way","delivered"))`)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[useLivreurOrders] Error fetching orders:', error);
+      if (error) throw error;
+
+      const formattedOrders: LivreurOrder[] = (data || []).map(o => ({
+        id: o.id,
+        short_code: o.id.split('-')[0].toUpperCase(),
+        verificationCode: o.verification_code || o.pin_code || '0000',
+        restaurantName: "Partenaire EAGLE",
+        deliveryAddress: o.delivery_address || 'Adresse non spécifiée',
+        clientName: o.customer_name || o.client_name || 'Client VIP',
+        clientPhone: o.client_phone || '20000000',
+        deliveryFee: o.delivery_fee || 2.500,
+        totalAmount: o.total_amount || 0,
+        status: o.status as any,
+        pickupCoords: { lat: o.pickup_lat || 36.8065, lng: o.pickup_lng || 10.1815 },
+        dropoffCoords: { lat: o.delivery_lat || 36.8188, lng: o.delivery_lng || 10.1658 }
+      }));
+
+      set({ orders: formattedOrders, loading: false });
+    } catch (err) {
+      console.error("[EAGLE TN] Erreur fetch:", err);
+      set({ loading: false });
+    }
+  },
+
+  setupRealtime: () => {
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    realtimeChannel = supabase
+      .channel('livreur_radar_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        get().fetchOrders();
+      })
+      .subscribe();
+  },
+
+  acceptOrder: async (orderId: string) => {
+    const { driverId, fetchOrders } = get();
+    if (!driverId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ status: 'on_the_way', driver_id: driverId })
+        .eq('id', orderId)
+        .eq('status', 'ready_for_pickup')
+        .select();
+
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        alert("Mission déjà attribuée !");
+        fetchOrders();
         return;
       }
 
-      if (data) {
-        // فلترة الطلبات المتاحة للفارس (الطلبات غير المنتهية/الملغاة)
-        const activeData = (data as RawOrderFromSupabase[]).filter(
-          (o) => o.status !== 'delivered' && o.status !== 'cancelled'
-        );
-        const mappedData = activeData.map(mapOrder);
-        setOrders(mappedData);
-      }
+      set((state) => ({
+        orders: state.orders.map(o => o.id === orderId ? { ...o, status: 'on_the_way' } : o)
+      }));
     } catch (err) {
-      console.error('[useLivreurOrders] Error:', err);
-    } finally {
-      setLoading(false);
+      console.error("[EAGLE TN] Échec affectation:", err);
+      fetchOrders();
     }
-  };
+  },
 
-  const acceptOrder = async (orderId: string) => {
-    // تحديث الحالة محلياً في الواجهة فوراً
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: 'accepted' } : o))
-    );
-  };
+  deliverOrder: async (orderId: string) => {
+    const { driverId } = get();
+    if (!driverId) return;
 
-  const deliverOrder = async (orderId: string) => {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({
-          status: 'delivered',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', orderId);
+        .update({ status: 'delivered' })
+        .eq('id', orderId)
+        .eq('driver_id', driverId);
 
-      if (!error) {
-        setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      } else {
-        console.error('Error delivering order:', error);
-      }
+      if (error) throw error;
+
+      set((state) => ({
+        orders: state.orders.map(o => o.id === orderId ? { ...o, status: 'delivered' } : o)
+      }));
     } catch (err) {
-      console.error('Error delivering order:', err);
+      console.error("[EAGLE TN] Échec livraison:", err);
     }
-  };
+  }
+}));
 
+// 2. تغليف المحرك بخطاف وهمي لضمان عمل الواجهات دون تعديلها
+export function useLivreurOrders() {
+  const store = useLivreurStore();
+  
   useEffect(() => {
-    fetchLivreurOrders();
-
-    const channel = supabase
-      .channel('livreur_orders_channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          fetchLivreurOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    store.initDriverSession();
   }, []);
-
-  return {
-    orders,
-    loading,
-    acceptOrder,
-    deliverOrder,
-    refetch: fetchLivreurOrders,
-  };
-};
+  
+  return store;
+}

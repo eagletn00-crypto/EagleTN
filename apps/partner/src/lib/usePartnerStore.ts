@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase/client';
 
 export interface Order {
   id: string;
@@ -33,17 +33,17 @@ const playAudioAlert = () => {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    
+
     osc.type = 'sine';
     osc.frequency.setValueAtTime(587.33, ctx.currentTime);
     osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
-    
+
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    
+
     osc.connect(gain);
     gain.connect(ctx.destination);
-    
+
     osc.start();
     osc.stop(ctx.currentTime + 0.5);
   } catch (e) {
@@ -85,7 +85,6 @@ export const usePartnerStore = create<PartnerState>((set, get) => ({
   fetchInitialOrders: async () => {
     set({ isLoading: true });
     try {
-      // جلب جميع الطلبات دون تصفية لمعاينة كافة السجلات المتوفرة
       const { data, error } = await supabase
         .from('orders')
         .select('*')

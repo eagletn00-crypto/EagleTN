@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import SplashScreen from './screens/SplashScreen';
 import ClientHome from './screens/ClientHome';
@@ -32,6 +32,9 @@ const pageVariants: Variants = {
 };
 
 export const AppRoutes: React.FC = () => {
+  // حالة تحميل التطبيق الفعلية
+  const [isAppLoading, setIsAppLoading] = useState(true);
+
   const currentScreen = useAppStore((s) => s.currentScreen);
   const activeTab = useAppStore((s) => s.activeTab);
   const selectedPartner = useAppStore((s) => s.selectedPartner);
@@ -51,15 +54,23 @@ export const AppRoutes: React.FC = () => {
   const selectPartnerWithIsolation = useAppStore((s) => s.selectPartnerWithIsolation);
   const setCurrentOrder = useAppStore((s) => s.setCurrentOrder);
 
+  // ربط الشاشة الافتتاحية بجلب البيانات الحقيقي
   useEffect(() => {
     let isMounted = true;
+    
     fetchPartners()
       .then((data) => {
         if (isMounted && Array.isArray(data)) {
           setPartners(data as unknown as Partner[]);
         }
       })
-      .catch((err) => console.error('[EAGLE TN Engine] Remote fetch failed:', err));
+      .catch((err) => console.error('[EAGLE TN Engine] Remote fetch failed:', err))
+      .finally(() => {
+        if (isMounted) {
+          // إضافة تأخير جمالي بسيط لضمان سلاسة حركة الخروج
+          setTimeout(() => setIsAppLoading(false), 800);
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -67,7 +78,7 @@ export const AppRoutes: React.FC = () => {
   }, [setPartners]);
 
   const handleSplashFinish = useCallback(() => {
-    if (currentOrder && ['pending', 'accepted', 'delivering'].includes(currentOrder.status)) {
+    if (currentOrder && ['pending', 'accepted', 'delivering', 'preparing', 'on_way'].includes(currentOrder.status)) {
       setActiveTab('orders');
       setCurrentScreen('ORDER_TRACKING');
     } else {
@@ -79,6 +90,7 @@ export const AppRoutes: React.FC = () => {
     (partner: Partner) => {
       const success = selectPartnerWithIsolation(partner);
       if (!success) {
+        // TODO: (Amateur Code) استبدال نافذة المتصفح الافتراضية بمكون واجهة احترافي لاحقاً
         const confirmSwitch = window.confirm(
           'Votre panier contient des articles d\'un autre établissement. Voulez-vous le réinitialiser ?'
         );
@@ -87,25 +99,16 @@ export const AppRoutes: React.FC = () => {
           setSelectedPartner(partner);
           setCurrentScreen('RESTAURANT_MENU');
         }
+      } else {
+        setSelectedPartner(partner);
+        setCurrentScreen('RESTAURANT_MENU');
       }
     },
     [selectPartnerWithIsolation, clearCart, setSelectedPartner, setCurrentScreen]
   );
 
-  const handleConfirmOrder = async (orderData: {
-    address: string;
-    phone: string;
-    notes: string;
-    pin: string;
-    totalAmount: number;
-  }) => {
-    // دالة توافقية عند استدعائها من المكون الميداني
-    console.log('[EAGLE TN] Order Data Confirmed:', orderData);
-  };
-
   const handleOrderSuccess = async (orderId: string) => {
     try {
-      // جلب بيانات الطلب المنشأ حديثاً وتحديث الـ Store للواجهة
       const { data: fetchOrder } = await supabase
         .from('orders')
         .select('*')
@@ -153,12 +156,14 @@ export const AppRoutes: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="w-full min-h-screen bg-[#FAFAFA] font-sans antialiased text-slate-900 pb-16 selection:bg-[#059669] selection:text-white relative overflow-x-hidden">
+      <div className="w-full min-h-[100dvh] bg-[#F8FAFC] font-sans antialiased text-slate-900 pb-24 selection:bg-red-600 selection:text-white relative overflow-x-hidden">
         <AnimatePresence mode="wait">
           {currentScreen === 'SPLASH' && (
-            <motion.div key="splash" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <SplashScreen onFinish={handleSplashFinish} />
-            </motion.div>
+            <SplashScreen 
+              key="splash" 
+              isLoading={isAppLoading} 
+              onReady={handleSplashFinish} 
+            />
           )}
 
           {currentScreen === 'HOME' && (
@@ -166,7 +171,11 @@ export const AppRoutes: React.FC = () => {
               <ClientHome
                 cartCount={totalCartCount}
                 onSelectPartner={handlePartnerSelect}
-                onNavigateCart={() => selectedPartner && cartItems.length > 0 && setCurrentScreen('CHECKOUT')}
+                onNavigateCart={() => {
+                  if (selectedPartner && cartItems.length > 0) {
+                    setCurrentScreen('CHECKOUT');
+                  }
+                }}
               />
             </motion.div>
           )}
@@ -201,12 +210,11 @@ export const AppRoutes: React.FC = () => {
                 cartItems={cartItems}
                 customerAddress={customerAddress}
                 customerPhone=""
-                onRemoveItem={(itemId) => removeFromCart(itemId)}
+                onRemoveItem={(itemId: string) => removeFromCart(itemId)}
                 onRequireAuth={() => {
                   setActiveTab('profile');
                   setCurrentScreen('PROFILE');
                 }}
-                onConfirmOrder={handleConfirmOrder}
                 onOrderSuccess={handleOrderSuccess}
                 onBack={() => setCurrentScreen('RESTAURANT_MENU')}
               />
@@ -234,7 +242,6 @@ export const AppRoutes: React.FC = () => {
         </AnimatePresence>
 
         {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
-
         {showBottomNav && <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
       </div>
     </ErrorBoundary>

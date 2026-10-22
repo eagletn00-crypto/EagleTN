@@ -1,497 +1,220 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { memo, useState, useEffect } from 'react';
+import { ArrowLeft, Loader2, LogOut, Package, ShieldCheck, MapPin, Phone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-interface UserProfile {
-  id: string;
-  full_name?: string;
-  phone_number?: string;
-  phone?: string;
-  email?: string;
-  avatar_url?: string;
-  created_at?: string;
-}
-
-interface ProfileScreenProps {
+export interface ProfileScreenProps {
   onBack?: () => void;
-  onNavigateAddresses?: () => void;
   onNavigateOrders?: () => void;
-  onNavigateFavorites?: () => void;
-  onNavigateSupport?: () => void;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({
-  onBack,
-  onNavigateAddresses,
-  onNavigateOrders,
-  onNavigateFavorites,
-  onNavigateSupport,
-}) => {
-  const [user, setUser] = useState<{ id: string; email?: string; user_metadata?: { full_name?: string; name?: string; avatar_url?: string; picture?: string }; phone?: string } | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+export const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onBack, onNavigateOrders }) => {
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
 
-  // Modals States
-  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
-
-  // Phone Input State
-  const [phoneInput, setPhoneInput] = useState<string>('');
-  const [phoneSaving, setPhoneSaving] = useState<boolean>(false);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-
-  // Auth States
-  const [authLoading, setAuthLoading] = useState<boolean>(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  const fetchProfile = useCallback(async (userId: string) => {
+  const syncCustomerProfile = async (authUser: any) => {
     try {
-      const { data, error } = await supabase
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+        .select('id')
+        .eq('id', authUser.id)
+        .single();
 
-      if (error) throw error;
-      setProfile(data as UserProfile | null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erreur lors du chargement du profil';
-      console.error('Error fetching profile:', message);
+      if (!existingProfile) {
+        await supabase.from('profiles').insert([
+          {
+            id: authUser.id,
+            full_name: authUser.user_metadata?.full_name || 'Client EAGLE',
+            email: authUser.email,
+            avatar_url: authUser.user_metadata?.avatar_url,
+            updated_at: new Date().toISOString(),
+          }
+        ]);
+      }
+    } catch (error) {
+      console.warn("[EAGLE TN Engine] Profile sync check:", error);
+    } finally {
+      setUser(authUser);
+      setIsLoadingSession(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
-    const initSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-
-        if (session?.user && mounted) {
-          setUser(session.user);
-          await fetchProfile(session.user.id);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erreur d’initialisation de la session';
-        console.error('Error initializing session:', message);
-      } finally {
-        if (mounted) setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && isMounted) {
+        syncCustomerProfile(session.user);
+      } else if (isMounted) {
+        setIsLoadingSession(false);
       }
-    };
+    });
 
-    initSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
-
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-      } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user && isMounted) {
+        syncCustomerProfile(session.user);
+      } else if (isMounted) {
         setUser(null);
-        setProfile(null);
       }
-      setLoading(false);
     });
 
     return () => {
-      mounted = false;
+      isMounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, []);
 
-  const handleOAuthLogin = async (provider: 'facebook' | 'google') => {
-    setAuthLoading(true);
-    setAuthError(null);
+  const handleFacebookLogin = async () => {
     try {
-      const redirectUrl = window.location.origin;
+      setIsLoggingIn(true);
       const { error } = await supabase.auth.signInWithOAuth({
-        provider,
+        provider: 'facebook',
         options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            display: 'touch',
-            auth_type: 'rerequest',
-          },
+          redirectTo: window.location.origin,
+          skipBrowserRedirect: false
         },
       });
       if (error) throw error;
     } catch (err) {
-      const message = err instanceof Error ? err.message : `Échec de la connexion via ${provider}`;
-      console.error(`${provider} Login Error:`, err);
-      setAuthError(message);
-      setAuthLoading(false);
+      console.error("[EAGLE TN Engine] Facebook Auth Error:", err);
+      setIsLoggingIn(false);
     }
   };
 
-  const handleSignOut = async () => {
+  const handleLogout = async () => {
     try {
+      setIsLoadingSession(true);
       await supabase.auth.signOut();
-      localStorage.removeItem('eagle_pending_checkout');
-      setUser(null);
-      setProfile(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erreur de déconnexion';
-      console.error('Error signing out:', message);
-    }
-  };
-
-  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = e.target.value.replace(/\D/g, '').slice(0, 8);
-    setPhoneInput(rawVal);
-    if (phoneError) setPhoneError(null);
-  };
-
-  const handleSavePhone = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPhoneError(null);
-
-    if (!user) return;
-
-    if (!/^[24579]\d{7}$/.test(phoneInput)) {
-      setPhoneError('Veuillez saisir un numéro tunisien valide à 8 chiffres (ex: 98123456).');
-      return;
-    }
-
-    setPhoneSaving(true);
-    const fullPhone = `+216${phoneInput}`;
-    const resolvedName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || 'Client Eagle TN';
-
-    try {
-      // 1. التحديث المباشر بحقلي phone_number و phone لتغطية السكيمة
-      const { data: updatedData, error: updateErr } = await supabase
-        .from('profiles')
-        .update({ 
-          phone_number: fullPhone,
-          phone: fullPhone,
-          full_name: resolvedName 
-        })
-        .eq('id', user.id)
-        .select();
-
-      if (updateErr) throw updateErr;
-
-      // 2. إذا لم يرجع الصف (غير موجود مسبقاً)
-      if (!updatedData || updatedData.length === 0) {
-        const { error: insertErr } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            phone_number: fullPhone,
-            phone: fullPhone,
-            full_name: resolvedName,
-          });
-
-        if (insertErr) throw insertErr;
-      }
-
-      await fetchProfile(user.id);
-      setPhoneInput('');
-    } catch (err: any) {
-      console.error('Error updating phone full details:', err);
-      const message = err?.message || err?.details || 'Impossible d’enregistrer le numéro.';
-      setPhoneError(message);
-    } finally {
-      setPhoneSaving(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase.rpc('delete_user_account');
-      if (error) throw error;
-
-      await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
-      setShowDeleteModal(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erreur système.';
-      console.error('Error deleting account:', error);
-      setAuthError('Erreur lors de la suppression: ' + message);
+      console.error("[EAGLE TN Engine] Logout Error:", error);
     } finally {
-      setIsDeleting(false);
+      setIsLoadingSession(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4">
-        <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
-          <div className="absolute w-8 h-8 border-4 border-emerald-50 border-b-emerald-400 rounded-full animate-spin" />
-        </div>
-        <p className="mt-6 text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] animate-pulse">
-          EAGLE SYSTEM • Chargement
-        </p>
-      </div>
-    );
-  }
-
-  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
-  const clientName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || 'Client Eagle TN';
-  const clientPhone = profile?.phone_number || profile?.phone || user?.phone || null;
-  const clientEmail = profile?.email || user?.email || 'Compte vérifié';
-
-  const isPhoneMissing = Boolean(user && !clientPhone);
+  // ألوان النيومورفيزم المركزية لسهولة التعديل
+  const bgNeumorphic = "bg-[#EAEFF5]";
+  const shadowOut = "shadow-[6px_6px_14px_#D0D8E6,-6px_-6px_14px_#FFFFFF]";
+  const shadowIn = "shadow-[inset_4px_4px_8px_#D0D8E6,inset_-4px_-4px_8px_#FFFFFF]";
+  const shadowActive = "active:shadow-[inset_4px_4px_8px_#D0D8E6,inset_-4px_-4px_8px_#FFFFFF]";
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 text-slate-800 font-['Plus_Jakarta_Sans',sans-serif] antialiased">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 -left-32 w-96 h-96 bg-teal-500/5 rounded-full blur-[100px]" />
-      </div>
-
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 px-5 py-4 flex items-center justify-between shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              aria-label="Retour"
-              className="w-10 h-10 rounded-2xl bg-slate-100/80 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 transition-all active:scale-95 text-sm font-bold"
-            >
-              ←
-            </button>
-          )}
-          <div>
-            <h1 className="font-extrabold text-base text-slate-900 tracking-tight">Espace Client</h1>
-            <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              EAGLE TN VIP
-            </p>
-          </div>
-        </div>
-
-        <div>
-          {user ? (
-            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black px-3.5 py-1.5 rounded-full border border-emerald-200/80 shadow-2xs">
-              COMPTE ACTIF
-            </span>
-          ) : (
-            <span className="bg-amber-50 text-amber-700 text-[10px] font-black px-3.5 py-1.5 rounded-full border border-amber-200/80">
-              INVITÉ
-            </span>
-          )}
-        </div>
+    <div className={`min-h-[100dvh] ${bgNeumorphic} font-sans text-slate-800 pb-32 selection:bg-emerald-500/20 antialiased overflow-x-hidden`}>
+      
+      {/* HEADER NEUMORPHIC */}
+      <header className="pt-10 pb-4 px-5 flex items-center justify-between sticky top-0 z-20">
+        <button
+          onClick={onBack}
+          aria-label="Retour"
+          className={`w-11 h-11 flex items-center justify-center rounded-2xl ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200`}
+        >
+          <ArrowLeft className="w-5 h-5 text-slate-600 stroke-[2.5]" />
+        </button>
+        <h1 className="text-xs font-black text-slate-800 tracking-widest uppercase flex-1 text-center pr-11">
+          Espace VIP
+        </h1>
       </header>
 
-      <main className="relative z-10 p-5 space-y-6 max-w-lg mx-auto">
-        {!user ? (
-          <div className="bg-white/90 backdrop-blur-xl rounded-[32px] p-7 border border-slate-200/80 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.05)] space-y-6">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-3xl shadow-xl shadow-emerald-600/20 mx-auto font-black">
-                🦅
-              </div>
-              <h2 className="font-black text-xl text-slate-900 tracking-tight">Connexion Privilégiée</h2>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                Connectez-vous pour accéder à vos adresses, vos commandes en temps réel et votre profil.
-              </p>
-            </div>
-
-            {authError && (
-              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-bold flex items-center gap-2">
-                <span>⚠️</span>
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <div className="space-y-3 pt-2">
-              <button
-                type="button"
-                disabled={authLoading}
-                onClick={() => handleOAuthLogin('facebook')}
-                className="w-full bg-[#1877F2] hover:bg-[#166FE5] text-white h-13 rounded-2xl font-black text-xs flex items-center justify-center gap-3 shadow-md shadow-blue-500/10 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                {authLoading ? 'Connexion...' : 'Continuer avec Facebook'}
-              </button>
+      <main className="px-5 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {isLoadingSession ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-4">
+            <div className={`w-16 h-16 rounded-full ${bgNeumorphic} ${shadowIn} flex items-center justify-center`}>
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
             </div>
           </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="bg-white/90 backdrop-blur-xl rounded-[32px] p-6 border border-slate-200/80 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.04)] space-y-6">
-              <div className="flex items-center gap-4">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={clientName}
-                    className="w-18 h-18 rounded-2xl object-cover shadow-md ring-2 ring-slate-100 shrink-0"
-                  />
+        ) : user ? (
+          /* ========================================= */
+          /* LOGGED IN VIEW                            */
+          /* ========================================= */
+          <div className="space-y-6">
+            <div className={`rounded-[2rem] p-8 flex flex-col items-center text-center ${bgNeumorphic} ${shadowOut}`}>
+              
+              <div className={`w-24 h-24 rounded-full p-2 mb-6 ${bgNeumorphic} ${shadowIn} relative`}>
+                {user.user_metadata?.avatar_url ? (
+                  <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full rounded-full object-cover shadow-sm" />
                 ) : (
-                  <div className="w-18 h-18 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-md shrink-0">
-                    {clientName.charAt(0).toUpperCase()}
+                  <div className="w-full h-full rounded-full flex items-center justify-center">
+                    <span className="text-3xl font-black text-emerald-600">{user.email?.charAt(0).toUpperCase()}</span>
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-black text-base text-slate-900 truncate tracking-tight">{clientName}</h2>
-                  <p className="text-xs text-emerald-600 font-extrabold mt-0.5 flex items-center gap-1">
-                    {clientPhone ? (
-                      <><span>🇹🇳</span> {clientPhone}</>
-                    ) : (
-                      <span className="text-amber-600">⚠️ Téléphone Requis</span>
-                    )}
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">{clientEmail}</p>
+                <div className={`absolute -bottom-1 -right-1 rounded-full p-2 ${bgNeumorphic} ${shadowOut}`}>
+                  <ShieldCheck className="w-3 h-3 text-emerald-500" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {onNavigateOrders && (
-                  <button
-                    onClick={onNavigateOrders}
-                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-emerald-500/40 hover:shadow-md transition-all text-left group active:scale-[0.98]"
-                  >
-                    <span className="text-xl block mb-1">📦</span>
-                    <span className="text-xs font-black text-slate-800 group-hover:text-emerald-600 transition-colors">Mes Commandes</span>
-                  </button>
-                )}
-                {onNavigateAddresses && (
-                  <button
-                    onClick={onNavigateAddresses}
-                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-emerald-500/40 hover:shadow-md transition-all text-left group active:scale-[0.98]"
-                  >
-                    <span className="text-xl block mb-1">📍</span>
-                    <span className="text-xs font-black text-slate-800 group-hover:text-emerald-600 transition-colors">Mes Adresses</span>
-                  </button>
-                )}
-                {onNavigateFavorites && (
-                  <button
-                    onClick={onNavigateFavorites}
-                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-emerald-500/40 hover:shadow-md transition-all text-left group active:scale-[0.98]"
-                  >
-                    <span className="text-xl block mb-1">❤️</span>
-                    <span className="text-xs font-black text-slate-800 group-hover:text-emerald-600 transition-colors">Mes Favoris</span>
-                  </button>
-                )}
-                {onNavigateSupport && (
-                  <button
-                    onClick={onNavigateSupport}
-                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60 hover:bg-white hover:border-emerald-500/40 hover:shadow-md transition-all text-left group active:scale-[0.98]"
-                  >
-                    <span className="text-xl block mb-1">🎧</span>
-                    <span className="text-xs font-black text-slate-800 group-hover:text-emerald-600 transition-colors">Support Client</span>
-                  </button>
-                )}
+              <h2 className="text-xl font-black text-slate-800 mb-1 tracking-tight">
+                {user.user_metadata?.full_name || 'Client VIP'}
+              </h2>
+              <p className="text-xs font-bold text-slate-400 mb-8 truncate w-full px-4">
+                {user.email}
+              </p>
+
+              <div className="w-full grid grid-cols-2 gap-4 mb-8">
+                <div className={`rounded-2xl p-4 flex flex-col items-center justify-center ${bgNeumorphic} ${shadowOut} ${shadowActive} cursor-pointer transition-all`}>
+                  <MapPin className="w-5 h-5 text-emerald-500 mb-2" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Adresses</span>
+                </div>
+                <div className={`rounded-2xl p-4 flex flex-col items-center justify-center ${bgNeumorphic} ${shadowOut} ${shadowActive} cursor-pointer transition-all`}>
+                  <Phone className="w-5 h-5 text-emerald-500 mb-2" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contact</span>
+                </div>
               </div>
 
-              <div className="pt-2 flex flex-col gap-2.5">
-                <button
-                  onClick={handleSignOut}
-                  className="w-full bg-slate-100 hover:bg-slate-200/80 text-slate-700 h-12 rounded-2xl text-xs font-black transition-all border border-slate-200/80 active:scale-[0.98]"
-                >
-                  Se déconnecter
-                </button>
-                
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="text-[11px] text-rose-500 hover:text-rose-600 font-bold py-1.5 transition-colors text-center"
-                >
-                  Supprimer définitivement mon compte
-                </button>
-              </div>
+              <button
+                onClick={onNavigateOrders}
+                className={`w-full flex items-center justify-center gap-3 text-emerald-600 font-black rounded-2xl py-4 ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200`}
+              >
+                <Package className="w-5 h-5" />
+                <span className="tracking-widest text-xs uppercase">Mes Commandes</span>
+              </button>
             </div>
+
+            <button
+              onClick={handleLogout}
+              className={`w-full flex items-center justify-center gap-3 text-rose-500 font-bold rounded-2xl py-4 ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200`}
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="tracking-widest text-xs uppercase">Se Déconnecter</span>
+            </button>
+          </div>
+        ) : (
+          /* ========================================= */
+          /* LOGGED OUT VIEW                           */
+          /* ========================================= */
+          <div className={`rounded-[2rem] p-8 flex flex-col items-center text-center ${bgNeumorphic} ${shadowOut}`}>
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-8 ${bgNeumorphic} ${shadowIn}`}>
+              <ShieldCheck className="w-10 h-10 text-slate-400" />
+            </div>
+
+            <h2 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">
+              EAGLE TN
+            </h2>
+            <p className="text-xs font-bold text-slate-400 leading-relaxed px-2 mb-10">
+              Sécurisez votre compte pour suivre vos commandes en temps réel et gérer vos adresses.
+            </p>
+
+            <button
+              onClick={handleFacebookLogin}
+              disabled={isLoggingIn}
+              className={`w-full flex items-center justify-center gap-3 text-[#1877F2] font-black rounded-2xl py-4 ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200 disabled:opacity-50`}
+            >
+              {isLoggingIn ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              )}
+              <span className="tracking-wide text-sm">
+                {isLoggingIn ? 'Connexion...' : 'Continuer avec Facebook'}
+              </span>
+            </button>
           </div>
         )}
-
-        <footer className="pt-6 pb-2 text-center space-y-1">
-          <p className="text-[10px] font-black text-slate-400 tracking-wider uppercase">
-            Tous droits réservés © EAGLE TN DIGITAL SYSTEM
-          </p>
-          <p className="text-[9px] font-semibold text-slate-300">
-            Avril 2026 • Platform Premium Version 2.4.0
-          </p>
-        </footer>
       </main>
-
-      {/* Mandatory Phone Modal Gate */}
-      {isPhoneMissing && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-5">
-          <div className="bg-white rounded-[32px] p-6 max-w-sm w-full space-y-5 border border-slate-200/80 shadow-2xl">
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-emerald-100 font-black">
-              📱
-            </div>
-
-            <div className="text-center space-y-1">
-              <h3 className="font-black text-base text-slate-900">Numéro de Téléphone Requis</h3>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                Nécessaire pour la confirmation et la livraison immédiate de vos commandes.
-              </p>
-            </div>
-
-            {phoneError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold text-center">
-                ⚠️ {phoneError}
-              </div>
-            )}
-
-            <form onSubmit={handleSavePhone} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Numéro Tunisien (+216) *
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-4 font-black text-xs text-slate-400">+216</span>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={8}
-                    value={phoneInput}
-                    onChange={handlePhoneInputChange}
-                    placeholder="98 123 456"
-                    className="w-full h-13 pl-16 pr-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 transition-all"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={phoneSaving || phoneInput.length !== 8}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-13 rounded-2xl font-black text-xs shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all disabled:opacity-40"
-              >
-                {phoneSaving ? 'Enregistrement...' : 'Valider et Continuer 🚀'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Account Deletion Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-5">
-          <div className="bg-white rounded-[32px] p-6 max-w-sm w-full space-y-5 border border-slate-200/80 shadow-2xl text-center">
-            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-rose-100 font-black">
-              ⚠️
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-black text-base text-slate-900">Supprimer le Compte?</h3>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                Cette action est irréversible. Vos données et votre historique seront définitivement supprimés.
-              </p>
-            </div>
-            <div className="space-y-2 pt-2">
-              <button
-                onClick={handleDeleteAccount}
-                disabled={isDeleting}
-                className="w-full bg-rose-600 hover:bg-rose-700 text-white h-12 rounded-2xl font-black text-xs shadow-md active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {isDeleting ? 'Suppression...' : 'Oui, Supprimer'}
-              </button>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
-                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 h-12 rounded-2xl font-black text-xs transition-all border border-slate-200/80"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-};
+});
 
+ProfileScreen.displayName = 'ProfileScreen';
 export default ProfileScreen;

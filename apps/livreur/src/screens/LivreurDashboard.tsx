@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { useLivreurOrders } from '../hooks/useLivreurOrders';
 import { BottomNav, TabType } from '../components/BottomNav';
 import { OrderMap } from '../components/OrderMap';
+import { ConfirmDeliveryModal } from '../components/ConfirmDeliveryModal';
 
 export default function LivreurDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('commandes');
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [selectedMapOrder, setSelectedMapOrder] = useState<string | null>(null);
+  
+  // التحكم في نافذة التسليم الآمنة
+  const [deliveryModalOrder, setDeliveryModalOrder] = useState<any | null>(null);
+
   const { orders, loading, acceptOrder, deliverOrder } = useLivreurOrders();
 
   const activeOrders = orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled');
@@ -18,67 +23,80 @@ export default function LivreurDashboard() {
 
   const handleAccept = async (id: string) => {
     await acceptOrder(id);
-    setSelectedMapOrder(id); // فتح الخريطة تلقائياً فور قبول الطلب
+    setSelectedMapOrder(id);
   };
 
-  const handleDeliver = async (id: string) => {
-    if (window.confirm("Confirmez-vous l'encaissement de la commande et la livraison au client ?")) {
-      await deliverOrder(id);
+  const executeDelivery = async (pin: string) => {
+    if (deliveryModalOrder) {
+      await deliverOrder(deliveryModalOrder.id);
+      setDeliveryModalOrder(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans pb-24 select-none">
-      {/* Header */}
-      <header className="bg-white px-4 py-3 border-b border-gray-100 flex justify-between items-center sticky top-0 z-40 shadow-2xs">
+    <div className="min-h-screen bg-[#E9EBEF] flex flex-col font-sans pb-28 select-none antialiased">
+      
+      {/* نافذة التسليم الآمنة (POD) */}
+      {deliveryModalOrder && (
+        <ConfirmDeliveryModal 
+          order={deliveryModalOrder} 
+          onConfirm={executeDelivery}
+          onClose={() => setDeliveryModalOrder(null)}
+        />
+      )}
+
+      {/* HEADER ULTRA PREMIUM */}
+      <header className="px-5 pt-10 pb-4 flex justify-between items-center sticky top-0 z-40 bg-[#E9EBEF]/90 backdrop-blur-md">
         <div>
-          <span className="text-[10px] font-black text-emerald-600 tracking-wider uppercase block">
-            EAGLE TN • LIVREUR
+          <span className="text-[10px] font-black text-emerald-600 tracking-widest uppercase block mb-1">
+            EAGLE TN • Livreur
           </span>
-          <h1 className="text-lg font-black text-gray-900 tracking-tight">EAGLE Rider 🛵</h1>
+          <h1 className="text-xl font-black text-stone-800 tracking-tight">EAGLE Rider 🛵</h1>
         </div>
 
         <button
           onClick={() => setIsOnline(!isOnline)}
-          className={`px-3 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-1.5 border shadow-2xs ${
+          className={`px-4 py-2.5 rounded-full text-xs font-black transition-all duration-300 flex items-center gap-2 ${
             isOnline
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : 'bg-red-50 text-red-600 border-red-200'
+              ? 'bg-[#E9EBEF] text-emerald-600 shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff]'
+              : 'bg-[#E9EBEF] text-rose-500 shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff]'
           }`}
         >
-          <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+          <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-rose-500'}`}></span>
           {isOnline ? 'En Ligne' : 'Hors Ligne'}
         </button>
       </header>
 
-      {/* Content */}
-      <main className="flex-1 p-4 max-w-md mx-auto w-full">
+      {/* CONTENT */}
+      <main className="flex-1 p-5 max-w-md mx-auto w-full flex flex-col gap-6">
+
         {!isOnline && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center space-y-1 mb-4 shadow-2xs">
-            <span className="text-sm font-black text-amber-800 block">Vous êtes Hors Ligne 🔴</span>
-            <p className="text-xs text-amber-600">Passez en ligne pour recevoir les missions disponibles.</p>
+          <div className="w-full bg-[#E9EBEF] rounded-[2rem] p-5 text-center shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] border border-white/40">
+            <span className="text-sm font-black text-rose-600 block mb-1">Vous êtes Hors Ligne 🔴</span>
+            <p className="text-xs font-bold text-stone-500">Passez en ligne pour recevoir les missions disponibles.</p>
           </div>
         )}
 
         {/* TAB 1: COMMANDES */}
         {activeTab === 'commandes' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-black text-gray-900 tracking-tight">
-                Missions En Cours ({activeOrders.length})
+          <div className="space-y-6">
+            <div className="flex justify-between items-center px-1">
+              <h2 className="text-lg font-black text-stone-800 tracking-tight">
+                Missions ({activeOrders.length})
               </h2>
-              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-0.5 rounded-md">
+              <span className="text-[10px] bg-[#E9EBEF] text-emerald-600 shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] font-black tracking-widest uppercase px-3 py-1.5 rounded-full">
                 GPS Actif 📍
               </span>
             </div>
 
             {loading ? (
-              <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center shadow-2xs">
-                <p className="text-xs font-bold text-gray-400">Chargement des missions...</p>
+              <div className="w-full h-32 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-center">
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-widest animate-pulse">Recherche de missions...</span>
               </div>
             ) : activeOrders.length === 0 ? (
-              <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-xs font-medium">
-                Aucune mission attribuée pour le moment.
+              <div className="w-full h-40 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex flex-col items-center justify-center border border-white/30">
+                <span className="text-3xl mb-3 opacity-50">🛵</span>
+                <span className="text-xs font-black text-stone-400 uppercase tracking-widest">Aucune mission</span>
               </div>
             ) : (
               activeOrders.map((order) => {
@@ -87,76 +105,83 @@ export default function LivreurDashboard() {
                 return (
                   <div
                     key={order.id}
-                    className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3 relative overflow-hidden"
+                    className="bg-[#E9EBEF] p-5 rounded-[2rem] shadow-[6px_6px_12px_#c8cad0,-6px_-6px_12px_#ffffff] flex flex-col gap-4 border border-white/40"
                   >
                     <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-black bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-stone-500 bg-[#E9EBEF] shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] px-2.5 py-1 rounded-md uppercase tracking-wider">
                             #{order.short_code}
                           </span>
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                            Code: {order.verificationCode}
-                          </span>
                         </div>
-                        <h3 className="font-extrabold text-gray-900 text-base">{order.restaurantName}</h3>
-                        <p className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                          📍 {order.deliveryAddress}
+                        
+                        <h3 className="font-black text-stone-800 text-lg leading-tight mt-2">{order.restaurantName}</h3>
+                        <p className="text-[11px] font-bold text-stone-500 flex items-center gap-1.5">
+                          <span className="text-rose-500">📍</span> {order.deliveryAddress}
                         </p>
-                        <p className="text-xs font-bold text-gray-700">
+                        <p className="text-[11px] font-bold text-stone-600">
                           👤 {order.clientName} (
-                          <a href={`tel:${order.clientPhone}`} className="text-emerald-600 underline">
+                          <a href={`tel:${order.clientPhone}`} className="text-emerald-600 underline underline-offset-2 ml-1">
                             {order.clientPhone}
-                          </a>
-                          )
+                          </a>)
                         </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-base font-black text-emerald-600 block">
-                          +{order.deliveryFee.toFixed(3)} DT
+                      
+                      <div className="flex flex-col items-end">
+                        <span className="text-lg font-black text-emerald-600 tracking-tighter">
+                          +{order.deliveryFee.toFixed(3)}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-bold block">Gain Course</span>
+                        <span className="text-[9px] text-stone-400 font-black uppercase tracking-widest">DT Gain</span>
                       </div>
                     </div>
-
-                    <div className="bg-amber-50/80 p-2.5 rounded-xl border border-amber-100 text-xs flex justify-between items-center">
-                      <span className="font-bold text-amber-900">💵 Encaissement Client (COD):</span>
-                      <span className="text-amber-800 font-black text-sm">{order.totalAmount.toFixed(3)} DT</span>
+                    
+                    <div className="bg-[#E9EBEF] p-4 rounded-2xl shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex justify-between items-center mt-2 border border-white/20">
+                       <span className="font-bold text-[11px] text-stone-500 uppercase tracking-widest">Encaissement (COD)</span>
+                      <span className="text-amber-600 font-black text-lg">{order.totalAmount.toFixed(3)} DT</span>
                     </div>
 
-                    {/* الخريطة عند الطلب */}
                     {isMapOpen && (
-                      <OrderMap
-                        pickupLat={order.pickupCoords.lat}
-                        pickupLng={order.pickupCoords.lng}
-                        dropoffLat={order.dropoffCoords.lat}
-                        dropoffLng={order.dropoffCoords.lng}
-                        clientAddress={order.deliveryAddress}
-                      />
+                      <div className="rounded-2xl overflow-hidden shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] border border-white/40 p-1">
+                        <OrderMap
+                          pickupLat={order.pickupCoords.lat}
+                          pickupLng={order.pickupCoords.lng}
+                          dropoffLat={order.dropoffCoords.lat}
+                          dropoffLng={order.dropoffCoords.lng}
+                          clientAddress={order.deliveryAddress}
+                        />
+                      </div>
                     )}
 
-                    <div className="pt-1 flex gap-2">
-                      <button
-                        onClick={() => handleAccept(order.id)}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black py-3 rounded-xl shadow-xs transition-all active:scale-98 flex justify-center items-center gap-1"
-                      >
-                        {isMapOpen ? 'Itinéraire Actif 🗺️' : 'Accepter la Course 🛵'}
-                      </button>
-                      
-                      <button
-                        onClick={() => setSelectedMapOrder(isMapOpen ? null : order.id)}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-3 rounded-xl transition-all"
-                        title="Afficher la Carte"
-                      >
-                        🗺️
-                      </button>
+                    <div className="flex gap-3 mt-1">
+                      {order.status === 'ready_for_pickup' ? (
+                        <button
+                          onClick={() => handleAccept(order.id)}
+                          className="flex-[2] py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all duration-200 flex justify-center items-center gap-2 bg-[#E9EBEF] text-emerald-600 shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff]"
+                        >
+                          Accepter 🛵
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setSelectedMapOrder(isMapOpen ? null : order.id)}
+                            className={`flex-[2] py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all duration-200 flex justify-center items-center gap-2 ${
+                              isMapOpen
+                                ? 'bg-[#E9EBEF] text-emerald-600 shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff]'
+                                : 'bg-[#E9EBEF] text-emerald-600 shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff]'
+                            }`}
+                          >
+                            {isMapOpen ? 'Cacher Carte' : 'Itinéraire 🗺️'}
+                          </button>
 
-                      <button
-                        onClick={() => handleDeliver(order.id)}
-                        className="bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-gray-800 text-xs font-black px-4 py-3 rounded-xl transition-all active:scale-98 border border-gray-200"
-                      >
-                        Terminer ✅
-                      </button>
+                          <button
+                            // فتح النافذة الآمنة بدلاً من نافذة المتصفح الافتراضية
+                            onClick={() => setDeliveryModalOrder(order)}
+                            className="flex-[2] bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] text-stone-800 font-black text-[11px] uppercase tracking-widest py-3.5 rounded-2xl transition-all duration-200"
+                          >
+                            Terminer ✅
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -164,47 +189,34 @@ export default function LivreurDashboard() {
             )}
           </div>
         )}
-
+        
         {/* TAB 2: FINANCE */}
         {activeTab === 'finance' && (
-          <div className="space-y-4">
-            <h2 className="text-sm font-black text-gray-900 tracking-tight">Tableau de Bord Financier</h2>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 block">Cash en Main (COD)</span>
-                <span className="text-lg font-black text-amber-600 block">{cashInHand.toFixed(3)} DT</span>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div
-                    className="bg-amber-500 h-1.5 rounded-full"
-                    style={{ width: `${Math.min((cashInHand / cashLimit) * 100, 100)}%` }}
-                  ></div>
+          <div className="space-y-6">
+            <h2 className="text-lg font-black text-stone-800 tracking-tight px-1">Tableau de Bord</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#E9EBEF] p-5 rounded-[2rem] shadow-[6px_6px_12px_#c8cad0,-6px_-6px_12px_#ffffff] flex flex-col justify-between">
+                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Cash en Main</span>
+                <span className="text-xl font-black text-amber-600">{cashInHand.toFixed(3)} DT</span>
+                <div className="w-full bg-[#E9EBEF] shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] rounded-full h-2 mt-4 overflow-hidden">
+                  <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min((cashInHand / cashLimit) * 100, 100)}%` }}></div>
                 </div>
-                <span className="text-[9px] text-gray-400 font-semibold block pt-1">
-                  Plafond autorisé: {cashLimit} DT
-                </span>
+                <span className="text-[9px] text-stone-400 font-bold block pt-2 text-right">Plafond: {cashLimit} DT</span>
               </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 block">Gains Nets Journée</span>
-                <span className="text-lg font-black text-emerald-600 block">+{netEarnings.toFixed(3)} DT</span>
-                <span className="text-[9px] text-emerald-600 font-bold block pt-1">
-                  Revenus livraisons accumulés
-                </span>
+              <div className="bg-[#E9EBEF] p-5 rounded-[2rem] shadow-[6px_6px_12px_#c8cad0,-6px_-6px_12px_#ffffff] flex flex-col justify-between">
+                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Gains Nets</span>
+                <span className="text-xl font-black text-emerald-600">+{netEarnings.toFixed(3)} DT</span>
+                <span className="text-[9px] text-stone-400 font-bold block mt-auto">Revenus accumulés aujourd'hui</span>
               </div>
             </div>
-
-            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-4.5 rounded-2xl text-white shadow-md space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-emerald-100">Versement Espèces Requis</span>
-                <span className="text-xs font-black bg-white/20 px-2 py-0.5 rounded-md">Agence / Dépôt</span>
-              </div>
-              <p className="text-2xl font-black">{cashInHand.toFixed(3)} DT</p>
+            <div className="bg-[#E9EBEF] p-6 rounded-[2rem] shadow-[inset_6px_6px_12px_#c8cad0,inset_-6px_-6px_12px_#ffffff] border border-white/50 flex flex-col items-center text-center mt-4">
+              <span className="text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Versement Agence Requis</span>
+              <p className="text-3xl font-black text-stone-800 mb-6">{cashInHand.toFixed(3)} DT</p>
               <button
                 onClick={() => alert("Code QR généré pour le dépôt agence.")}
-                className="w-full bg-white text-emerald-800 text-xs font-black py-2.5 rounded-xl shadow-xs transition-all active:scale-98"
+                className="w-full bg-[#E9EBEF] shadow-[6px_6px_12px_#c8cad0,-6px_-6px_12px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] text-emerald-600 font-black text-[11px] uppercase tracking-widest py-4 rounded-2xl transition-all duration-200"
               >
-                Générer Code de Dépôt QR 📲
+                Générer Code QR 📲
               </button>
             </div>
           </div>
@@ -212,22 +224,20 @@ export default function LivreurDashboard() {
 
         {/* TAB 3: JOURNAL */}
         {activeTab === 'journal' && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-black text-gray-900 tracking-tight">Journal des Courses ({completedOrders.length})</h2>
+          <div className="space-y-4">
+            <h2 className="text-lg font-black text-stone-800 tracking-tight px-1 mb-2">Journal ({completedOrders.length})</h2>
             {completedOrders.length === 0 ? (
-              <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400 text-xs">
-                Aucune livraison enregistrée dans le journal aujourd'hui.
+              <div className="w-full h-32 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-center">
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Aucune livraison aujourd'hui</span>
               </div>
             ) : (
               completedOrders.map((order) => (
-                <div key={order.id} className="bg-white p-3.5 rounded-2xl border border-gray-100 flex justify-between items-center shadow-2xs">
+                <div key={order.id} className="bg-[#E9EBEF] p-4 rounded-2xl shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] flex justify-between items-center">
                   <div>
-                    <span className="text-[10px] font-bold text-gray-400 block">#{order.short_code}</span>
-                    <p className="text-xs font-extrabold text-gray-800">{order.restaurantName}</p>
+                    <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1">#{order.short_code}</span>
+                    <p className="text-sm font-black text-stone-800">{order.restaurantName}</p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black text-emerald-600 block">+{order.deliveryFee.toFixed(3)} DT</span>
-                  </div>
+                  <span className="text-sm font-black text-emerald-600">+{order.deliveryFee.toFixed(3)} DT</span>
                 </div>
               ))
             )}
@@ -236,14 +246,17 @@ export default function LivreurDashboard() {
 
         {/* TAB 4: PROFIL */}
         {activeTab === 'profil' && (
-          <div className="space-y-4">
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 font-black text-lg flex items-center justify-center border border-emerald-200">
+          <div className="space-y-6">
+            <div className="bg-[#E9EBEF] p-6 rounded-[2rem] shadow-[6px_6px_12px_#c8cad0,-6px_-6px_12px_#ffffff] flex flex-col items-center text-center gap-4">
+              <div className="w-20 h-20 rounded-full bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] text-stone-800 font-black text-2xl flex items-center justify-center border border-white/50">
                 ER
               </div>
               <div>
-                <h3 className="font-extrabold text-gray-900 text-sm">EAGLE Rider TN</h3>
-                <p className="text-xs text-gray-500 font-semibold">+216 20 000 000</p>
+                <h3 className="font-black text-stone-800 text-lg">EAGLE Rider TN</h3>
+                <p className="text-xs font-bold text-stone-500 mt-1">+216 20 000 000</p>
+                <span className="inline-block mt-3 px-4 py-1.5 rounded-full bg-[#E9EBEF] shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                  Compte Vérifié ✓
+                </span>
               </div>
             </div>
           </div>

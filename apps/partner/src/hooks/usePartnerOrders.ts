@@ -1,142 +1,95 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase/client';
+import { Order, OrderItem } from '../components/kitchen/KitchenOrderCard';
 
-export interface OrderLocation {
-  lat: number;
-  lng: number;
-}
+export type OrderStatus = 'pending' | 'accepted' | 'in_preparation' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
 
-export interface PartnerOrder {
-  id: string;
-  created_at: string;
-  status: string;
-  total_amount: number;
-  customer_name: string;
-  delivery_address: string;
-  restaurant_location?: OrderLocation;
-  customer_location?: OrderLocation;
-  driver_location?: OrderLocation;
-  driver_name?: string;
-  driver_phone?: string;
-}
+export function usePartnerOrders(partnerId: string | undefined) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
 
-export const usePartnerOrders = () => {
-  const [orders, setOrders] = useState<PartnerOrder[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [deviceCoords, setDeviceCoords] = useState<OrderLocation | null>(null);
-
-  const partnerId = '00000000-0000-0000-0000-000000000001';
-
-  // 1. التحديد الآلي لموقع الجهاز ميدانياً (GPS Automatic)
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setDeviceCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-        },
-        (err) => console.warn('GPS Warning:', err),
-        { enableHighAccuracy: true }
-      );
-    }
-  }, []);
-
-  // 2. جلب الطلبات مع بيانات السائق وإحداثيات GPS
-  const fetchOrders = useCallback(async () => {
+  const fetchActiveOrders = useCallback(async () => {
+    if (!partnerId) return;
     try {
-      setLoading(true);
-      const { data: fetchedOrders, error } = await supabase
+      setIsLoading(true);
+      setError(null);
+      
+      // التحديث الاحترافي: جلب نافذة آخر 24 ساعة بدلاً من منتصف الليل الصارم
+      const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          id, status, created_at, total_amount,
+          order_items ( id, quantity, options, item_id, item_name )
+        `)
+        .eq('partner_id', partnerId)
+        .gte('created_at', last24Hours) // الفلتر الميداني الجديد
+        .order('created_at', { ascending: false }); 
 
-      if (error) {
-        console.error('Error fetching orders:', error);
-      } else if (fetchedOrders) {
-        const mappedOrders: PartnerOrder[] = fetchedOrders.map((o: any) => {
-          const latVal = Number(o.latitude) || deviceCoords?.lat || 36.8065;
-          const lngVal = Number(o.longitude) || deviceCoords?.lng || 10.1815;
+      if (ordersError) throw ordersError;
 
+      const { data: menuData } = await supabase
+        .from('menu_items')
+        .select('id, name, name_fr, name_ar')
+        .eq('partner_id', partnerId);
+
+      const menuDict: Record<string, any> = {};
+      if (menuData) menuData.forEach(item => { menuDict[item.id] = item; });
+
+      const formattedOrders: Order[] = (ordersData || []).map((o: any) => ({
+        id: o.id, 
+        customerName: 'Client EAGLE', 
+        status: o.status,
+        createdAt: o.created_at,
+        totalAmount: o.total_amount || 0,
+        items: (o.order_items || []).map((item: any) => {
+          const menuInfo = item.item_id ? menuDict[item.item_id] : null;
+          let parsedNotes = '';
+          if (item.options) {
+             if (typeof item.options === 'string' && item.options !== '[]' && item.options !== '{}') parsedNotes = item.options;
+             else if (Array.isArray(item.options) && item.options.length > 0) parsedNotes = item.options.join('، ');
+          }
           return {
-            id: o.id,
-            created_at: o.created_at,
-            status: o.status,
-            total_amount: Number(o.total_amount || 0),
-            customer_name: o.customer_name || 'Client EAGLE TN',
-            delivery_address: o.delivery_address || 'Localisation Automatique GPS',
-            restaurant_location: deviceCoords || { lat: 36.8065, lng: 10.1815 },
-            customer_location: { lat: latVal, lng: lngVal },
-            driver_location: o.driver_latitude && o.driver_longitude ? {
-              lat: Number(o.driver_latitude),
-              lng: Number(o.driver_longitude),
-            } : undefined,
-            driver_name: o.driver_name || undefined,
-            driver_phone: o.driver_phone || undefined,
+            id: item.id,
+            name: menuInfo?.name_fr || menuInfo?.name || item.item_name || 'Plat Inconnu',
+            quantity: item.quantity || 1,
+            notes: parsedNotes
           };
-        });
-        setOrders(mappedOrders);
-      }
+        })
+      }));
+
+      setOrders(formattedOrders);
     } catch (err) {
-      console.error('Unexpected error:', err);
+      console.error("[EAGLE TN] Erreur fetch orders:", err);
+      setError(err instanceof Error ? err : new Error('Erreur réseau inconnue.'));
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [deviceCoords]);
+  }, [partnerId]);
 
-  // 3. الاستماع المباشر للتغييرات (Realtime Listener)
+  useEffect(() => { fetchActiveOrders(); }, [fetchActiveOrders]);
+
   useEffect(() => {
-    fetchOrders();
+    if (!partnerId) return;
+    const channel = supabase.channel(`partner_orders_sync_${partnerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `partner_id=eq.${partnerId}` }, () => {
+        fetchActiveOrders();
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [partnerId, fetchActiveOrders]);
 
-    const channel = supabase
-      .channel('partner-orders-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchOrders]);
-
-  // 4. تحديث حالة الطلب
-  const updateOrderStatus = async (orderId: string, status: string) => {
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
-    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
-    if (error) console.error('Status update error:', error);
-  };
-
-  // 5. إنشاء طلب تجريبي جديد حقيقي في Supabase عند الضغط على زر + Test Order
-  const createTestOrder = async () => {
-    const testAmount = parseFloat((Math.random() * 30 + 15).toFixed(3));
-    const newOrder = {
-      partner_id: partnerId,
-      status: 'pending',
-      total_amount: testAmount,
-      customer_name: 'Client EAGLE TN GPS',
-      delivery_address: 'Localisation Automatique GPS',
-      latitude: 36.8120 + (Math.random() - 0.5) * 0.01,
-      longitude: 10.1870 + (Math.random() - 0.5) * 0.01,
-      created_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase.from('orders').insert([newOrder]);
-    if (error) {
-      console.error('Error creating test order:', error);
-    } else {
-      fetchOrders();
+  const updateOrderStatus = useCallback(async (orderId: string, newStatus: OrderStatus) => {
+    setOrders(current => current.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    try {
+      const { error: mutationError } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+      if (mutationError) throw mutationError;
+    } catch (err) {
+      console.error("[EAGLE TN] Échec mutation:", err);
+      fetchActiveOrders(); 
     }
-  };
+  }, [fetchActiveOrders]);
 
-  return {
-    orders,
-    loading,
-    acceptOrder: (id: string) => updateOrderStatus(id, 'in_preparation'),
-    markAsReady: (id: string) => updateOrderStatus(id, 'ready_for_pickup'),
-    rejectOrder: (id: string) => updateOrderStatus(id, 'cancelled'),
-    createTestOrder,
-    refreshOrders: fetchOrders,
-  };
-};
+  return { orders, updateOrderStatus, isLoading, error };
+}

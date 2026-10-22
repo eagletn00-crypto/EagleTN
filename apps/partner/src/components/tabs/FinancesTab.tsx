@@ -1,102 +1,116 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { DollarSign, AlertCircle, RefreshCw } from 'lucide-react';
-import { supabase } from '../../utils/location';
+import { supabase } from '../../lib/supabase/client';
+import { usePartnerDashboardData } from '../../hooks/usePartnerDashboardData';
 
-export const FinancesTab: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalGross, setTotalGross] = useState<number>(0);
-  const [commission, setCommission] = useState<number>(0);
-  const [netAmount, setNetAmount] = useState<number>(0);
+interface OrderRecord {
+  id: string;
+  created_at: string;
+  total_amount: number;
+  platform_fee: number;
+  payment_method: 'COD' | 'Card';
+  change_needed_for?: number | null;
+  status: string;
+}
 
-  const fetchFinances = useCallback(async () => {
+export default function FinancesTab() {
+  const { partner } = usePartnerDashboardData();
+  const [ledger, setLedger] = useState<OrderRecord[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const fetchFinancials = useCallback(async () => {
+    if (!partner?.id) return;
     try {
-      setLoading(true);
-      setError(null);
-
-      if (!supabase) {
-        setError('Connexion serveur indisponible.');
-        return;
-      }
-
-      const { data, error: fetchErr } = await supabase
+      setIsLoading(true);
+      const { data, error } = await supabase
         .from('orders')
-        .select('total_amount, status')
-        .in('status', ['delivered', 'ready_for_pickup', 'on_the_way']);
+        .select('id, created_at, total_amount, platform_fee, payment_method, change_needed_for, status')
+        .eq('partner_id', partner.id)
+        .order('created_at', { ascending: false })
+        .limit(50); // Protection de la mémoire Termux
 
-      if (fetchErr) throw fetchErr;
-
-      const gross = data?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
-      const comm = gross * 0.10;
-      const net = gross - comm;
-
-      setTotalGross(gross);
-      setCommission(comm);
-      setNetAmount(net);
-    } catch (err: any) {
-      console.error('[FinancesTab] Error:', err);
-      setError(err.message || 'Erreur lors du chargement des données.');
+      if (error) throw error;
+      setLedger((data as OrderRecord[]) || []);
+    } catch (err) {
+      console.error("[EAGLE TN] Erreur de lecture des métriques financières:", err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, []);
+  }, [partner?.id]);
 
   useEffect(() => {
-    fetchFinances();
-  }, [fetchFinances]);
+    fetchFinancials();
+  }, [fetchFinancials]);
+
+  // Agrégation stricte sur les champs de la base de données
+  const metrics = ledger.reduce((acc, curr) => ({
+    gross: acc.gross + (curr.total_amount || 0),
+    fees: acc.fees + (curr.platform_fee || 0),
+  }), { gross: 0, fees: 0 });
+
+  const netRevenue = metrics.gross - metrics.fees;
+
+  if (isLoading) {
+    return (
+      <div className="w-full min-h-[50vh] bg-[#E9EBEF] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] border-t-stone-800 animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4 font-sans text-slate-900 pb-32">
-      <div className="flex items-center justify-between bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
-            <DollarSign className="w-5 h-5" />
+    <div className="w-full min-h-screen bg-[#E9EBEF] p-4 text-[#2D3142] pb-24 space-y-6">
+      <h2 className="text-xl font-black tracking-tight text-stone-800 mb-2">Synthèse Financière</h2>
+
+      <div className="space-y-5">
+        <div className="w-full p-6 rounded-3xl bg-[#E9EBEF] shadow-[8px_8px_16px_#c8cad0,-8px_-8px_16px_#ffffff] flex flex-col">
+          <span className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">Chiffre d'Affaires Brut</span>
+          <span className="text-3xl font-black text-stone-800">{metrics.gross.toFixed(3)} <span className="text-lg">DT</span></span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-5">
+          <div className="p-5 rounded-3xl bg-[#E9EBEF] shadow-[8px_8px_16px_#c8cad0,-8px_-8px_16px_#ffffff] flex flex-col">
+            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Commission Eagle TN</span>
+            <span className="text-xl font-black text-rose-600">-{metrics.fees.toFixed(3)} <span className="text-sm">DT</span></span>
           </div>
-          <div>
-            <h1 className="text-base font-black">Audit Financier Live</h1>
-            <p className="text-xs text-slate-500 font-semibold">Bilan comptable certifié - EAGLE TN</p>
+
+          <div className="p-5 rounded-3xl bg-[#E9EBEF] shadow-[8px_8px_16px_#c8cad0,-8px_-8px_16px_#ffffff] ring-1 ring-emerald-500/20 flex flex-col relative overflow-hidden">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-400/10 rounded-full blur-xl"></div>
+            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Revenu Net</span>
+            <span className="text-xl font-black text-emerald-600">{netRevenue.toFixed(3)} <span className="text-sm">DT</span></span>
           </div>
         </div>
-        <button
-          onClick={fetchFinances}
-          disabled={loading}
-          className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all active:scale-95 disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
       </div>
 
-      {error && (
-        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-slate-400 block mb-1">Chiffre d'Affaires Brut</span>
-          <span className="text-lg font-black text-slate-900">
-            {totalGross.toFixed(3)} <span className="text-xs text-slate-500 font-bold">DT</span>
-          </span>
-        </div>
-
-        <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-amber-600 block mb-1">Commission EAGLE (10%)</span>
-          <span className="text-lg font-black text-amber-700">
-            -{commission.toFixed(3)} <span className="text-xs text-amber-600 font-bold">DT</span>
-          </span>
-        </div>
-
-        <div className="bg-emerald-600 text-white p-4 rounded-3xl shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-emerald-100 block mb-1">Solde Net À Verser</span>
-          <span className="text-xl font-black">
-            {netAmount.toFixed(3)} <span className="text-xs text-emerald-200 font-bold">DT</span>
-          </span>
+      <div className="mt-8">
+        <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-4">Historique des Transactions</h3>
+        <div className="space-y-4">
+          {ledger.map((tx) => (
+            <div key={tx.id} className="p-4 rounded-2xl bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-bold text-stone-800 text-sm">{tx.id.split('-')[0].toUpperCase()}</div>
+                  <div className="text-[10px] font-medium text-stone-500">{new Date(tx.created_at).toLocaleString('fr-TN')}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-black text-emerald-600">{(tx.total_amount || 0).toFixed(3)} DT</div>
+                  <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1 ${tx.payment_method === 'COD' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                    {tx.payment_method}
+                  </div>
+                </div>
+              </div>
+              
+              {tx.payment_method === 'COD' && tx.change_needed_for && (
+                <div className="flex items-center gap-2 bg-[#E9EBEF] p-2 rounded-xl shadow-[2px_2px_4px_#c8cad0,-2px_-2px_4px_#ffffff]">
+                  <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span className="text-xs font-semibold text-stone-600">
+                    Prévoir monnaie sur : <span className="text-amber-700 font-black">{tx.change_needed_for.toFixed(3)} DT</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-};
-
-export default FinancesTab;
+}

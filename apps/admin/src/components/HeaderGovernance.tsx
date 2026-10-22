@@ -1,118 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { useAdminStore } from '../stores/useAdminStore';
 
-export const HeaderGovernance: React.FC = () => {
-  const { 
-    selectedZone, 
-    setSelectedZone, 
-    manualMode, 
-    toggleManualMode, 
-    systemPaused, 
-    toggleSystemPause,
-    sosAlert,
-    triggerSos
-  } = useAdminStore();
-
-  const [time, setTime] = useState('');
+export default function HeaderGovernance() {
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString('fr-TN', { hour12: false }));
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const timeString = currentTime.toLocaleTimeString('fr-FR');
+
   return (
-    <header className="border-b border-[#1e293b] pb-4 space-y-3">
-      {/* Upper Sovereign Header */}
-      <div className="flex flex-wrap justify-between items-center gap-3">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#E9EBEF] p-4 rounded-2xl shadow-[6px_6px_12px_#c8cad0,-6px_-6px_12px_#ffffff] border border-white/40">
+      
+      {/* BRANDING & IDENTITY */}
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-stone-800 to-stone-900 shadow-[inset_2px_2px_4px_rgba(255,255,255,0.2),4px_4px_8px_#c8cad0] flex items-center justify-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-emerald-500/20 animate-pulse"></div>
+          <span className="text-white font-black text-xl tracking-tighter relative z-10">E</span>
+        </div>
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-black text-white tracking-wider uppercase">
-              Central de Commandement Logistique
-            </h1>
-            <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
-              HQ — Tunis (GMT+1)
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Gestion des Opérations & Flux de Trésorerie — <span className="font-mono text-slate-300">{time || '14:30:00'}</span>
+          <h1 className="text-xl font-black text-stone-800 tracking-tighter uppercase leading-none">
+            EAGLE <span className="text-emerald-600">TN</span>
+          </h1>
+          <p className="text-[9px] font-bold text-stone-500 uppercase tracking-[0.2em] mt-1">
+            Commandement Logistique
           </p>
         </div>
-
-        {/* License & License Tag */}
-        <div className="flex items-center gap-3">
-          <select 
-            value={selectedZone}
-            onChange={(e) => setSelectedZone(e.target.value)}
-            className="bg-[#11151e] border border-[#2e3b52] text-xs text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500"
-          >
-            <option value="Grand Tunis">Secteur: Grand Tunis</option>
-            <option value="Sfax Centre">Secteur: Sfax Centre</option>
-            <option value="Sousse Sahel">Secteur: Sousse Sahel</option>
-          </select>
-
-          <span className="text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-md">
-            Licence Entreprise v2.5.0-PRO
-          </span>
-        </div>
       </div>
 
-      {/* Real-time Toggles & Danger Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 bg-[#0c0e14] p-2.5 rounded-lg border border-[#1e293b]">
-        <div className="flex items-center gap-3">
-          {/* Manual Dispatch Toggle */}
-          <button
-            onClick={toggleManualMode}
-            className={`px-3 py-1 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${
-              manualMode 
-                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' 
-                : 'bg-[#182030] text-slate-300 hover:bg-[#222c40]'
-            }`}
-          >
-            <span>{manualMode ? '⚙️ Mode Manuel Actif' : '⚡ Auto-Dispatch'}</span>
-          </button>
-
-          {/* System Pause Toggle */}
-          <button
-            onClick={toggleSystemPause}
-            className={`px-3 py-1 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${
-              systemPaused 
-                ? 'bg-purple-600 text-white animate-pulse' 
-                : 'bg-[#182030] text-slate-300 hover:bg-[#222c40]'
-            }`}
-          >
-            <span>{systemPaused ? '⏸️ Système en Pause' : '▶️ Réseau Actif'}</span>
-          </button>
+      {/* SYSTEM HEALTH & USER PROFILE */}
+      <div className="flex items-center gap-4">
+        {/* Ping Indicator */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E9EBEF] shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] border border-white/20">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span className="text-[9px] font-black text-stone-600 uppercase tracking-widest">Sys: 24ms</span>
         </div>
 
-        {/* SOS Alert Button */}
-        <button
-          onClick={() => triggerSos(!sosAlert)}
-          className={`px-3.5 py-1 text-xs font-black rounded-md transition flex items-center gap-2 border ${
-            sosAlert 
-              ? 'bg-red-600 text-white border-red-400 animate-bounce' 
-              : 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-          <span>🆘 URGENCE / SOS TERRAIN</span>
-        </button>
-      </div>
+        {/* Time & Zone */}
+        <div className="hidden md:flex flex-col items-end border-r border-stone-300/50 pr-4">
+          <span className="text-sm font-black text-stone-800">{timeString}</span>
+          <span className="text-[9px] font-bold text-stone-500 uppercase tracking-widest">Secteur: Grand Tunis</span>
+        </div>
 
-      {/* SOS Banner Warning */}
-      {sosAlert && (
-        <div className="p-3 bg-red-950/80 border-2 border-red-600 text-red-200 text-xs rounded-lg flex justify-between items-center animate-pulse">
-          <div className="flex items-center gap-2">
-            <span className="font-bold">⚠️ ALERTE SÉCURITÉ CRITIQUE:</span>
-            <span>Un livreur a déclenché le signal SOS (Secteur La Marsa). Géolocalisation prioritaire activée.</span>
+        {/* Admin Avatar */}
+        <div className="flex items-center gap-2 cursor-pointer group">
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] font-black text-stone-800 uppercase tracking-widest">Superviseur</p>
+            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">HQ_Admin_01</p>
           </div>
-          <button onClick={() => triggerSos(false)} className="underline text-white font-bold text-[11px]">
-            Acquitter l'Alerte
-          </button>
+          <div className="w-10 h-10 rounded-full bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] group-active:shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] flex items-center justify-center border border-white/50 transition-all">
+            <div className="w-8 h-8 rounded-full bg-stone-800 flex items-center justify-center">
+              <span className="text-white text-xs font-black">HQ</span>
+            </div>
+          </div>
         </div>
-      )}
-    </header>
+      </div>
+    </div>
   );
-};
+}
