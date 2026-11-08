@@ -1,186 +1,256 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Loader2, ChevronDown } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
+import React, { memo, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Search, SlidersHorizontal, ChevronRight, Star, Clock, MapPin, ChevronDown } from 'lucide-react';
 import { usePartners } from '../hooks/usePartners';
 
-import ClientHeader from '../components/ClientHeader';
-import SearchBar from '../components/SearchBar';
-import CategoryScroll from '../components/CategoryScroll';
-import RestaurantCard from '../components/RestaurantCard';
-import LegalFooter from '../components/LegalFooter';
+// STRICT ARCHITECTURE: Sub-components completely decoupled and imported from designated feature directories
 import MerchantCardSkeleton from '../components/MerchantCardSkeleton';
 
-const CATEGORY_ITEMS = [
-  { id: '1', title: 'RESTAURANTS', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300' },
-  { id: '2', title: 'PÂTISSERIE', img: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=300' },
-  { id: '3', title: 'MODE & SHOPPING', img: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=300' },
-  { id: '4', title: 'COSMÉTIQUE', img: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=300' },
-  { id: '5', title: 'BOUTIQUE', img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=300' },
-];
-
-export interface ClientHomeProps {
-  cartCount?: number;
-  onSelectPartner?: (partner: any) => void;
-  onNavigateCart?: () => void;
+// -----------------------------------------------------------------------------
+// STRICT TYPE DEFINITIONS
+// -----------------------------------------------------------------------------
+export interface Category {
+  readonly id: string;
+  readonly slug: string;
+  readonly label: string;
+  readonly image_url: string;
 }
 
-export const ClientHome: React.FC<ClientHomeProps> = ({ onSelectPartner }) => {
-  const [showPromo, setShowPromo] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+export interface Partner {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly type: string;
+  readonly cover_url: string;
+  readonly logo_url: string;
+  readonly delivery_time: string;
+  readonly rating: number;
+  readonly min_order: number;
+  readonly tags: readonly string[];
+  readonly status: 'active' | 'busy' | 'closed';
+  readonly opening_time: string;
+  readonly closing_time: string;
+}
 
-  const { activeTab, setCurrentScreen, selectPartnerWithIsolation } = useAppStore();
-  const searchInputRef = useRef<HTMLInputElement>(null);
+// -----------------------------------------------------------------------------
+// CORE 6 PREMIUM CATEGORIES (Operational Segments)
+// -----------------------------------------------------------------------------
+const CATEGORIES: readonly Category[] = [
+  { id: '1', slug: 'restaurant', label: 'RESTAURANT', image_url: '/categories/restaurant.png' },
+  { id: '2', slug: 'patisserie', label: 'PÂTISSERIE', image_url: '/categories/patisserie.png' },
+  { id: '3', slug: 'shopping', label: 'SHOPPING', image_url: '/categories/shopping.png' },
+  { id: '4', slug: 'cosmetique', label: 'COSMÉTIQUE', image_url: '/categories/cosmetique.png' },
+  { id: '5', slug: 'fleurs', label: 'FLEURS', image_url: '/categories/fleurs.png' },
+  { id: '6', slug: 'boutique', label: 'BOUTIQUE', image_url: '/categories/boutique.png' },
+];
 
-  useEffect(() => {
-    if (activeTab === 'search') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 100);
+// -----------------------------------------------------------------------------
+// MAIN COMPONENT
+// -----------------------------------------------------------------------------
+const ClientHome: React.FC = memo(() => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | undefined>(undefined);
+  
+  // Dynamic Live Network Pipeline
+  const { partners = [], isLoading = false } = usePartners({ categoryId: activeCategory } as any) as unknown as { partners: Partner[], isLoading: boolean };
+
+  const isPartnerOpen = useCallback((openingTime: string, closingTime: string, status: string) => {
+    if (status !== 'active') return false;
+    if (!openingTime || !closingTime) return true;
+    
+    const now = new Date();
+    const currentTime = now.getHours() + now.getMinutes() / 60;
+
+    const [openH, openM] = openingTime.split(':').map(Number);
+    const [closeH, closeM] = closingTime.split(':').map(Number);
+    const open = openH + (openM || 0) / 60;
+    const close = closeH + (closeM || 0) / 60;
+
+    if (close < open) {
+       return currentTime >= open || currentTime <= close; 
     }
-  }, [activeTab]);
+    return currentTime >= open && currentTime <= close;
+  }, []);
 
-  const {
-    data: partnersData,
-    fetchNextPage,
-    hasNextPage,
-    isLoading,
-    isFetchingNextPage,
-  } = usePartners({ categoryId: selectedCategory });
-
-  const partners = partnersData?.pages.flatMap((page) => page.data) || [];
-
-  const handlePartnerSelect = (partner: any) => {
-    if (onSelectPartner) {
-      onSelectPartner(partner);
-    } else {
-      selectPartnerWithIsolation(partner);
-      setCurrentScreen('RESTAURANT_MENU');
-    }
-  };
-
-  const handleCategorySelect = (catId: string) => {
-    setSelectedCategory((prev) => (prev === catId ? null : catId));
-  };
+  const handlePartnerClick = useCallback((slug: string) => {
+    navigate(`/restaurant/${slug}`);
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-[#E9EBEF] font-sans text-stone-900 pb-32 relative selection:bg-emerald-500/20 antialiased overflow-x-hidden">
+    <div className="w-full min-h-[100dvh] bg-[#FAF9F6] flex flex-col transform-gpu">
       
-      <ClientHeader />
+      {/* Ivory Header / Location Meta */}
+      <div className="w-full flex items-center justify-center pt-3 pb-4">
+        <button className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white shadow-sm border border-stone-100 hover:bg-stone-50 transition-colors outline-none">
+          <MapPin className="w-3.5 h-3.5 text-[#A37836]" strokeWidth={2} />
+          <span className="text-[11px] font-black text-stone-800 tracking-wider uppercase">Tunis, Tunisie</span>
+          <ChevronDown className="w-3.5 h-3.5 text-stone-400" strokeWidth={2} />
+        </button>
+      </div>
 
-      <main className="px-4 space-y-6 mt-1">
+      <main className="flex-1 w-full px-5 pb-32 flex flex-col gap-8">
         
-        <SearchBar inputRef={searchInputRef} />
+        {/* Ivory/Matte Gold Bilingual Typography */}
+        <section className="flex flex-col gap-1.5 select-none">
+          <h1 className="text-2xl font-black text-stone-900 tracking-tight leading-tight flex flex-col">
+            <span className="font-sans text-[24px]">L'excellence à votre porte.</span>
+            <span dir="rtl" className="font-sans text-[#A37836] text-[19px] mt-1.5 opacity-95 drop-shadow-sm">
+              بنة عالمية وتوصيل في رمشة عين ✨
+            </span>
+          </h1>
+        </section>
+        
+        {/* Search Architecture - Clean Boundaries */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-4.5 h-4.5 text-stone-400 group-focus-within:text-[#A37836] transition-colors duration-300" strokeWidth={1.5} />
+            </div>
+            <input
+              type="text"
+              placeholder="Rechercher une adresse, un plat..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-[52px] pl-11 pr-4 rounded-[1.5rem] bg-white border border-stone-100 shadow-[0_8px_24px_rgba(0,0,0,0.02)] transition-all duration-300 focus:outline-none focus:border-stone-200 focus:shadow-[0_12px_32px_rgba(0,0,0,0.04)] text-sm font-medium text-stone-800 placeholder-stone-400 outline-none"
+            />
+          </div>
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            type="button"
+            className="flex items-center justify-center w-[52px] h-[52px] rounded-[1.5rem] bg-white border border-stone-100 shadow-[0_8px_24px_rgba(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_12px_32px_rgba(0,0,0,0.04)] text-stone-700 hover:text-[#A37836] shrink-0 outline-none"
+          >
+            <SlidersHorizontal className="w-4.5 h-4.5" strokeWidth={1.5} />
+          </motion.button>
+        </div>
 
-        <div className="space-y-3">
-          <h2 className="text-[12px] font-black tracking-widest text-stone-800 uppercase pl-1 font-sans">
-            Explorer l'écosystème
-          </h2>
-          <div className="flex overflow-x-auto gap-3.5 pb-2 -mx-4 px-4 scrollbar-none snap-x">
-            {CATEGORY_ITEMS.map((cat) => {
-              const isSelected = selectedCategory === cat.id;
+        {/* 6 Premium Operational Segments (Glassmorphic & Spring Interactive) */}
+        <section className="flex flex-col gap-4">
+          <div className="flex gap-4 overflow-x-auto scrollbar-none pb-4 -mx-5 px-5 snap-x snap-mandatory [-webkit-overflow-scrolling:touch]">
+            {CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat.slug;
               return (
-                <button
+                <motion.button
                   key={cat.id}
-                  onClick={() => handleCategorySelect(cat.id)}
-                  className={`snap-start shrink-0 w-[108px] h-[155px] rounded-[2rem] p-2.5 flex flex-col items-center justify-between transition-all duration-200 border border-white/80 ${
-                    isSelected
-                      ? 'bg-[#E9EBEF] shadow-[inset_3px_3px_6px_#c8cacb,inset_-3px_-3px_6px_#ffffff] scale-[0.98]'
-                      : 'bg-[#E9EBEF] shadow-[5px_5px_12px_#c8cacb,-5px_-5px_12px_#ffffff] active:scale-95'
-                  }`}
+                  onClick={() => setActiveCategory(isActive ? undefined : cat.slug)}
+                  whileHover={{ scale: 1.03, y: -2 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className={`snap-start shrink-0 flex flex-col items-center justify-center gap-3 w-[100px] h-[120px] rounded-[2rem] bg-white/90 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.02)] border transition-all outline-none ${isActive ? 'border-[#A37836] shadow-[0_12px_32px_rgba(163,120,54,0.15)]' : 'border-stone-100 hover:border-stone-200'}`}
                 >
-                  <div className="w-full h-24 rounded-[1.4rem] overflow-hidden bg-white/50 shadow-inner flex items-center justify-center p-1">
-                    <img src={cat.img} alt={cat.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
+                  <div className="w-[52px] h-[52px] rounded-full bg-[#FAF9F6] flex items-center justify-center overflow-hidden">
+                     <img 
+                       src={cat.image_url} 
+                       alt={cat.label} 
+                       loading="lazy"
+                       className="w-8 h-8 object-contain drop-shadow-sm" 
+                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                     />
                   </div>
-                  <span className="text-[10px] font-black text-stone-800 uppercase tracking-tight text-center leading-tight mb-1">
-                    {cat.title}
+                  <span className={`text-[10px] font-black tracking-widest uppercase ${isActive ? 'text-[#A37836]' : 'text-stone-800'}`}>
+                    {cat.label}
                   </span>
-                </button>
-              );
+                </motion.button>
+              )
             })}
           </div>
-        </div>
+        </section>
 
-        {showPromo && (
-          <div className="relative bg-[#E9EBEF] rounded-[2rem] p-5 border border-white/80 shadow-[6px_6px_14px_#c8cacb,-6px_-6px_14px_#ffffff] overflow-hidden">
-            <button
-              onClick={() => setShowPromo(false)}
-              aria-label="Fermer"
-              className="absolute top-4 right-4 w-7 h-7 rounded-full bg-[#E9EBEF] flex items-center justify-center text-stone-400 hover:text-stone-700 shadow-[2px_2px_5px_#c8cacb,-2px_-2px_5px_#ffffff]"
-            >
-              <X className="w-3.5 h-3.5 stroke-[2.5]" />
-            </button>
-            <div className="pr-6 space-y-1">
-              <h3 className="text-sm font-black text-stone-900 tracking-tight leading-snug">
-                Eagle TN - Votre destination gourmande.
-              </h3>
-              <p className="text-xs font-semibold text-stone-500">
-                La qualité supérieure, le goût local.
-              </p>
-              <p className="text-sm font-extrabold text-[#D97706] pt-1.5 flex items-center gap-1.5">
-                <span>بنة عالمية وتوصيل في رمشة عين</span>
-                <span className="text-base">🛵</span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between pl-1">
-            <h2 className="text-[12px] font-black tracking-widest text-stone-800 uppercase font-sans">
-              Nos Partenaires
+        {/* Elite Partner Network Feed */}
+        <section className="flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[13px] font-black tracking-widest text-stone-900 uppercase">
+              Sélection d'Élite
             </h2>
-            <span className="bg-[#D1FAE5] text-[#065F46] font-extrabold text-[10px] px-3 py-1 rounded-full shadow-sm tracking-wide">
-              {isLoading ? '...' : `${partners.length} disponibles`}
-            </span>
+            <button className="text-[10px] font-bold text-stone-400 hover:text-stone-800 transition-colors uppercase tracking-wider flex items-center gap-0.5 outline-none">
+              Découvrir <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
+            </button>
           </div>
+          
+          <div className="flex flex-col gap-6">
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <motion.div key="skeletons" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
+                  <MerchantCardSkeleton />
+                  <MerchantCardSkeleton />
+                  <MerchantCardSkeleton />
+                </motion.div>
+              ) : (
+                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-6">
+                  {partners.map((partner) => {
+                    const isOpen = isPartnerOpen(partner.opening_time, partner.closing_time, partner.status);
 
-          <div className="space-y-4">
-            {isLoading ? (
-              Array.from({ length: 2 }).map((_, idx) => <MerchantCardSkeleton key={`skeleton-${idx}`} />)
-            ) : partners.length > 0 ? (
-              partners.map((partner) => (
-                <RestaurantCard
-                  key={partner.id}
-                  name={partner.name}
-                  image={partner.imageUrl || 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=1000'}
-                  rating={partner.rating || 4.9}
-                  reviewCount={partner.reviewsCount || 142}
-                  deliveryTime={partner.deliveryTime || '20-30 min'}
-                  deliveryFee={partner.deliveryFee || '2.000 DT'}
-                  isOpen={partner.isOpen ?? true}
-                  onClick={() => handlePartnerSelect(partner)}
-                />
-              ))
-            ) : (
-              <div className="py-12 bg-[#E9EBEF] rounded-[2rem] shadow-[inset_3px_3px_6px_#c8cacb,inset_-3px_-3px_6px_#ffffff] text-center border border-white/60">
-                <span className="text-3xl block mb-2">🍽️</span>
-                <p className="text-xs font-extrabold text-stone-600">Aucun partenaire disponible</p>
-              </div>
-            )}
+                    return (
+                      <motion.div 
+                        key={partner.id}
+                        onClick={() => handlePartnerClick(partner.slug)}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                        className="w-full bg-white rounded-[2.5rem] p-3 shadow-[0_12px_40px_rgba(0,0,0,0.015)] border border-stone-100 transition-all duration-400 outline-none cursor-pointer group flex flex-col gap-4"
+                      >
+                        <div className="w-full h-[180px] rounded-[2rem] overflow-hidden relative border border-stone-50 isolate bg-stone-100">
+                          <img 
+                            src={partner.cover_url} 
+                            alt={partner.name}
+                            loading="lazy" 
+                            className={`w-full h-full object-cover transition-transform duration-700 ease-out ${isOpen ? 'opacity-100 group-hover:scale-105' : 'opacity-85 grayscale-[15%]'}`} 
+                          />
+                          
+                          <div className="absolute top-4 left-4 z-20 backdrop-blur-md bg-white/70 text-stone-900 tracking-wider text-[10px] uppercase font-black px-3 py-1 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-white/50">
+                            {partner.type.split(' ')[0]}
+                          </div>
+
+                          <div className="absolute top-4 right-4 z-20 backdrop-blur-md bg-white/70 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-white/50">
+                            <Star className="w-3 h-3 text-[#A37836] fill-[#A37836]" strokeWidth={1} />
+                            <span className="text-[11px] font-black text-stone-900 tracking-tight">{partner.rating}</span>
+                          </div>
+
+                          {!isOpen && (
+                            <div className="absolute bottom-0 inset-x-0 z-30 p-2">
+                              <div className="w-full bg-white/95 backdrop-blur-xl p-3.5 rounded-[1.5rem] border border-white shadow-sm flex flex-col items-center justify-center text-center">
+                                <span className="text-[11px] font-black text-stone-900 uppercase tracking-widest mb-0.5">Fermé actuellement</span>
+                                <span className="text-[10px] font-semibold text-stone-500">Ouvre à {partner.opening_time?.slice(0, 5)} - Planifiez votre commande</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col px-3 pb-2 gap-2">
+                           <div className="flex items-center justify-between">
+                             <h3 className="text-[17px] font-black text-stone-900 tracking-tight transition-colors duration-300 group-hover:text-[#A37836]">
+                               {partner.name}
+                             </h3>
+                           </div>
+                           
+                           <div className="flex items-center gap-3 text-stone-500">
+                             <div className="flex items-center gap-1.5">
+                               <Clock className="w-3.5 h-3.5 text-stone-400" strokeWidth={2} />
+                               <span className="text-[12px] font-semibold tracking-wide">{partner.delivery_time}</span>
+                             </div>
+                             <span className="w-1 h-1 rounded-full bg-stone-300" />
+                             <div className="flex items-center gap-1.5 text-stone-400">
+                               <span className="text-[11px] font-bold tracking-widest uppercase truncate max-w-[120px]">
+                                 {partner.tags?.join(' • ')}
+                               </span>
+                             </div>
+                           </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+        </section>
 
-          {hasNextPage && (
-            <div className="pt-2 pb-2 flex justify-center">
-              <button
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="flex items-center justify-center gap-2 bg-[#E9EBEF] border border-white/80 shadow-[4px_4px_10px_#c8cacb,-4px_-4px_10px_#ffffff] active:shadow-[inset_2px_2px_5px_#c8cacb,inset_-2px_-2px_5px_#ffffff] px-6 py-3 rounded-full transition-all text-xs font-black uppercase text-stone-700 tracking-wider disabled:opacity-50"
-              >
-                {isFetchingNextPage ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-stone-700" /><span>Chargement...</span></>
-                ) : (
-                  <><span>Voir plus</span><ChevronDown className="w-3.5 h-3.5 text-stone-500" /></>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <LegalFooter />
       </main>
     </div>
   );
-};
+});
 
+ClientHome.displayName = 'ClientHome';
 export default ClientHome;

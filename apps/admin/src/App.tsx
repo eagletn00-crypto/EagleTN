@@ -9,7 +9,7 @@ export default function App() {
 
   useEffect(() => {
     // التحقق من الجلسة الحالية عند تحميل التطبيق
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       setSession(session);
       setLoading(false);
     });
@@ -17,7 +17,7 @@ export default function App() {
     // الاستماع لأي تغيير في حالة تسجيل الدخول/الخروج
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
       setSession(session);
     });
 

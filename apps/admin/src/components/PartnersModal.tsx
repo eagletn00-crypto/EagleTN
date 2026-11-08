@@ -35,10 +35,10 @@ export default function PartnersModal({ onClose }: { onClose: () => void }) {
       const mappedData = (data || []).map(p => ({
         id: p.id,
         name: p.name || 'Partenaire Inconnu',
-        is_active: p.is_active !== false, // الافتراضي مفعل
-        phone: p.phone_number || p.phone || 'Non renseigné',
-        address: p.address || p.zone || 'Adresse non spécifiée',
-        balance_due: p.balance || Math.floor(Math.random() * 500) // قيمة مؤقتة لحين ربطها بجدول financial_ledger
+        is_active: p.status === "active", // الافتراضي مفعل
+        phone: p.phone || "Non renseigné" || 'Non renseigné',
+        address: p.address || "Adresse non spécifiée" || 'Adresse non spécifiée',
+        balance_due: p.commission_rate || 0 // قيمة مؤقتة لحين ربطها بجدول financial_ledger
       }));
       
       setPartners(mappedData);
@@ -53,7 +53,7 @@ export default function PartnersModal({ onClose }: { onClose: () => void }) {
     try {
       const newStatus = !currentStatus;
       setPartners(partners.map(p => p.id === id ? { ...p, is_active: newStatus } : p));
-      await supabase.from('partners').update({ is_active: newStatus }).eq('id', id);
+      await supabase.from('partners').update({ status: newStatus ? "active" : "inactive" }).eq('id', id);
     } catch (err) {
       console.error('Update failed', err);
       fetchPartners();

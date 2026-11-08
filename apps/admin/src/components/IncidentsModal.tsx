@@ -39,7 +39,16 @@ export default function IncidentsModal({ onClose }: { onClose: () => void }) {
         .limit(20);
 
       if (error) throw error;
-      setIncidents(data || []);
+      setIncidents(
+  (data || []).map((item) => ({
+    id: item.id,
+    type: item.type || 'GENERAL',
+    status: item.status || 'PENDING',
+    description: item.description || '',
+    amount_disputed: item.amount_disputed ?? 0,
+    created_at: item.created_at,
+  }))
+);
     } catch (err) {
       console.error('[EAGLE TN] Erreur de chargement des réclamations', err);
     } finally {

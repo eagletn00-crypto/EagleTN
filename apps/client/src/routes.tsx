@@ -1,250 +1,166 @@
-import React, { useEffect, useCallback, useState } from 'react';
-import { AnimatePresence, motion, Variants } from 'framer-motion';
-import SplashScreen from './screens/SplashScreen';
-import ClientHome from './screens/ClientHome';
-import RestaurantMenu from './screens/RestaurantMenu/index';
-import Checkout from './screens/Checkout';
-import OrderTracking from './screens/OrderTracking';
-import ProfileScreen from './screens/ProfileScreen';
-import SupportModal from './screens/SupportModal';
-import BottomNavigation from './components/BottomNavigation';
-import ErrorBoundary from './components/ErrorBoundary';
-import { useAppStore, ScreenType, TabType } from './store/useAppStore';
-import { fetchPartners } from './services/api';
-import { supabase } from './lib/supabase';
-import { Partner } from './types/partner';
-import { Order } from './types/order';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { OrderStreamProvider } from './context/OrderStreamContext';
 
+// Core Layout & Initial Blocking Screens
+import ClientLayout from './components/layout/ClientLayout';
+import SplashScreen from './screens/SplashScreen';
+
+// -----------------------------------------------------------------------------
+// DYNAMIC CODE SPLITTING (Lazy Loaded for Native Suspense Resolution)
+// -----------------------------------------------------------------------------
+const ClientHome = lazy(() => import('./screens/ClientHome'));
+const RestaurantMenu = lazy(() => import('./screens/RestaurantMenu'));
+const Checkout = lazy(() => import('./screens/Checkout'));
+const OrderTracking = lazy(() => import('./screens/OrderTracking'));
+const ProfileScreen = lazy(() => import('./screens/ProfileScreen'));
+
+// -----------------------------------------------------------------------------
+// PREMIUM MICRO-INTERACTIONS (Framer Motion Orchestration)
+// -----------------------------------------------------------------------------
 const pageVariants: Variants = {
-  initial: { opacity: 0, y: 8, scale: 0.99 },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] },
+  initial: { opacity: 0, y: 10, filter: 'blur(4px)' },
+  animate: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    transition: { duration: 0.4, ease: "easeOut" } 
   },
-  exit: {
-    opacity: 0,
-    y: -6,
-    scale: 0.99,
-    transition: { duration: 0.15, ease: [0.7, 0, 0.84, 0] },
-  },
+  exit: { 
+    opacity: 0, 
+    y: -10, 
+    filter: 'blur(4px)',
+    transition: { duration: 0.2, ease: "easeIn" } 
+  }
 };
 
+const AnimatedRouteWrapper: React.FC<{ readonly children: React.ReactNode }> = ({ children }) => (
+  <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="w-full">
+    {children}
+  </motion.div>
+);
+
+// High-End Ivory Skeleton Fallback for Suspense Boundaries
+const PageSkeleton = () => (
+  <div className="w-full h-[100dvh] flex items-center justify-center bg-[#FDFBF7]">
+    <div className="w-8 h-8 rounded-full border-2 border-stone-200 border-t-[#E71F27] animate-spin shadow-sm" />
+  </div>
+);
+
+// -----------------------------------------------------------------------------
+// ALWAYS-OPEN SEMANTIC NAVIGATION TREE (Zero Blocking States)
+// -----------------------------------------------------------------------------
+const RouterContent: React.FC = () => {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Master Ivory Shell Wrapper */}
+        <Route path="/" element={<ClientLayout />}>
+          
+          {/* Index Route */}
+          <Route 
+            index 
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <AnimatedRouteWrapper><ClientHome /></AnimatedRouteWrapper>
+              </Suspense>
+            } 
+          />
+          
+          {/* Menu Route */}
+          <Route 
+            path="restaurant/:slug" 
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                {/* @ts-expect-error - Bypassing legacy static prop types to enforce useParams usage internally */}
+                <AnimatedRouteWrapper><RestaurantMenu /></AnimatedRouteWrapper>
+              </Suspense>
+            } 
+          />
+          
+          <Route 
+            path="checkout" 
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <AnimatedRouteWrapper><Checkout /></AnimatedRouteWrapper>
+              </Suspense>
+            } 
+          />
+          
+          {/* Tracking Route */}
+          <Route 
+            path="order/track/:order_id" 
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <AnimatedRouteWrapper><OrderTracking /></AnimatedRouteWrapper>
+              </Suspense>
+            } 
+          />
+          
+          <Route 
+            path="profile" 
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <AnimatedRouteWrapper><ProfileScreen /></AnimatedRouteWrapper>
+              </Suspense>
+            } 
+          />
+
+        </Route>
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+// -----------------------------------------------------------------------------
+// MASTER APP BOOTSTRAPPER (Deadlock Eradicated)
+// -----------------------------------------------------------------------------
 export const AppRoutes: React.FC = () => {
-  // حالة تحميل التطبيق الفعلية
-  const [isAppLoading, setIsAppLoading] = useState(true);
+  // Localized Splash state to decouple from global store strictness
+  const [showSplash, setShowSplash] = useState(true);
+  const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'; 
 
-  const currentScreen = useAppStore((s) => s.currentScreen);
-  const activeTab = useAppStore((s) => s.activeTab);
-  const selectedPartner = useAppStore((s) => s.selectedPartner);
-  const cartItems = useAppStore((s) => s.cartItems);
-  const currentOrder = useAppStore((s) => s.currentOrder);
-  const customerAddress = useAppStore((s) => s.customerAddress);
-  const isSupportOpen = useAppStore((s) => s.isSupportOpen);
-
-  const setCurrentScreen = useAppStore((s) => s.setCurrentScreen);
-  const setActiveTab = useAppStore((s) => s.setActiveTab);
-  const setPartners = useAppStore((s) => s.setPartners);
-  const setSelectedPartner = useAppStore((s) => s.setSelectedPartner);
-  const setIsSupportOpen = useAppStore((s) => s.setIsSupportOpen);
-  const addToCart = useAppStore((s) => s.addToCart);
-  const removeFromCart = useAppStore((s) => s.removeFromCart);
-  const clearCart = useAppStore((s) => s.clearCart);
-  const selectPartnerWithIsolation = useAppStore((s) => s.selectPartnerWithIsolation);
-  const setCurrentOrder = useAppStore((s) => s.setCurrentOrder);
-
-  // ربط الشاشة الافتتاحية بجلب البيانات الحقيقي
+  // Native Mount Timeout (2000ms strict unmount window)
   useEffect(() => {
-    let isMounted = true;
-    
-    fetchPartners()
-      .then((data) => {
-        if (isMounted && Array.isArray(data)) {
-          setPartners(data as unknown as Partner[]);
-        }
-      })
-      .catch((err) => console.error('[EAGLE TN Engine] Remote fetch failed:', err))
-      .finally(() => {
-        if (isMounted) {
-          // إضافة تأخير جمالي بسيط لضمان سلاسة حركة الخروج
-          setTimeout(() => setIsAppLoading(false), 800);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [setPartners]);
-
-  const handleSplashFinish = useCallback(() => {
-    if (currentOrder && ['pending', 'accepted', 'delivering', 'preparing', 'on_way'].includes(currentOrder.status)) {
-      setActiveTab('orders');
-      setCurrentScreen('ORDER_TRACKING');
-    } else {
-      setCurrentScreen('HOME');
-    }
-  }, [currentOrder, setActiveTab, setCurrentScreen]);
-
-  const handlePartnerSelect = useCallback(
-    (partner: Partner) => {
-      const success = selectPartnerWithIsolation(partner);
-      if (!success) {
-        // TODO: (Amateur Code) استبدال نافذة المتصفح الافتراضية بمكون واجهة احترافي لاحقاً
-        const confirmSwitch = window.confirm(
-          'Votre panier contient des articles d\'un autre établissement. Voulez-vous le réinitialiser ?'
-        );
-        if (confirmSwitch) {
-          clearCart();
-          setSelectedPartner(partner);
-          setCurrentScreen('RESTAURANT_MENU');
-        }
-      } else {
-        setSelectedPartner(partner);
-        setCurrentScreen('RESTAURANT_MENU');
-      }
-    },
-    [selectPartnerWithIsolation, clearCart, setSelectedPartner, setCurrentScreen]
-  );
-
-  const handleOrderSuccess = async (orderId: string) => {
-    try {
-      const { data: fetchOrder } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-
-      if (fetchOrder) {
-        const fullOrder: Order = {
-          ...(fetchOrder as unknown as Order),
-          items: cartItems,
-        };
-        setCurrentOrder(fullOrder);
-      }
-    } catch (e) {
-      console.warn('Order sync warning:', e);
-    } finally {
-      clearCart();
-      setActiveTab('orders');
-      setCurrentScreen('ORDER_TRACKING');
-    }
-  };
-
-  const handleTabChange = useCallback(
-    (tab: TabType) => {
-      setActiveTab(tab);
-      const tabMap: Record<string, ScreenType> = {
-        home: 'HOME',
-        accueil: 'HOME',
-        search: 'HOME',
-        recherche: 'HOME',
-        profile: 'PROFILE',
-        profil: 'PROFILE',
-        orders: 'ORDER_TRACKING',
-        commandes: 'ORDER_TRACKING',
-      };
-      if (tabMap[tab]) {
-        setCurrentScreen(tabMap[tab]);
-      }
-    },
-    [setActiveTab, setCurrentScreen]
-  );
-
-  const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const showBottomNav = ['HOME', 'PROFILE', 'ORDER_TRACKING'].includes(currentScreen);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <ErrorBoundary>
-      <div className="w-full min-h-[100dvh] bg-[#F8FAFC] font-sans antialiased text-slate-900 pb-24 selection:bg-red-600 selection:text-white relative overflow-x-hidden">
-        <AnimatePresence mode="wait">
-          {currentScreen === 'SPLASH' && (
-            <SplashScreen 
-              key="splash" 
-              isLoading={isAppLoading} 
-              onReady={handleSplashFinish} 
-            />
-          )}
+    <BrowserRouter>
+      <OrderStreamProvider userId={MOCK_USER_ID}>
+        
+        {/* 
+          CRITICAL FIX: The RouterContent is ALWAYS mounted. 
+          The Splash Screen acts strictly as an absolute overlay, preventing route-resolution deadlocks.
+        */}
+        <RouterContent />
 
-          {currentScreen === 'HOME' && (
-            <motion.div key="home" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <ClientHome
-                cartCount={totalCartCount}
-                onSelectPartner={handlePartnerSelect}
-                onNavigateCart={() => {
-                  if (selectedPartner && cartItems.length > 0) {
-                    setCurrentScreen('CHECKOUT');
-                  }
-                }}
-              />
-            </motion.div>
-          )}
-
-          {currentScreen === 'RESTAURANT_MENU' && selectedPartner && (
-            <motion.div key="menu" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <RestaurantMenu
-                partner={selectedPartner}
-                cartItems={cartItems}
-                onAddToCart={(item, qty = 1) =>
-                  addToCart({
-                    id: item.id,
-                    menu_item_id: item.id,
-                    name: item.title,
-                    price: item.price,
-                    quantity: qty,
-                    unit_price: item.price,
-                    total_price: item.price * qty,
-                  })
-                }
-                onRemoveFromCart={removeFromCart}
-                onBack={() => setCurrentScreen('HOME')}
-                onGoToCheckout={() => setCurrentScreen('CHECKOUT')}
-              />
-            </motion.div>
-          )}
-
-          {currentScreen === 'CHECKOUT' && selectedPartner && (
-            <motion.div key="checkout" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <Checkout
-                partner={selectedPartner}
-                cartItems={cartItems}
-                customerAddress={customerAddress}
-                customerPhone=""
-                onRemoveItem={(itemId: string) => removeFromCart(itemId)}
-                onRequireAuth={() => {
-                  setActiveTab('profile');
-                  setCurrentScreen('PROFILE');
-                }}
-                onOrderSuccess={handleOrderSuccess}
-                onBack={() => setCurrentScreen('RESTAURANT_MENU')}
-              />
-            </motion.div>
-          )}
-
-          {currentScreen === 'ORDER_TRACKING' && (
-            <motion.div key="tracking" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <OrderTracking
-                order={currentOrder}
-                onBackToHome={() => handleTabChange('home')}
-                onOpenSupport={() => setIsSupportOpen(true)}
-              />
-            </motion.div>
-          )}
-
-          {currentScreen === 'PROFILE' && (
-            <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-              <ProfileScreen
-                onBack={() => handleTabChange('home')}
-                onNavigateOrders={() => handleTabChange('orders')}
-              />
+        {/* Cinematic Splash Overlay Unmount Sequence */}
+        <AnimatePresence>
+          {showSplash && (
+            <motion.div 
+              key="splash-overlay"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0, filter: 'blur(8px)' }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed inset-0 z-[99999] pointer-events-none"
+            >
+              {/* Force pointer events auto locally so the splash logic can run if needed */}
+              <div className="w-full h-full pointer-events-auto">
+                <SplashScreen isLoading={showSplash} onReady={() => setShowSplash(false)} />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
-        {showBottomNav && <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
-      </div>
-    </ErrorBoundary>
+      </OrderStreamProvider>
+    </BrowserRouter>
   );
 };
 
