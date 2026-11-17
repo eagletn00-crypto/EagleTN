@@ -1,0 +1,58 @@
+name: Build Livreur APK 🦅
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'apps/livreur/**'
+      - 'packages/**'
+      - '.github/workflows/**'
+  workflow_dispatch: # زر للإطلاق اليدوي متى شئت
+
+jobs:
+  build-apk:
+    name: Forge Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 سحب الكود (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 🟢 تجهيز بيئة pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: 🟢 تجهيز Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: ☕ تجهيز Java 17 (للأندرويد)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 📦 تثبيت جميع حزم المشروع (Monorepo)
+        run: pnpm install
+
+      - name: 🏗️ بناء واجهة الويب للمندوب (Web Build)
+        working-directory: apps/livreur
+        run: pnpm run build
+
+      - name: 🤖 مزامنة محرك Capacitor مع الأندرويد
+        working-directory: apps/livreur
+        run: npx cap sync android
+
+      - name: 🔥 تجميع واستخراج الـ APK (Gradle Forge)
+        working-directory: apps/livreur/android
+        run: ./gradlew assembleDebug
+
+      - name: 📤 رفع ملف الـ APK النهائي للتنزيل
+        uses: actions/upload-artifact@v4
+        with:
+          name: EAGLE-Livreur-App
+          path: apps/livreur/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
