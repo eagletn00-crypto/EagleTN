@@ -7,7 +7,7 @@ on:
       - 'apps/livreur/**'
       - 'packages/**'
       - '.github/workflows/**'
-  workflow_dispatch: # زر للإطلاق اليدوي متى شئت
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -42,9 +42,17 @@ jobs:
         working-directory: apps/livreur
         run: pnpm run build
 
-      - name: 🤖 مزامنة محرك Capacitor مع الأندرويد
+      - name: 🤖 بناء وتجهيز منصة الأندرويد سحابياً
         working-directory: apps/livreur
-        run: npx cap sync android
+        run: |
+          pnpm add @capacitor/android
+          npx cap add android || echo "Platform exists"
+          npx cap sync android
+
+      - name: 🔐 حقن تصاريح الـ GPS والاهتزاز آلياً
+        working-directory: apps/livreur
+        run: |
+          sed -i 's/<uses-permission android:name="android\.permission\.INTERNET" \/>/<uses-permission android:name="android.permission.INTERNET" \/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" \/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" \/>\n    <uses-permission android:name="android.permission.VIBRATE" \/>/g' android/app/src/main/AndroidManifest.xml
 
       - name: 🔥 تجميع واستخراج الـ APK (Gradle Forge)
         working-directory: apps/livreur/android
