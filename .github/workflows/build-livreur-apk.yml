@@ -55,17 +55,25 @@ jobs:
         run: |
           sed -i 's/<uses-permission android:name="android\.permission\.ACCESS_COARSE_LOCATION" \/>/<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" \/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" \/>/g' android/app/src/main/AndroidManifest.xml || true
 
-      - name: 🔐 Decode Keystore
+      - name: 🔐 Decode Keystore & Forensic Check
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo "$KEYSTORE_BASE64" | tr -d "[:space:]" | base64 --decode > apps/livreur/android/app/eagletn-livreur.keystore && keytool -list -keystore apps/livreur/android/app/eagletn-livreur.keystore -storepass "${{ secrets.STORE_PASSWORD }}"
+          CLEAN_B64=$(printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]')
+          echo "CLOUD_B64_CHARS: ${#CLEAN_B64}"
+          echo "STORE_PASSWORD_LEN: ${#STORE_PASSWORD} (expected: 18)"
+          echo "KEY_ALIAS_LEN: ${#KEY_ALIAS} (expected: 7)"
+          printf '%s' "$CLEAN_B64" | base64 --decode > apps/livreur/android/app/eagletn-livreur.keystore
+          ls -lh apps/livreur/android/app/eagletn-livreur.keystore
+          sha256sum apps/livreur/android/app/eagletn-livreur.keystore
+          keytool -list -keystore apps/livreur/android/app/eagletn-livreur.keystore -storepass "$STORE_PASSWORD"
 
       - name: 🔥 Build & Sign Release APK
         working-directory: apps/livreur/android
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
           ./gradlew assembleRelease \
