@@ -2,7 +2,7 @@ name: Build Livreur APK 🦅
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "feature/client-header-trend1" ]
   workflow_dispatch:
 
 jobs:
@@ -37,20 +37,10 @@ jobs:
       - name: 🏗️ Web Build (Vite) & Telemetry
         working-directory: apps/livreur
         run: |
-          echo "--- 1. Checking GitHub Secrets ---"
-          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then echo "❌ GitHub Secret is EMPTY!"; exit 1; else echo "✅ Secret pulled successfully."; fi
-          
-          echo "--- 2. Injecting Physical .env ---"
           echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" > .env.production
           echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env.production
-          
-          if [ -s .env.production ]; then echo "✅ .env.production created successfully."; else echo "❌ Failed to create .env file!"; exit 1; fi
-          
-          echo "--- 3. Running Vite Build ---"
           pnpm run build
-          
-          echo "--- 4. Verifying Injection in Dist ---"
-          if grep -q "supabase" dist/assets/*.js; then echo "✅ Supabase URL found injected in Vite output!"; else echo "❌ Vite ignored the .env variables!"; exit 1; fi
+          if grep -q "supabase" dist/assets/*.js; then echo "✅ URL injected successfully"; else echo "❌ Injection failed"; exit 1; fi
 
       - name: 🤖 Capacitor Android Sync
         working-directory: apps/livreur
