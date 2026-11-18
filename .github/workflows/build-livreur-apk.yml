@@ -29,11 +29,11 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
 
-      - name: ☕ تجهيز Java 17 (للأندرويد)
+      - name: ☕ تجهيز Java 21 (للأندرويد)
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: 📦 تثبيت جميع حزم المشروع (Monorepo)
         run: pnpm install
