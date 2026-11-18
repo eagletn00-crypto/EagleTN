@@ -46,7 +46,7 @@ jobs:
         working-directory: apps/livreur
         run: |
           pnpm add @capacitor/android
-          npx cap init TheEagletn com.eagletn.livreur --web-dir dist --force
+          npx cap init TheEagletn com.eagletn.livreur --web-dir dist
           npx cap add android
           npx cap sync android
 
