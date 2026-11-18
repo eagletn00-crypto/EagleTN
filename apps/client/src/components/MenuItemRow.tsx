@@ -1,164 +1,89 @@
-import React from 'react';
+import React, { memo } from 'react';
+import { motion } from 'framer-motion';
+import { Plus } from 'lucide-react';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import SmartImage from './SmartImage';
 
-export interface MenuItem {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image_url?: string;
-  is_popular?: boolean;
-  category?: string;
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80';
+
+export interface MenuItemRowProps {
+  item: any;
+  isFeatured?: boolean;
+  onClick: (item: any) => void;
 }
 
-export type ViewMode = 'row' | 'card';
+export const MenuItemRow: React.FC<MenuItemRowProps> = memo(({ item, isFeatured, onClick }) => {
+  // 1:1 Media & Language Contract
+  const safeImg = item.image_url || item.current_photo_url || item.img || DEFAULT_IMAGE;
+  const displayName = item.name_fr || item.item_name_fr || item.name || 'Produit sans nom';
+  const activePrice = Number(item.current_price ?? item.price ?? 0);
+  const description = item.desc_fr || item.description || item.notes || '';
 
-interface MenuItemRowProps {
-  item: MenuItem;
-  viewMode?: ViewMode; // خيار تحديد نمط العرض: row أو card
-  onAddToCart: (item: MenuItem) => void;
-  onSelectItem?: (item: MenuItem) => void;
-}
+  const handleTap = async () => {
+    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) {}
+    onClick(item);
+  };
 
-export const MenuItemRow: React.FC<MenuItemRowProps> = ({
-  item,
-  viewMode = 'row',
-  onAddToCart,
-  onSelectItem,
-}) => {
-  const formattedPrice = new Intl.NumberFormat('fr-TN', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  }).format(item.price);
-
-  // 1. خيار العرض الكبيـر (Featured Card View)
-  if (viewMode === 'card') {
+  if (isFeatured) {
     return (
-      <div
-        onClick={() => onSelectItem && onSelectItem(item)}
-        className="group relative flex flex-col overflow-hidden rounded-3xl bg-white border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md active:scale-[0.99] cursor-pointer"
+      <motion.div 
+        whileTap={{ scale: 0.98 }}
+        onClick={handleTap}
+        className="w-full bg-[#FAF9F6] border border-[#1C1917]/10 rounded-[1.25rem] overflow-hidden shadow-sm flex flex-col outline-none cursor-pointer"
       >
-        {/* الصورة البارزة الكبيرة */}
-        <div className="relative h-48 w-full overflow-hidden bg-slate-100">
-          {item.image_url ? (
-            <img
-              src={item.image_url}
-              alt={item.name}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-4xl text-slate-300">
-              🍲
-            </div>
-          )}
-
-          {/* شارة الأكثر طلباً */}
-          {item.is_popular && (
-            <span className="absolute top-3 left-3 rounded-full bg-white/90 backdrop-blur-md px-2.5 py-1 text-[10px] font-black text-amber-700 shadow-sm ring-1 ring-amber-500/20">
-              🔥 Populaire
-            </span>
-          )}
-        </div>
-
-        {/* تفاصيل الطبق */}
-        <div className="flex flex-1 flex-col justify-between p-4">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
-              {item.name}
-            </h3>
-            {item.description && (
-              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">
-                {item.description}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <span className="inline-flex items-baseline rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-black text-slate-900">
-              {formattedPrice} <span className="ms-1 text-[10px] font-bold text-slate-500">TND</span>
-            </span>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCart(item);
-              }}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-md transition-transform hover:scale-105 active:scale-95 hover:bg-emerald-600"
-            >
-              <span>Ajouter</span>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
-            </button>
+        <div className="w-full h-40 relative isolate bg-[#1C1917]/5">
+          <SmartImage src={safeImg} alt={displayName} className="w-full h-full object-cover" />
+          <div className="absolute top-3 left-3 bg-[#C59648] text-[#FFFFFF] px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
+            En Vedette
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // 2. خيار العرض الأفقي المضغوط (Compact Row View)
-  return (
-    <div
-      onClick={() => onSelectItem && onSelectItem(item)}
-      className="group relative flex items-center justify-between gap-4 rounded-2xl bg-white p-3.5 shadow-sm transition-all duration-300 hover:shadow-md border border-slate-100/80 active:scale-[0.99] cursor-pointer"
-    >
-      <div className="flex flex-1 flex-col justify-between py-0.5">
-        <div>
-          {item.is_popular && (
-            <span className="mb-1 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20">
-              🔥 Populaire
+        <div className="p-4 flex flex-col gap-1.5">
+          <div className="flex justify-between items-start gap-4">
+            <h3 className="text-[16px] font-black text-[#1C1917] leading-tight flex-1">{displayName}</h3>
+            <span className="text-[15px] font-black text-[#1C1917] tabular-nums shrink-0">
+              {activePrice.toFixed(3)} DT
             </span>
-          )}
-
-          <h3 className="text-base font-bold tracking-tight text-slate-900 group-hover:text-emerald-600 transition-colors">
-            {item.name}
-          </h3>
-
-          {item.description && (
-            <p className="mt-1 line-clamp-2 text-xs font-normal leading-relaxed text-slate-500">
-              {item.description}
+          </div>
+          {description && (
+            <p className="text-[13px] font-medium text-[#1C1917]/60 line-clamp-2 leading-snug">
+              {description}
             </p>
           )}
         </div>
+      </motion.div>
+    );
+  }
 
-        <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-baseline rounded-xl bg-slate-100/80 px-2.5 py-1 text-xs font-black tracking-tight text-slate-900">
-            {formattedPrice} <span className="ms-1 text-[10px] font-bold text-slate-500">TND</span>
-          </span>
+  // Compact Row UI
+  return (
+    <motion.div 
+      whileTap={{ scale: 0.98 }}
+      onClick={handleTap}
+      className="w-full bg-[#FAF9F6] border border-[#1C1917]/10 rounded-[1.25rem] p-3 flex gap-3 shadow-sm outline-none cursor-pointer"
+    >
+      <div className="flex-1 flex flex-col justify-center min-w-0">
+        <h4 className="text-[15px] font-bold text-[#1C1917] leading-snug truncate">{displayName}</h4>
+        {description && (
+          <p className="text-[12px] font-medium text-[#1C1917]/60 mt-1 line-clamp-2 leading-tight">
+            {description}
+          </p>
+        )}
+        <span className="text-[14px] font-black text-[#1C1917] mt-2 tabular-nums">
+          {activePrice.toFixed(3)} DT
+        </span>
+      </div>
+
+      <div className="flex flex-col justify-between items-end shrink-0">
+        <div className="w-[84px] h-[84px] rounded-xl overflow-hidden bg-[#1C1917]/5 border border-[#1C1917]/5 isolate">
+          <SmartImage src={safeImg} alt={displayName} className="w-full h-full object-cover" />
+        </div>
+        <div className="mt-2 w-[84px] h-8 bg-[#1C1917] text-[#FFFFFF] rounded-xl flex items-center justify-center shadow-sm">
+          <Plus className="w-4 h-4" />
         </div>
       </div>
-
-      <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-        {item.image_url ? (
-          <img
-            src={item.image_url}
-            alt={item.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-300">
-            🍲
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddToCart(item);
-          }}
-          aria-label={`Ajouter ${item.name} au panier`}
-          className="absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-transform hover:scale-110 active:scale-95 hover:bg-emerald-600"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-          </svg>
-        </button>
-      </div>
-    </div>
+    </motion.div>
   );
-};
+});
 
+MenuItemRow.displayName = 'MenuItemRow';
 export default MenuItemRow;

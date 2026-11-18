@@ -1,70 +1,10 @@
 import React, { useRef, useState } from 'react';
 import {
-  Printer,
-  Download,
-  Share2,
-  CreditCard,
-  Banknote,
-  Bike,
-  CheckCircle2,
-  Clock,
-  Building2,
-  UserCheck,
-  MapPin,
-  Phone,
-  FileText,
-  ShieldCheck,
-  Sparkles,
-  ArrowRight,
-  Receipt,
-  X
+  Printer, Download, Share2, CreditCard, Banknote, Bike,
+  CheckCircle2, Clock, Building2, UserCheck, MapPin, Phone,
+  FileText, ShieldCheck, Sparkles, X, Receipt, AlertCircle
 } from 'lucide-react';
-
-export interface InvoiceLineItem {
-  id: string;
-  designation: string;
-  quantity: number;
-  unitPriceHT: number;
-  tvaRate?: number;
-  totalHT: number;
-}
-
-export interface InvoiceData {
-  invoiceNumber: string;
-  orderReference: string;
-  issueDate: string;
-  dueDate?: string;
-  paymentStatus: 'COD_PENDING' | 'PAID' | 'ONLINE_PENDING' | 'CANCELLED';
-  paymentMethod: 'CASH_ON_DELIVERY' | 'ELECTRONIC_CARD' | 'BANK_TRANSFER';
-  deliveryMode: 'EXPRESS_MOTORCYCLE' | 'CARGO_COMMERCIAL' | 'PICKUP';
-  
-  issuer: {
-    companyName: string;
-    tradeName: string;
-    taxId: string;
-    address: string;
-    phone: string;
-    email: string;
-    logoUrl?: string;
-  };
-
-  client: {
-    fullName: string;
-    phone: string;
-    address: string;
-    city: string;
-    governorate?: string;
-    notes?: string;
-    customPinCode?: string;
-  };
-
-  items: InvoiceLineItem[];
-  subtotalHT: number;
-  tvaAmount: number;
-  deliveryFeeTTC: number;
-  driverCommissionShare?: number;
-  grandTotalTTC: number;
-}
+import { InvoiceData, InvoiceLineItem } from '@eagletn/types';
 
 export interface InvoiceModalProps {
   invoice: InvoiceData;
@@ -93,13 +33,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   const handleDownloadPDF = () => {
+    // في بيئة الويب/الهاتف، خيار الطباعة يتيح حفظ الملف كـ PDF محلياً بفضل الـ CSS
     window.print();
   };
 
   const handleShare = async () => {
     const shareData = {
       title: `Facture ${invoice.invoiceNumber} - EAGLE TN`,
-      text: `Facture officielle EAGLE TN N° ${invoice.invoiceNumber} pour la commande ${invoice.orderReference}. Total: ${formatDT(invoice.grandTotalTTC)}`,
+      text: `Facture officielle (فاتورة رسمية) EAGLE TN N° ${invoice.invoiceNumber} pour la commande ${invoice.orderReference}. Total: ${formatDT(invoice.grandTotalTTC)}`,
       url: window.location.href,
     };
 
@@ -134,7 +75,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         @media print {
           body {
             background-color: #ffffff !important;
-            color: #0f172a !important;
+            color: #1C1917 !important;
             font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -158,344 +99,305 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         }
       `}</style>
 
-      <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto no-print">
-        <div className="bg-[#F8FAFC] w-full max-w-3xl rounded-[2.5rem] border border-slate-200/80 shadow-[0_25px_70px_-15px_rgba(15,23,42,0.25)] overflow-hidden transition-all duration-300 my-auto flex flex-col max-h-[92vh]">
+      <div className="fixed inset-0 z-[100] bg-[#1C1917]/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto no-print">
+        <div className="bg-[#FAF8F5] w-full max-w-3xl rounded-[32px] border border-white/20 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-300 my-auto flex flex-col max-h-[92vh]">
           
-          {/* TOOLBAR */}
-          <div className="no-print bg-white/90 backdrop-blur-xl border-b border-slate-200/70 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[#059669]">
-                <Receipt className="w-5 h-5 stroke-[2.2]" />
+          {/* 🦅 TOOLBAR (Z-Index Secured) */}
+          <div className="no-print bg-white/95 backdrop-blur-xl border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-[#C1121F] shadow-sm">
+                <Receipt className="w-6 h-6 stroke-[2.5]" />
               </div>
               <div>
-                <h2 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <span>Facture Complète</span>
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                <h2 className="text-[18px] font-black text-[#1C1917] tracking-tight flex items-center gap-2">
+                  <span className="uppercase">Facture</span>
+                  <span className="text-[11px] font-black uppercase px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                     {invoice.invoiceNumber}
                   </span>
                 </h2>
-                <p className="text-[11px] font-bold text-slate-400">Paiement à la livraison & Bordereau NTS</p>
+                <p className="text-[12px] font-bold text-gray-500 mt-0.5">Paiement & Bordereau (فاتورة رسمية)</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={handlePrint}
-                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-bold transition-all active:scale-95"
+                className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#1C1917] text-[13px] font-black transition-all active:scale-95 outline-none border border-gray-200"
               >
-                <Printer className="w-4 h-4 text-slate-600" />
+                <Printer className="w-4 h-4 text-[#C1121F]" strokeWidth={2.5} />
                 <span>Imprimer</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleDownloadPDF}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-bold transition-all active:scale-95"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#1C1917] text-[13px] font-black transition-all active:scale-95 outline-none border border-gray-200"
               >
-                <Download className="w-4 h-4 text-slate-600" />
+                <Download className="w-4 h-4 text-[#C1121F]" strokeWidth={2.5} />
                 <span className="hidden sm:inline">PDF</span>
               </button>
 
               <button
                 type="button"
-                onClick={handleShare}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-bold transition-all active:scale-95"
+                onClick={onClose}
+                className="w-11 h-11 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-[#1C1917] active:scale-95 transition-all outline-none border border-gray-200 ml-1"
               >
-                <Share2 className="w-4 h-4 text-slate-600" />
-                <span className="hidden sm:inline">{copySuccess ? 'Copié !' : 'Partager'}</span>
+                <X className="w-5 h-5" strokeWidth={2.5} />
               </button>
-
-              {onClose && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 flex items-center justify-center transition-colors ml-1"
-                >
-                  <X className="w-5 h-5 stroke-[2.2]" />
-                </button>
-              )}
             </div>
           </div>
 
-          {/* BODY */}
-          <div className="overflow-y-auto p-6 md:p-10 space-y-8 flex-1 print-container bg-[#FAFAFA]" ref={printRef}>
+          {/* 🦅 BODY (Printable Area) */}
+          <div className="overflow-y-auto p-6 md:p-8 space-y-8 flex-1 print-container bg-white" ref={printRef}>
             
-            {/* HEADER */}
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/70 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-6 print-card">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter">
+            {/* HEADER FACTURE */}
+            <div className="bg-gray-50 p-6 md:p-8 rounded-[32px] border border-gray-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 print-card">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-[#1C1917] text-white flex items-center justify-center font-black text-[18px] tracking-tighter shadow-md">
                     EG
                   </div>
                   <div>
-                    <span className="text-base font-black text-slate-900 tracking-tight block leading-none">
+                    <span className="text-[22px] font-black text-[#1C1917] tracking-tight block leading-none">
                       EAGLE TN
                     </span>
-                    <span className="text-[10px] font-bold text-[#059669] uppercase tracking-widest">
+                    <span className="text-[11px] font-black text-[#C1121F] uppercase tracking-widest mt-1 block">
                       Platform Logistique & Commerce
                     </span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-500 font-medium max-w-xs pt-1">
-                  Plateforme numérique d'intermédiation commerciale et logistique n°1 en Tunisie.
+                <p className="text-[12px] text-gray-500 font-bold max-w-xs pt-1 leading-relaxed">
+                  Plateforme numérique d'intermédiation commerciale et logistique N°1 en Tunisie.
+                  <br /><span className="font-arabic mt-1 block text-gray-400">المنصة الرقمية الأولى للوساطة التجارية واللوجستية في تونس.</span>
                 </p>
               </div>
 
-              <div className="text-left md:text-right space-y-1.5 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-[#059669] text-xs font-black uppercase tracking-wider mb-1">
-                  <Sparkles className="w-3.5 h-3.5" />
+              <div className="text-left md:text-right space-y-2 border-t md:border-t-0 border-gray-200 pt-5 md:pt-0">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-100 text-[#C1121F] text-[11px] font-black uppercase tracking-wider mb-2">
+                  <Sparkles className="w-4 h-4" />
                   <span>FACTURE OFFICIELLE</span>
                 </div>
-                <h1 className="text-xl font-black text-slate-900 tracking-tight font-mono">
+                <h1 className="text-[26px] font-black text-[#1C1917] tracking-tight font-mono leading-none">
                   {invoice.invoiceNumber}
                 </h1>
-                <div className="text-xs font-semibold text-slate-500 space-y-0.5">
-                  <p>Réf. Commande: <strong className="text-slate-800 font-mono">{invoice.orderReference}</strong></p>
-                  <p>Date d'émission: <span className="text-slate-800 font-medium">{invoice.issueDate}</span></p>
+                <div className="text-[12px] font-bold text-gray-500 space-y-1 pt-1">
+                  <p>Réf. Commande: <strong className="text-[#1C1917] font-mono">{invoice.orderReference}</strong></p>
+                  <p>Date d'émission: <span className="text-[#1C1917] font-medium">{invoice.issuedDate}</span></p>
                 </div>
               </div>
             </div>
-
-            {/* STATUS BAR */}
-            <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200/70 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-wrap items-center justify-between gap-4 print-card">
-              <div className="flex items-center gap-2.5">
+            
+            {/* STATUS & PAYMENT METHOD */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12px] font-black uppercase tracking-wider border ${
+                invoice.paymentStatus === 'PAID' 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
                 {invoice.paymentStatus === 'PAID' ? (
-                  <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-extrabold">
-                    <CheckCircle2 className="w-4 h-4 text-[#059669]" />
-                    <span>Payé intégralement</span>
-                  </div>
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Payé intégralement (خالص)</span>
+                  </>
                 ) : (
-                  <div className="flex items-center gap-2 text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-extrabold">
-                    <Clock className="w-4 h-4 text-amber-600" />
-                    <span>En attente de paiement (Espèces)</span>
-                  </div>
+                  <>
+                    <Clock className="w-4 h-4" />
+                    <span>En attente de paiement (في انتظار الدفع)</span>
+                  </>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 text-slate-700 bg-slate-100/80 px-3 py-1.5 rounded-xl text-xs font-bold">
+              <div className="flex items-center gap-2 bg-gray-50 text-gray-700 border border-gray-200 px-3.5 py-2 rounded-xl text-[12px] font-black uppercase tracking-wider">
                 {invoice.paymentMethod === 'CASH_ON_DELIVERY' ? (
                   <>
-                    <Banknote className="w-4 h-4 text-[#059669]" />
-                    <span>Paiement à la livraison (COD)</span>
+                    <Banknote className="w-4 h-4 text-[#C1121F]" />
+                    <span>Paiement à la livraison (الدفع عند الاستلام)</span>
                   </>
                 ) : (
                   <>
                     <CreditCard className="w-4 h-4 text-blue-600" />
-                    <span>Carte Bancaire En Ligne</span>
+                    <span>Carte Bancaire En Ligne (دفع إلكتروني)</span>
                   </>
                 )}
               </div>
-
-              <div className="flex items-center gap-2 text-slate-700 bg-slate-100/80 px-3 py-1.5 rounded-xl text-xs font-bold">
-                <Bike className="w-4 h-4 text-slate-800" />
-                <span>Livraison Express Motorisée 🛵</span>
-              </div>
             </div>
 
-            {/* ENTITIES */}
+            {/* ENTITIES (Issuer & Client) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/70 shadow-xs space-y-3 print-card">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-[#059669]" />
+              {/* ISSUER CARD */}
+              <div className="bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm space-y-3 print-card">
+                <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <span className="text-[12px] font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#C1121F]" />
                     Émetteur & Partenaire
                   </span>
-                  <span className="text-[10px] font-extrabold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">Vendeur</span>
+                  <span className="text-[10px] font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md uppercase">Vendeur (البائع)</span>
                 </div>
-
+                
                 <div className="space-y-1">
-                  <h3 className="text-sm font-black text-slate-900">{invoice.issuer.tradeName}</h3>
-                  <p className="text-xs font-semibold text-slate-600">{invoice.issuer.companyName}</p>
+                  <h3 className="text-[15px] font-black text-[#1C1917]">{invoice.issuer.tradeName}</h3>
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{invoice.issuer.companyName}</p>
                 </div>
-
-                <div className="text-[11px] text-slate-500 space-y-1 pt-1 font-medium">
-                  <p className="flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>MF: <strong className="text-slate-800 font-mono">{invoice.issuer.taxId}</strong></span>
+                
+                <div className="text-[12px] text-gray-600 space-y-1.5 pt-2 font-medium">
+                  <p className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                    <span>MF: <strong className="text-[#1C1917] font-mono">{invoice.issuer.taxId}</strong></span>
                   </p>
-                  <p className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <p className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
                     <span>{invoice.issuer.address}</span>
                   </p>
-                  <p className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <p className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400 shrink-0" />
                     <span>{invoice.issuer.phone}</span>
                   </p>
                 </div>
               </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/70 shadow-xs space-y-3 print-card">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-[#059669]" />
+              
+              {/* CLIENT CARD */}
+              <div className="bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm space-y-3 print-card">
+                <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <span className="text-[12px] font-black text-[#1C1917] uppercase tracking-wider flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-emerald-600" />
                     Client & Destinataire
                   </span>
                   {invoice.client.customPinCode && (
-                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60 font-mono">
-                      PIN: {invoice.client.customPinCode}
+                    <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 font-mono flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> PIN: {invoice.client.customPinCode}
                     </span>
                   )}
                 </div>
 
                 <div className="space-y-1">
-                  <h3 className="text-sm font-black text-slate-900">{invoice.client.fullName}</h3>
-                  <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>+216 {invoice.client.phone}</span>
+                  <h3 className="text-[15px] font-black text-[#1C1917]">{invoice.client.fullName}</h3>
+                  <p className="text-[12px] font-bold text-gray-600 flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span dir="ltr">+216 {invoice.client.phone}</span>
                   </p>
                 </div>
-
-                <div className="text-[11px] text-slate-500 space-y-1 pt-1 font-medium">
-                  <p className="flex items-start gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                
+                <div className="text-[12px] text-gray-600 space-y-1.5 pt-2 font-medium">
+                  <p className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
                     <span>{invoice.client.address}, {invoice.client.city} {invoice.client.governorate ? `(${invoice.client.governorate})` : ''}</span>
                   </p>
                   {invoice.client.notes && (
-                    <p className="text-[10px] italic text-slate-400 bg-slate-50 p-2 rounded-xl border border-slate-100 mt-2">
-                      « {invoice.client.notes} »
+                    <p className="text-[11px] font-bold text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-gray-200 mt-2 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>{invoice.client.notes}</span>
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* TABLE */}
-            <div className="bg-white rounded-3xl border border-slate-200/70 shadow-xs overflow-hidden print-card">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                  Détail des articles & Prestations
+            {/* ITEMS TABLE */}
+            <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden print-card">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                <h3 className="text-[13px] font-black text-[#1C1917] uppercase tracking-wider">
+                  Détail des articles (تفاصيل الطلب)
                 </h3>
-                <span className="text-[11px] font-extrabold text-slate-400">
+                <span className="text-[12px] font-black text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
                   {invoice.items.length} Article{invoice.items.length > 1 ? 's' : ''}
                 </span>
               </div>
-
+              
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/30">
-                      <th className="py-3 px-6">Désignation</th>
-                      <th className="py-3 px-4 text-center">Qté</th>
-                      <th className="py-3 px-4 text-right">Prix Unitaire HT</th>
-                      <th className="py-3 px-6 text-right">Total HT</th>
+                    <tr className="border-b border-gray-200 text-[11px] font-black text-gray-500 uppercase tracking-widest bg-white">
+                      <th className="py-4 px-6">Désignation</th>
+                      <th className="py-4 px-4 text-center">Qté</th>
+                      <th className="py-4 px-4 text-right">Prix Unitaire</th>
+                      <th className="py-4 px-6 text-right">Total</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-800">
-                    {invoice.items.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3.5 px-6 font-bold text-slate-900">
-                          {item.designation}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-700">
-                          {item.quantity}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono text-slate-600">
-                          {formatDT(item.unitPriceHT)}
-                        </td>
-                        <td className="py-3.5 px-6 text-right font-mono font-bold text-slate-900">
-                          {formatDT(item.totalHT)}
-                        </td>
+                  <tbody className="divide-y divide-gray-100 text-[13px] font-semibold text-[#1C1917] bg-white">
+                    {invoice.items.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-6 font-black text-[#1C1917]">{item.designation}</td>
+                        <td className="py-4 px-4 text-center font-black font-mono text-gray-600 bg-gray-50/50">{item.quantity}</td>
+                        <td className="py-4 px-4 text-right font-black font-mono text-gray-500">{formatDT(item.unitPriceHT)}</td>
+                        <td className="py-4 px-6 text-right font-black font-mono text-[#C1121F] bg-gray-50/50">{formatDT(item.totalHT)}</td>
                       </tr>
                     ))}
-
-                    <tr className="bg-slate-50/40 font-bold text-slate-700">
-                      <td className="py-3.5 px-6 flex items-center gap-2">
-                        <span>Frais d'intermédiation & Livraison Express</span>
-                        <span className="text-[10px] bg-emerald-100/80 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                          Livraison 🛵
+                    
+                    {/* DELIVERY ROW */}
+                    <tr className="bg-gray-50 font-bold text-[#1C1917]">
+                      <td className="py-4 px-6 flex items-center gap-3">
+                        <span className="font-black">Frais de Livraison</span>
+                        <span className="text-[10px] bg-[#C1121F]/10 text-[#C1121F] px-2.5 py-1 rounded-full font-black uppercase tracking-wider flex items-center gap-1 border border-[#C1121F]/20">
+                          <Bike className="w-3 h-3" /> Express
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-center font-mono">1</td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-600">
-                        {formatDT(invoice.deliveryFeeTTC)}
-                      </td>
-                      <td className="py-3.5 px-6 text-right font-mono font-bold text-slate-900">
-                        {formatDT(invoice.deliveryFeeTTC)}
-                      </td>
+                      <td className="py-4 px-4 text-center font-black font-mono text-gray-500">1</td>
+                      <td className="py-4 px-4 text-right font-black font-mono text-gray-500">{formatDT(invoice.deliveryFeeTTC)}</td>
+                      <td className="py-4 px-6 text-right font-black font-mono text-[#C1121F]">{formatDT(invoice.deliveryFeeTTC)}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* TOTALS & LEGAL */}
-            <div className="flex flex-col md:flex-row items-stretch justify-between gap-6">
-              <div className="flex-1 bg-white p-6 rounded-3xl border border-slate-200/70 shadow-xs flex flex-col justify-between space-y-3 print-card">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-[#059669]">
-                    <ShieldCheck className="w-4 h-4 shrink-0 stroke-[2.2]" />
-                    <span className="text-xs font-black uppercase tracking-wider">Mention Légale d'Intermédiation</span>
+            {/* FINANCIAL SUMMARY & LEGAL */}
+            <div className="flex flex-col md:flex-row items-stretch justify-between gap-6 pb-6">
+              
+              {/* LEGAL DISCLAIMER */}
+              <div className="flex-1 bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm flex flex-col justify-between space-y-4 print-card">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-[#C1121F]">
+                    <ShieldCheck className="w-5 h-5 shrink-0 stroke-[2.5]" />
+                    <span className="text-[12px] font-black uppercase tracking-widest">Mention Légale (إشعار قانوني)</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                    Conformément à la réglementation tunisienne, <strong>EAGLE TN</strong> agit en qualité de plateforme numérique d’intermédiation. La responsabilité de la conformité des biens livrés incombe exclusivement au partenaire marchand <strong>{invoice.issuer.tradeName}</strong>.
+                  <p className="text-[12px] text-gray-500 leading-relaxed font-bold">
+                    Conformément à la réglementation tunisienne, <strong className="text-[#1C1917]">EAGLE TN</strong> agit en qualité de plateforme numérique d’intermédiation. La responsabilité de la conformité des biens livrés incombe exclusivement au partenaire marchand <strong className="text-[#1C1917]">{invoice.issuer.tradeName}</strong>.
                   </p>
                 </div>
-
-                {invoice.driverCommissionShare && (
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-500">
-                    <span>Part commission coursier estimée:</span>
-                    <span className="font-mono text-slate-800">{formatDT(invoice.driverCommissionShare)}</span>
+                {invoice.driverCommissionShare !== undefined && invoice.driverCommissionShare > 0 && (
+                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                    <span>Part coursier (نصيب المندوب):</span>
+                    <span className="font-mono text-[#1C1917] bg-gray-100 px-2 py-1 rounded-md">{formatDT(invoice.driverCommissionShare)}</span>
                   </div>
                 )}
               </div>
 
-              <div className="w-full md:w-80 bg-slate-900 text-white p-6 rounded-3xl shadow-xl space-y-3.5 print-card">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
-                  Récapitulatif Financier
+              {/* GRAND TOTAL CARD */}
+              <div className="w-full md:w-80 bg-[#1C1917] text-white p-6 rounded-[24px] shadow-xl space-y-4 print-card relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
+                
+                <h4 className="text-[13px] font-black uppercase tracking-widest text-gray-400 border-b border-white/10 pb-3 flex items-center justify-between">
+                  <span>Total (الإجمالي)</span>
+                  <Receipt className="w-4 h-4 text-white/50" />
                 </h4>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between font-medium text-slate-300">
-                    <span>Sous-total HT articles</span>
-                    <span className="font-mono font-bold text-white">{formatDT(invoice.subtotalHT)}</span>
+                
+                <div className="space-y-3 text-[13px]">
+                  <div className="flex justify-between font-bold text-gray-300">
+                    <span>Sous-total articles</span>
+                    <span className="font-mono font-black text-white">{formatDT(invoice.subtotalHT)}</span>
                   </div>
-                  
-                  <div className="flex justify-between font-medium text-slate-300">
-                    <span>Frais de livraison TTC</span>
-                    <span className="font-mono font-bold text-white">{formatDT(invoice.deliveryFeeTTC)}</span>
+                  <div className="flex justify-between font-bold text-gray-300">
+                    <span>Frais de livraison</span>
+                    <span className="font-mono font-black text-white">{formatDT(invoice.deliveryFeeTTC)}</span>
                   </div>
-
                   {invoice.tvaAmount > 0 && (
-                    <div className="flex justify-between font-medium text-slate-400">
+                    <div className="flex justify-between font-bold text-gray-400 pt-2 border-t border-white/10">
                       <span>TVA (applicable)</span>
                       <span className="font-mono">{formatDT(invoice.tvaAmount)}</span>
                     </div>
                   )}
-
-                  <div className="pt-3 border-t border-slate-800 flex justify-between items-baseline">
-                    <div>
-                      <span className="text-xs font-black uppercase text-emerald-400 tracking-wider block">Total TTC à Payer</span>
-                      <span className="text-[10px] text-slate-400 font-medium">Espèces à la livraison</span>
-                    </div>
-                    <span className="text-xl font-black font-mono text-emerald-400">
-                      {formatDT(invoice.grandTotalTTC)}
-                    </span>
-                  </div>
                 </div>
 
-                {onInitiateOnlinePayment && invoice.paymentStatus !== 'PAID' && (
-                  <div className="pt-2 no-print">
-                    <button
-                      type="button"
-                      onClick={handleEPayment}
-                      disabled={isProcessingPayment}
-                      className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] text-white font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                    >
-                      <CreditCard className="w-4 h-4" />
-                      <span>{isProcessingPayment ? 'Traitement en cours...' : 'Payer par Carte Bancaire'}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                <div className="pt-4 border-t border-white/20 mt-4">
+                  <div className="flex justify-between items-end">
+                    <span className="text-[14px] font-black uppercase tracking-wider text-[#C1121F]">Net à payer</span>
+                    <span className="text-[26px] font-black text-white font-mono leading-none tracking-tight">{formatDT(invoice.grandTotalTTC)}</span>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="text-center pt-4 border-t border-slate-200/60 text-[10px] text-slate-400 font-semibold space-y-1">
-              <p>EAGLE TN — Plateforme de Transport & Logistique Commerciale en Tunisie</p>
-              <p>Document généré électroniquement • Valable comme bordereau de livraison & décharge</p>
             </div>
-
           </div>
         </div>
       </div>

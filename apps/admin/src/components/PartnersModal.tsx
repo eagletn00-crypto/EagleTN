@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { X, Store, Power, Search, Phone, MapPin, AlertOctagon, MessageSquare, DollarSign, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';

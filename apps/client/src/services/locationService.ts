@@ -50,7 +50,7 @@ export class LocationService {
           table: 'driver_locations',
           filter: `driver_id=eq.${driverId}`,
         },
-        (payload) => {
+        (payload: Record<string, unknown>) => {
           const newLocation = payload.new as DriverLocationRow | null;
           if (newLocation && typeof newLocation.latitude === 'number' && typeof newLocation.longitude === 'number') {
             onLocationUpdate({

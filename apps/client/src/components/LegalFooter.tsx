@@ -1,25 +1,21 @@
 import React from 'react';
-import { ShieldCheck, Lock } from 'lucide-react';
 
-export const LegalFooter: React.FC = () => {
+export interface LegalFooterProps {
+  onOpenLegal: () => void;
+}
+
+export const LegalFooter: React.FC<LegalFooterProps> = ({ onOpenLegal }) => {
   return (
-    <footer className="mt-8 px-4 pb-6 space-y-4 text-center">
-      {/* Compliance Badge */}
-      <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 text-[10px] font-black tracking-wide">
-        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-        <span>INPDP COMPLIANT • LIVE SECURE VIA SUPABASE</span>
-        <Lock className="w-3 h-3 text-emerald-600" />
-      </div>
-
-      {/* Legal Text */}
-      <div className="space-y-1.5 max-w-xs mx-auto">
-        <p className="text-[10px] font-semibold text-slate-400 leading-relaxed">
-          Conforme à la Loi Tunisienne N° 2004-63 & RGPD. Géolocalisation cryptée de bout en bout.
-        </p>
-        <p className="text-[9px] font-medium text-slate-300 leading-tight">
-          © 2026 EAGLE GROUPE TN DIGITAL SYSTEM. Tous droits réservés (Art. 89 de la loi N° 2001-36).
-        </p>
-      </div>
+    <footer className="mt-8 mb-6 flex justify-center items-center px-4 text-center opacity-80">
+      <p className="text-[11px] font-semibold text-[#1C1917] tracking-wide flex items-center gap-2 flex-wrap justify-center">
+        <span className="font-bold">EAGLE TN DIGITAL SYSTEM • Avril 2026</span>
+        <span className="text-[#B8860B] hidden sm:inline">•</span>
+        <button onClick={onOpenLegal} className="outline-none hover:text-[#9A6B16] transition-colors">CGU</button>
+        <span className="text-[#B8860B]">•</span>
+        <button onClick={onOpenLegal} className="outline-none hover:text-[#9A6B16] transition-colors">Confidentialité</button>
+        <span className="text-[#B8860B]">•</span>
+        <button className="outline-none hover:text-[#9A6B16] transition-colors">Assistance</button>
+      </p>
     </footer>
   );
 };

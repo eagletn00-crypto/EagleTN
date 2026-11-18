@@ -9,15 +9,23 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/geolocation": "^8.2.3",
+    "@capacitor/haptics": "^8.0.2",
     "@eagle/database": "workspace:*",
+    "@eagletn/types": "workspace:^",
+    "framer-motion": "^12.43.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-leaflet": "^5.0.0"
+    "react-leaflet": "^5.0.0",
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.2",
+    "@capacitor/cli": "^8.5.3",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/leaflet": "^1.9.21",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",

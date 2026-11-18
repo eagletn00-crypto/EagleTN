@@ -1,107 +1,93 @@
-import React, { useState } from 'react';
-import { ShoppingBag, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingBag, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { useCartStore } from '../store/useCartStore';
+import { supabase } from '../lib/supabase';
+import { InvoiceBreakdown } from '../../../../packages/ui/src/InvoiceBreakdown';
 
-interface CartItem {
-  id: string;
-  category: 'restaurant' | 'para' | 'fleure' | 'patisserie' | 'shopping';
-  storeName: string;
-  itemName: string;
-  price: number;
-}
+export const MultiCheckoutCart: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { items, promoCode } = useCartStore();
+  const [invoice, setInvoice] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-const mockCartItems: CartItem[] = [
-  { id: '1', category: 'restaurant', storeName: 'Chez Om Ali', itemName: 'Couscous au Mérou Signature', price: 28.5 },
-  { id: '2', category: 'fleure', storeName: 'Botanica Fleurs', itemName: 'Bouquet de Roses Blanches', price: 35.0 },
-  { id: '3', category: 'para', storeName: 'ParaPharma Privée', itemName: 'Sérum Éclat C-Vit', price: 42.0 },
-];
+  useEffect(() => {
+    const fetchOfficialInvoice = async () => {
+      if (items.length === 0 || !isOpen) return;
+      setIsLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('calculate-order-total', {
+        body: { items, promoCode, userLocation: null, merchantId: items[0]?.merchantId }
+      });
 
-export const MultiCheckoutCart: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
-  isOpen,
-  onClose,
-}) => {
-  const [items] = useState<CartItem[]>(mockCartItems);
+      if (!error && data) {
+        setInvoice(data);
+      }
+      setIsLoading(false);
+    };
 
-  if (!isOpen) return null;
+    fetchOfficialInvoice();
+  }, [items, promoCode, isOpen]);
 
-  const subtotal = items.reduce((acc, item) => acc + item.price, 0);
-  const totalDeliveryFee = 4.5; // Frais de livraison groupés
-  const grandTotal = subtotal + totalDeliveryFee;
+  const handleCheckout = async () => {
+    try { await Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
+    // Proceed with secure server-side order insertion
+  };
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-950/40 backdrop-blur-sm flex justify-end font-['Plus_Jakarta_Sans']">
-      <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-        <div>
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-gray-950" />
-              <h2 className="text-base font-extrabold text-gray-950">
-                Commande Multi-Secteurs
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-xs font-bold text-gray-400 hover:text-gray-900"
-            >
-              Fermer
-            </button>
-          </div>
-
-          {/* المسارات الموحدة المتعددة للشركاء */}
-          <div className="mt-4 space-y-4">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="p-3.5 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between"
-              >
-                <div>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">
-                    {item.category}
-                  </span>
-                  <h4 className="text-xs font-bold text-gray-900 mt-1">
-                    {item.itemName}
-                  </h4>
-                  <p className="text-[10px] text-gray-400">{item.storeName}</p>
-                </div>
-                <span className="text-xs font-black text-gray-950">
-                  {item.price.toFixed(2)} DT
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* الحساب والتأكيد القانوني الموحد */}
-        <div className="pt-4 border-t border-gray-100 space-y-3">
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-gray-500">
-              <span>Sous-total</span>
-              <span>{subtotal.toFixed(2)} DT</span>
-            </div>
-            <div className="flex justify-between text-gray-500">
-              <span>Frais de livraison groupés</span>
-              <span>{totalDeliveryFee.toFixed(2)} DT</span>
-            </div>
-            <div className="flex justify-between text-sm font-black text-gray-950 pt-2 border-t border-gray-100">
-              <span>Total à payer (TTC)</span>
-              <span>{grandTotal.toFixed(2)} DT</span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="w-full bg-gray-950 hover:bg-gray-800 text-white font-extrabold py-3.5 rounded-full flex items-center justify-center gap-2 text-xs shadow-lg transition-all active:scale-98"
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end font-sans">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1917]/40 backdrop-blur-sm" />
+          
+          <motion.div
+            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="w-full max-w-md bg-[var(--color-surface-ivory)] h-full shadow-2xl flex flex-col justify-between p-6 overflow-y-auto relative z-10"
           >
-            <span>Valider et Payer à la Livraison</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-[var(--color-border-subtle)]">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-[var(--color-accent-gold)]" />
+                  <h2 className="text-[16px] font-black text-[var(--color-ink-primary)] uppercase tracking-tight">Caisse Souveraine</h2>
+                </div>
+                <button onClick={onClose} className="text-xs font-black text-[var(--color-ink-muted)] hover:text-[var(--color-ink-primary)] transition-colors border-none bg-transparent outline-none">
+                  Fermer
+                </button>
+              </div>
 
-          {/* Micro-text Legal Footer */}
-          <p className="text-[9px] text-center text-gray-400 leading-tight">
-            En validant, vous acceptez nos CGU et اشتراطات الهيئة الوطنية لحماية المعطيات الشخصية INPDP.
-          </p>
+              {/* Items List (Simplified for UX) */}
+              <div className="mt-5 space-y-3.5">
+                <p className="text-[11px] font-bold text-[var(--color-ink-muted)]">{items.length} article(s) dans le panier</p>
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-[var(--color-border-subtle)] space-y-4">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-6 text-[var(--color-ink-muted)]">
+                  <Loader2 className="w-6 h-6 animate-spin mb-2 text-[var(--color-accent-gold)]" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest">Calcul sécurisé en cours...</span>
+                </div>
+              ) : invoice ? (
+                <InvoiceBreakdown 
+                  subtotal_ht={invoice.subtotal_ht} 
+                  tva_amount={invoice.tva_amount} 
+                  timbre_fiscal={invoice.timbre_fiscal} 
+                  grand_total={invoice.grand_total} 
+                />
+              ) : null}
+
+              <motion.button
+                whileTap={{ scale: 0.98 }} onClick={handleCheckout} disabled={isLoading || !invoice}
+                className="w-full bg-gradient-to-r from-[var(--color-ink-primary)] to-[#292524] text-[var(--color-surface-ivory)] font-black py-4 rounded-2xl flex items-center justify-center gap-2 text-[13px] uppercase tracking-widest shadow-[0_8px_20px_rgba(26,25,24,0.3)] transition-all border-none outline-none disabled:opacity-50"
+              >
+                <span>Confirmer et Payer</span>
+                <ArrowRight className="w-4 h-4 stroke-[3]" />
+              </motion.button>
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
 

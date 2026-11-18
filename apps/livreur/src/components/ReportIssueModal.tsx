@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DeliveryOrder } from '../types/order';
+import { Order as DeliveryOrder } from '@eagletn/types';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface Props {

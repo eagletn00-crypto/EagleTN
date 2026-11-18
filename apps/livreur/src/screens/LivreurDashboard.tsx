@@ -83,7 +83,7 @@ const useLivreurOrders = (driverId: string) => {
 // -----------------------------------------------------------------------------
 // MAIN DASHBOARD COMPONENT
 // -----------------------------------------------------------------------------
-const LivreurDashboard: React.FC = memo(() => {
+const LivreurDashboard: React.FC<{driverId?: string}> = memo(({ driverId }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const MOCK_DRIVER_ID = 'driver-uuid-0000-0000';
   

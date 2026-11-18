@@ -1,115 +1,107 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ChefHat, LayoutGrid, UtensilsCrossed, Settings, LogOut, Bell } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import KitchenKDS from './KitchenKDS';
-import StockageTab from '../components/tabs/StockageTab';
-import FinancesTab from '../components/tabs/FinancesTab';
-import ParametresTab from '../components/tabs/ParametresTab';
-import { usePartnerDashboardData } from '../hooks/usePartnerDashboardData';
 
-type ActiveTab = 'kitchen' | 'stock' | 'finances' | 'parametres';
+const PartnerDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'kds' | 'menu' | 'settings'>('kds');
+  const [partnerId, setPartnerId] = useState<string>('');
 
-export default function PartnerDashboard() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('kitchen');
-  
-  const { partner, isLoading, error } = usePartnerDashboardData();
+  useEffect(() => {
+    // جلب المعرف الفريد للمطعم من الجلسة النشطة
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setPartnerId(user.id);
+    });
+  }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#E9EBEF] flex items-center justify-center">
-        <div className="w-16 h-16 rounded-full border-4 border-[#E9EBEF] shadow-[inset_6px_6px_12px_#c8cad0,inset_-6px_-6px_12px_#ffffff] border-t-emerald-500 animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (error || !partner || !partner.id) {
-    return (
-      <div className="min-h-screen bg-[#E9EBEF] flex flex-col items-center justify-center p-6 text-center shadow-[inset_8px_8px_16px_#c8cad0,inset_-8px_-8px_16px_#ffffff]">
-        <svg className="w-12 h-12 text-rose-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-        <span className="text-stone-600 font-bold">Données du partenaire inaccessibles ou session expirée.</span>
-      </div>
-    );
-  }
-
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'kitchen':
-        return <KitchenKDS partnerId={partner.id} />;
-      case 'stock':
-        return <StockageTab />;
-      case 'finances':
-        return <FinancesTab />;
-      case 'parametres':
-        return <ParametresTab />;
-      default:
-        return <KitchenKDS partnerId={partner.id} />;
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
-    <div className="min-h-screen bg-[#E9EBEF] text-[#2D3142] relative">
-      <main className="pb-28">
-        {renderActiveTab()}
-      </main>
+    <div className="flex h-screen w-full bg-[#FAF8F5] overflow-hidden selection:bg-[#C1121F]/20">
+      
+      {/* 🦅 SOVEREIGN SIDEBAR (Designed for Tablets) */}
+      <aside className="w-[100px] md:w-[280px] bg-[#1C1917] h-full flex flex-col items-center md:items-start py-6 shadow-2xl z-20 transition-all duration-300">
+        <div className="flex items-center gap-3 px-0 md:px-6 mb-12 w-full justify-center md:justify-start">
+          <div className="w-12 h-12 bg-[#C1121F] rounded-xl flex items-center justify-center shadow-lg shrink-0">
+            <ChefHat className="w-6 h-6 text-white" strokeWidth={2.5} />
+          </div>
+          <div className="hidden md:flex flex-col">
+            <h1 className="text-white font-black text-xl tracking-tight leading-none">EAGLE</h1>
+            <span className="text-[#C1121F] text-[11px] font-bold uppercase tracking-widest mt-0.5">Partner Portal</span>
+          </div>
+        </div>
 
-      <div className="fixed bottom-0 left-0 w-full px-4 pb-4 pt-2 bg-[#E9EBEF]/80 backdrop-blur-xl border-t border-white/40 z-50 rounded-t-[2rem] shadow-[0px_-8px_16px_rgba(200,202,208,0.3)]">
-        <nav className="flex justify-between items-center max-w-md mx-auto h-16 px-2">
-          
-          <button
-            onClick={() => setActiveTab('kitchen')}
-            className={`flex flex-col items-center justify-center w-[72px] h-14 transition-all duration-300 ${
-              activeTab === 'kitchen'
-                ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] rounded-2xl'
-                : 'text-stone-400 hover:text-stone-600 active:scale-95 bg-transparent'
-            }`}
+        <nav className="flex flex-col w-full px-3 gap-2 flex-1">
+          <button 
+            onClick={() => setActiveTab('kds')}
+            className={`w-full h-14 md:h-12 rounded-xl flex items-center justify-center md:justify-start px-0 md:px-4 gap-3 transition-all outline-none ${activeTab === 'kds' ? 'bg-[#C1121F] text-white shadow-md' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
           >
-            <svg className={`w-6 h-6 transition-colors ${activeTab === 'kitchen' ? 'text-emerald-600' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === 'kitchen' ? 2.5 : 2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-            <span className={`text-[10px] mt-1 tracking-tight transition-colors ${activeTab === 'kitchen' ? 'font-black text-emerald-700' : 'font-bold'}`}>
-              Cuisine
-            </span>
+            <LayoutGrid className="w-6 h-6 md:w-5 md:h-5 shrink-0" strokeWidth={activeTab === 'kds' ? 3 : 2} />
+            <span className="hidden md:block text-[14px] font-black uppercase tracking-wide">Commandes (الطلبات)</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('stock')}
-            className={`flex flex-col items-center justify-center w-[72px] h-14 transition-all duration-300 ${
-              activeTab === 'stock'
-                ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] rounded-2xl'
-                : 'text-stone-400 hover:text-stone-600 active:scale-95 bg-transparent'
-            }`}
+          <button 
+            onClick={() => setActiveTab('menu')}
+            className={`w-full h-14 md:h-12 rounded-xl flex items-center justify-center md:justify-start px-0 md:px-4 gap-3 transition-all outline-none ${activeTab === 'menu' ? 'bg-[#C1121F] text-white shadow-md' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
           >
-            <svg className={`w-6 h-6 transition-colors ${activeTab === 'stock' ? 'text-stone-800' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === 'stock' ? 2.5 : 2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-            <span className={`text-[10px] mt-1 tracking-tight transition-colors ${activeTab === 'stock' ? 'font-black text-stone-800' : 'font-bold'}`}>
-              Stock
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('finances')}
-            className={`flex flex-col items-center justify-center w-[72px] h-14 transition-all duration-300 ${
-              activeTab === 'finances'
-                ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] rounded-2xl'
-                : 'text-stone-400 hover:text-stone-600 active:scale-95 bg-transparent'
-            }`}
-          >
-            <svg className={`w-6 h-6 transition-colors ${activeTab === 'finances' ? 'text-stone-800' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === 'finances' ? 2.5 : 2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span className={`text-[10px] mt-1 tracking-tight transition-colors ${activeTab === 'finances' ? 'font-black text-stone-800' : 'font-bold'}`}>
-              Finances
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('parametres')}
-            className={`flex flex-col items-center justify-center w-[72px] h-14 transition-all duration-300 ${
-              activeTab === 'parametres'
-                ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] rounded-2xl'
-                : 'text-stone-400 hover:text-stone-600 active:scale-95 bg-transparent'
-            }`}
-          >
-            <svg className={`w-6 h-6 transition-colors ${activeTab === 'parametres' ? 'text-stone-800' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === 'parametres' ? 2.5 : 2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === 'parametres' ? 2.5 : 2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            <span className={`text-[10px] mt-1 tracking-tight transition-colors ${activeTab === 'parametres' ? 'font-black text-stone-800' : 'font-bold'}`}>
-              Réglages
-            </span>
+            <UtensilsCrossed className="w-6 h-6 md:w-5 md:h-5 shrink-0" strokeWidth={activeTab === 'menu' ? 3 : 2} />
+            <span className="hidden md:block text-[14px] font-black uppercase tracking-wide">Menu (قائمة الطعام)</span>
           </button>
         </nav>
-      </div>
+
+        <div className="w-full px-3 mt-auto flex flex-col gap-2">
+          <button className="w-full h-14 md:h-12 rounded-xl flex items-center justify-center md:justify-start px-0 md:px-4 gap-3 text-gray-400 hover:bg-white/5 hover:text-white transition-all outline-none">
+            <Settings className="w-6 h-6 md:w-5 md:h-5 shrink-0" strokeWidth={2} />
+            <span className="hidden md:block text-[14px] font-bold">Paramètres</span>
+          </button>
+          
+          <button onClick={handleLogout} className="w-full h-14 md:h-12 rounded-xl flex items-center justify-center md:justify-start px-0 md:px-4 gap-3 text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-all outline-none border border-transparent hover:border-red-500/20">
+            <LogOut className="w-6 h-6 md:w-5 md:h-5 shrink-0" strokeWidth={2.5} />
+            <span className="hidden md:block text-[14px] font-black uppercase tracking-wider">Déconnexion</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* 🦅 MAIN CONTENT AREA */}
+      <main className="flex-1 h-full overflow-hidden flex flex-col relative bg-[#FAF8F5]">
+        {/* Topbar for mobile/tablet status */}
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-10">
+          <h2 className="text-[18px] font-black text-[#1C1917] tracking-tight">
+            {activeTab === 'kds' ? 'Tableau de Bord des Commandes' : 'Gestion du Menu'}
+          </h2>
+          <div className="flex items-center gap-4">
+            <button className="relative w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-[#1C1917] hover:bg-gray-100 outline-none">
+              <Bell className="w-5 h-5" strokeWidth={2} />
+              <span className="absolute top-0 right-0 w-3 h-3 bg-[#C1121F] border-2 border-white rounded-full animate-pulse"></span>
+            </button>
+            <div className="h-8 w-px bg-gray-200" />
+            <div className="flex flex-col items-end">
+              <span className="text-[13px] font-black text-[#1C1917] leading-none">Chez Am Ali</span>
+              <span className="text-[11px] font-bold text-emerald-600 mt-1 uppercase tracking-widest flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> En Ligne
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Dynamic Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full h-full relative">
+          {activeTab === 'kds' ? (
+            <KitchenKDS partnerId={partnerId} />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-center opacity-50">
+              <UtensilsCrossed className="w-16 h-16 text-gray-400 mb-4" strokeWidth={1} />
+              <h3 className="text-xl font-black text-[#1C1917]">Gestion du Menu</h3>
+              <p className="text-sm font-bold text-gray-500 mt-2">Module en cours de construction...</p>
+            </div>
+          )}
+        </div>
+      </main>
+
     </div>
   );
-}
+};
+
+export default PartnerDashboard;

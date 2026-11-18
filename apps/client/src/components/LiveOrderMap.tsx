@@ -3,126 +3,97 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// أيقونات Leaflet مخصصة واحترافية (🛵 و 🧑‍🍳) مع تصميم دقيق غير مسطح
-const partnerIcon = L.divIcon({
-  className: 'custom-leaflet-marker',
-  html: `
-    <div style="
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      width: 44px;
-      height: 44px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 12px 25px -5px rgba(245, 158, 11, 0.4);
-      border: 3px solid #ffffff;
-    ">
-      🧑‍🍳
-    </div>
-  `,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-});
-
-const clientIcon = L.divIcon({
-  className: 'custom-leaflet-marker',
-  html: `
-    <div style="
-      background: linear-gradient(135deg, #059669 0%, #047857 100%);
-      width: 44px;
-      height: 44px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 12px 25px -5px rgba(5, 150, 105, 0.4);
-      border: 3px solid #ffffff;
-    ">
-      🛵
-    </div>
-  `,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-});
+// -----------------------------------------------------------------------------
+// STRICT INTERFACES
+// -----------------------------------------------------------------------------
+interface Coordinate { lat: number; lng: number; }
 
 interface LiveOrderMapProps {
-  partnerLoc: { lat: number; lng: number };
-  clientLoc: { lat: number; lng: number };
+  partnerLoc: Coordinate;
+  clientLoc: Coordinate;
   status?: string;
 }
 
-// مكون ضبط حدود الخريطة أوتوماتيكياً
-const MapBoundsAdjuster: React.FC<{ partnerLoc: { lat: number; lng: number }; clientLoc: { lat: number; lng: number } }> = ({ partnerLoc, clientLoc }) => {
-  const map = useMap();
+// -----------------------------------------------------------------------------
+// CINEMATIC MARKER INJECTION (Sovereign 2026)
+// -----------------------------------------------------------------------------
+const createCinematicIcon = (emoji: string, isPrimary: boolean) => L.divIcon({
+  className: 'custom-leaflet-marker',
+  html: `
+    <div class="relative flex items-center justify-center w-11 h-11 rounded-2xl ${
+      isPrimary
+        ? 'bg-gradient-to-r from-[#8A652D] to-[#B8893D] border-[2px] border-white text-white shadow-[0_4px_12px_rgba(163,120,54,0.3)]'
+        : 'bg-white border-[2px] border-[#E7E5E4] text-[#1C1917] shadow-[var(--shadow-ambient)]'
+    } text-xl z-20 transition-transform hover:scale-105">
+      ${emoji}
+    </div>
+  `,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  popupAnchor: [0, -24],
+});
 
+const partnerIcon = createCinematicIcon('🧑‍🍳', false);
+const clientIcon = createCinematicIcon('🛵', true);
+
+// -----------------------------------------------------------------------------
+// AUTOMATIC BOUNDING ENGINE
+// -----------------------------------------------------------------------------
+const MapBoundsAdjuster: React.FC<{ partnerLoc: Coordinate; clientLoc: Coordinate }> = ({ partnerLoc, clientLoc }) => {
+  const map = useMap();
   useEffect(() => {
     if (partnerLoc.lat && clientLoc.lat) {
-      const bounds = L.latLngBounds(
-        [partnerLoc.lat, partnerLoc.lng],
-        [clientLoc.lat, clientLoc.lng]
-      );
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+      const bounds = L.latLngBounds([partnerLoc.lat, partnerLoc.lng], [clientLoc.lat, clientLoc.lng]);
+      map.fitBounds(bounds, { padding: [80, 80], maxZoom: 16, animate: true, duration: 1.5 });
     }
   }, [partnerLoc, clientLoc, map]);
-
   return null;
 };
 
+// -----------------------------------------------------------------------------
+// CORE MAP COMPONENT
+// -----------------------------------------------------------------------------
 export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ partnerLoc, clientLoc }) => {
   const centerLat = (partnerLoc.lat + clientLoc.lat) / 2 || 36.8188;
   const centerLng = (partnerLoc.lng + clientLoc.lng) / 2 || 10.1658;
 
   return (
-    <div className="relative w-full h-full">
-      {/* تنسيقات نظيفة لإلغاء أي علامات مائية أو حدود افتراضية مزعجة */}
+    <div className="relative w-full h-full isolate">
       <style>{`
-        .leaflet-control-attribution {
-          display: none !important;
-        }
-        .custom-leaflet-marker {
-          background: transparent !important;
-          border: none !important;
-        }
+        .leaflet-control-attribution { display: none !important; }
+        .custom-leaflet-marker { background: transparent !important; border: none !important; }
+        .leaflet-container { background: #FAF9F6 !important; font-family: inherit; }
       `}</style>
 
       <MapContainer
         center={[centerLat, centerLng]}
         zoom={14}
         scrollWheelZoom={false}
-        className="w-full h-full z-0"
         zoomControl={false}
+        className="w-full h-full z-0"
       >
-        {/* استخدام بلاطات OpenStreetMap الرسمية المستقرة والمجانية تماماً لتجنب مشاكل CARTO API Key */}
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           maxZoom={19}
         />
-
         <Marker position={[partnerLoc.lat, partnerLoc.lng]} icon={partnerIcon}>
-          <Popup>Partenaire Cuisine - Tunis (🧑‍🍳)</Popup>
+          <Popup className="font-sans font-black text-[#1C1917]">Établissement</Popup>
         </Marker>
-
         <Marker position={[clientLoc.lat, clientLoc.lng]} icon={clientIcon}>
-          <Popup>Destination Livraison (🛵)</Popup>
+          <Popup className="font-sans font-black text-[#8A652D]">Destination</Popup>
         </Marker>
 
         <Polyline
-          positions={[
-            [partnerLoc.lat, partnerLoc.lng],
-            [clientLoc.lat, clientLoc.lng],
-          ]}
+          positions={[[partnerLoc.lat, partnerLoc.lng], [clientLoc.lat, clientLoc.lng]]}
           pathOptions={{
-            color: '#059669',
-            weight: 5,
-            dashArray: '8, 8',
-            opacity: 0.85,
+            color: '#8A652D',
+            weight: 4,
+            dashArray: '8, 12',
+            opacity: 0.8,
             lineCap: 'round',
+            lineJoin: 'round'
           }}
         />
-
         <MapBoundsAdjuster partnerLoc={partnerLoc} clientLoc={clientLoc} />
       </MapContainer>
     </div>

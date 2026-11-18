@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Partner } from '../types/partner';
-import { Order } from '../types/order';
+import { Order } from '@eagletn/types';
 import { MenuItem } from '../types';
 
 export type ScreenType = 'SPLASH' | 'HOME' | 'RESTAURANT_MENU' | 'CHECKOUT' | 'ORDER_TRACKING' | 'PROFILE';

@@ -2,26 +2,27 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-
-    /* Linting */
     "strict": true,
+    "allowJs": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@eagletn/types": ["../../packages/types/src/index.ts"],
+      "@eagle/ui": ["../../packages/ui/src/index.ts"],
+      "@eagle/database": ["../../packages/database/src/index.ts"]
+    }
   },
-  "include": ["src"],
+  "include": ["src", "../../packages/*/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

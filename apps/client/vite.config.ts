@@ -1,29 +1,28 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   build: {
-    // رفع حد التحذير إلى 1000kB (1MB)
-    chunkSizeWarningLimit: 1000,
+    target: 'esnext',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        // تقسيم المكتبات الكبيرة تلقائياً لتسريع التحميل
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            return 'vendor';
-          }
-        },
-      },
+        manualChunks: {
+          // Simplified to prevent React circular dependency crashes
+          'vendor-ui': ['lucide-react', 'framer-motion'],
+          'vendor-data': ['@supabase/supabase-js', 'zustand'],
+          'vendor-cap': ['@capacitor/core', '@capacitor/haptics', '@capacitor/geolocation']
+        }
+      }
     },
-  },
+    chunkSizeWarningLimit: 500,
+  }
 });

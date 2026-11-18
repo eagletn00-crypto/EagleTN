@@ -23,7 +23,7 @@ export const OrderStreamProvider: React.FC<{ readonly children: ReactNode; reado
   useEffect(() => {
     // Localized stream fallback implementation
     const channel = supabase.channel('local_orders_stream')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: Record<string, unknown>) => {
         console.log('Realtime Order Event:', payload);
       })
       .subscribe();

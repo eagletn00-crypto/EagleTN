@@ -1,118 +1,204 @@
-import React, { useState } from 'react';
-import KitchenOrderCard, { Order } from '../components/kitchen/KitchenOrderCard';
-import { usePartnerOrders } from '../hooks/usePartnerOrders';
+import React, { useEffect, useState, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { Clock, CheckCircle2, ChefHat, AlertCircle, Play, Check } from 'lucide-react';
+import { Order } from '@eagletn/types';
 
-interface KitchenKDSProps {
+export interface KitchenKDSProps {
   partnerId: string;
 }
 
-export default function KitchenKDS({ partnerId }: KitchenKDSProps) {
-  const { orders = [], updateOrderStatus, isLoading, error } = usePartnerOrders(partnerId);
-  const [activeTab, setActiveTab] = useState<'live' | 'encours' | 'journal'>('live');
+// واجهة مساعدة لتسهيل التعامل مع البيانات في واجهة المستخدم
+interface OrderUI extends Order {
+  parsedItems?: any[];
+}
 
-  if (isLoading) {
+const KitchenKDS: React.FC<KitchenKDSProps> = ({ partnerId }) => {
+  const [orders, setOrders] = useState<OrderUI[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // نظام التنبيه الصوتي (Web Audio API) لتفادي مشاكل الملفات المفقودة
+  const playAlertSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, ctx.currentTime); // Beep
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {
+      console.log('Audio alert not supported or blocked');
+    }
+  }, []);
+
+  const fetchOrders = async () => {
+    if (!partnerId) return;
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('partner_id', partnerId)
+      .in('status', ['pending', 'preparing'])
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      // معالجة البيانات بأمان
+      const formattedOrders = (data as any[]).map((order: any) => ({
+        ...order,
+        parsedItems: typeof order.items === 'string' ? JSON.parse(order.items) : order.items
+      })) as OrderUI[];
+      setOrders(formattedOrders);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchOrders();
+
+    // الاستماع الفوري للطلبات الجديدة (Supabase Realtime)
+    const channel = supabase
+      .channel('kitchen_orders')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'orders',
+        filter: `partner_id=eq.${partnerId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          playAlertSound(); // إطلاق الإنذار الصوتي للطلب الجديد
+        }
+        fetchOrders();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [partnerId, playAlertSound]);
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    // التحديث الفوري في الواجهة (Optimistic UI Update) لسرعة استجابة المطبخ
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    
+    // التحديث في قاعدة البيانات
+    await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+    
+    if (newStatus === 'ready') {
+      // إخفاء الطلب من لوحة المطبخ بمجرد أن يصبح جاهزاً للمندوب
+      setTimeout(() => {
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+      }, 1000);
+    }
+  };
+
+  if (!partnerId) {
     return (
-      <div className="min-h-screen bg-[#E9EBEF] flex items-center justify-center">
-        <div className="w-16 h-16 rounded-full border-4 border-[#E9EBEF] shadow-[inset_6px_6px_12px_#c8cad0,inset_-6px_-6px_12px_#ffffff] border-t-amber-500 animate-spin"></div>
+      <div className="flex h-full items-center justify-center text-gray-500 font-bold">
+        En attente de connexion...
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#E9EBEF] flex items-center justify-center p-6">
-        <div className="p-8 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_8px_8px_16px_#c8cad0,inset_-8px_-8px_16px_#ffffff] text-center max-w-md mx-auto">
-          <svg className="w-12 h-12 text-rose-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          <h2 className="text-lg font-black text-stone-800 mb-2">Erreur de Synchronisation</h2>
-          <p className="text-sm text-stone-500 font-medium">Connexion au flux des commandes interrompue.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const safeOrders = Array.isArray(orders) ? orders : [];
-  const liveOrders = safeOrders.filter((o): o is Order => o?.status === 'pending');
-  const enCoursOrders = safeOrders.filter((o): o is Order => ['accepted', 'in_preparation', 'ready_for_pickup'].includes(o?.status));
-  const journalOrders = safeOrders.filter((o): o is Order => ['delivered', 'cancelled'].includes(o?.status));
-
-  const displayOrders = activeTab === 'live' ? liveOrders : activeTab === 'encours' ? enCoursOrders : journalOrders;
+  // تصنيف الطلبات
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const preparingOrders = orders.filter(o => o.status === 'preparing');
 
   return (
-    <div className="w-full min-h-screen bg-[#E9EBEF] p-4 md:p-6 pb-28 font-sans antialiased selection:bg-amber-500/20">
+    <div className="h-full flex flex-col md:flex-row gap-4 overflow-hidden">
       
-      {/* HEADER BRANDING ULTRA PREMIUM */}
-      <header className="flex items-center justify-between mb-8 px-1 pt-2 max-w-md mx-auto">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-center border border-white/50 relative overflow-hidden">
-            <span className="text-2xl drop-shadow-md z-10">🦅</span>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent z-0"></div>
+      {/* 🔴 العمود الأول: طلبات جديدة (Nouvelles) */}
+      <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-[#C1121F] p-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-6 h-6 text-white animate-pulse" />
+            <h2 className="text-xl font-black text-white uppercase tracking-wider">جديد</h2>
+            <span className="text-white/80 text-xs font-bold uppercase ml-2">(Nouveau)</span>
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-black text-stone-800 tracking-tighter uppercase leading-none">EAGLE TN</h1>
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] mt-1">Espace Partenaire</p>
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-black">
+            {pendingOrders.length}
           </div>
         </div>
         
-        <div className="flex flex-col items-end">
-          <div className="w-12 h-12 rounded-2xl bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] flex items-center justify-center font-black text-xl text-stone-800 border border-white/40">
-            {liveOrders.length + enCoursOrders.length}
-          </div>
-          <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest mt-1.5 mr-1">Actives</span>
-        </div>
-      </header>
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50">
+          {pendingOrders.length === 0 && (
+            <div className="m-auto text-gray-400 font-bold">لا توجد طلبات جديدة</div>
+          )}
+          {pendingOrders.map(order => (
+            <div key={order.id} className="bg-white rounded-xl p-4 shadow-md border-l-4 border-[#C1121F]">
+              <div className="flex justify-between items-start mb-3">
+                <span className="font-black text-lg text-[#1C1917]">#{order.id.slice(0, 5).toUpperCase()}</span>
+                <span className="text-xs font-bold text-gray-400">منذ دقيقة</span>
+              </div>
+              
+              <div className="space-y-2 mb-4">
+                {order.parsedItems?.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center text-sm font-bold text-[#1C1917]">
+                    <span>{item.quantity}x {item.nameAr || item.name}</span>
+                  </div>
+                ))}
+              </div>
 
-      {/* Tabs Neumorphism */}
-      <div className="flex bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] rounded-2xl p-1.5 mb-8 max-w-md mx-auto border border-white/20">
-        <button 
-          onClick={() => setActiveTab('live')}
-          className={`flex-1 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 flex items-center justify-center gap-2 ${
-            activeTab === 'live' ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] text-rose-600' : 'text-stone-500'
-          }`}
-        >
-          {liveOrders.length > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]" />}
-          Live ({liveOrders.length})
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('encours')}
-          className={`flex-1 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 ${
-            activeTab === 'encours' ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] text-amber-600' : 'text-stone-500'
-          }`}
-        >
-          En Cours ({enCoursOrders.length})
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('journal')}
-          className={`flex-1 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 ${
-            activeTab === 'journal' ? 'bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] text-stone-800' : 'text-stone-500'
-          }`}
-        >
-          Journal
-        </button>
-      </div>
-
-      {/* Rendu dynamique des commandes */}
-      <div className="flex flex-col gap-6 max-w-md mx-auto">
-        {displayOrders.length === 0 ? (
-          <div className="w-full h-48 rounded-[2rem] bg-[#E9EBEF] shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex flex-col items-center justify-center border border-white/30">
-            <div className="w-16 h-16 rounded-full bg-[#E9EBEF] shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+              <button 
+                onClick={() => updateOrderStatus(order.id, 'preparing')}
+                className="w-full h-14 bg-[#1C1917] hover:bg-black text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+              >
+                <Play className="w-5 h-5 fill-current" />
+                أبدا التحضير
+              </button>
             </div>
-            <span className="text-[11px] font-black text-stone-400 uppercase tracking-widest">Aucune commande</span>
-            <span className="text-[10px] font-bold text-stone-400 mt-1">La cuisine est calme pour le moment</span>
-          </div>
-        ) : (
-          displayOrders.map((order) => (
-            <KitchenOrderCard 
-              key={order.id} 
-              order={order} 
-              onUpdateStatus={updateOrderStatus} 
-            />
-          ))
-        )}
+          ))}
+        </div>
       </div>
-      
+
+      {/* 🟠 العمود الثاني: قيد التحضير (En Préparation) */}
+      <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-amber-500 p-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <ChefHat className="w-6 h-6 text-white" />
+            <h2 className="text-xl font-black text-white uppercase tracking-wider">جاري التحضير</h2>
+            <span className="text-white/80 text-xs font-bold uppercase ml-2">(En cours)</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-black">
+            {preparingOrders.length}
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50">
+          {preparingOrders.length === 0 && (
+            <div className="m-auto text-gray-400 font-bold">لا يوجد طلبات قيد التحضير</div>
+          )}
+          {preparingOrders.map(order => (
+            <div key={order.id} className="bg-white rounded-xl p-4 shadow-md border-l-4 border-amber-500">
+              <div className="flex justify-between items-start mb-3">
+                <span className="font-black text-lg text-[#1C1917]">#{order.id.slice(0, 5).toUpperCase()}</span>
+                <Clock className="w-5 h-5 text-amber-500 animate-spin-slow" />
+              </div>
+              
+              <div className="space-y-2 mb-4">
+                {order.parsedItems?.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center text-sm font-bold text-[#1C1917]">
+                    <span>{item.quantity}x {item.nameAr || item.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => updateOrderStatus(order.id, 'ready')}
+                className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+              >
+                <Check className="w-6 h-6" strokeWidth={3} />
+                الطلب جاهز
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
-}
+};
+
+export default KitchenKDS;

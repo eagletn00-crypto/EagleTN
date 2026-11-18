@@ -232,10 +232,10 @@ export const JoinUsModal: React.FC<JoinUsModalProps> = ({
                     onChange={(e) => validateTunisianPhone(e.target.value)}
                     placeholder="20 123 456"
                     className={`w-full p-3 bg-slate-50/80 border rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none transition-all ${
-                      phoneError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-slate-900'
+                      phoneError ? 'border-[#D97757] focus:border-[#9A3412]' : 'border-slate-200 focus:border-slate-900'
                     }`}
                   />
-                  {phoneError && <p className="text-[10px] text-red-500 font-medium mt-1">{phoneError}</p>}
+                  {phoneError && <p className="text-[10px] text-[#9A3412] font-medium mt-1">{phoneError}</p>}
                 </div>
               </div>
 

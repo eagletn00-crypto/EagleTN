@@ -1,5 +1,5 @@
 import React from 'react';
-import { Banknote } from 'lucide-react';
+import { Banknote, FileCheck } from 'lucide-react';
 
 export interface InvoiceBreakdownProps {
   subtotal_ht: number;
@@ -10,53 +10,51 @@ export interface InvoiceBreakdownProps {
 }
 
 export const InvoiceBreakdown: React.FC<InvoiceBreakdownProps> = ({
-  subtotal_ht,
-  tva_amount,
-  timbre_fiscal,
-  grand_total,
-  change_needed_for,
+  subtotal_ht, tva_amount, timbre_fiscal, grand_total, change_needed_for,
 }) => {
-  // Formatage officiel Tunisien (3 décimales)
   const formatTND = (amount: number): string => `${Number(amount).toFixed(3)} TND`;
 
   return (
-    <div className="w-full bg-white border border-neutral-100 rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-      <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-4">
-        Détails de facturation
-      </h4>
+    <div className="w-full bg-white border border-[#C59648]/20 rounded-3xl p-6 shadow-[var(--shadow-ambient)] font-sans">
+      <div className="flex items-center gap-2 mb-5 pb-4 border-b border-[#E7E5E4]">
+        <FileCheck className="w-4 h-4 text-[#8A652D]" />
+        <h4 className="text-[11px] font-black text-[#1C1917] uppercase tracking-widest">
+          Détails de facturation
+        </h4>
+      </div>
       
-      <div className="space-y-2.5 mb-4">
+      <div className="space-y-3 mb-5 text-[13px]">
         <div className="flex justify-between items-center">
-          <span className="text-sm font-light text-neutral-500">Base Hors Taxe</span>
-          <span className="text-sm font-medium text-neutral-900">{formatTND(subtotal_ht)}</span>
+          <span className="font-bold text-[#78716C]">Base Hors Taxe</span>
+          <span className="font-black text-[#1C1917]">{formatTND(subtotal_ht)}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm font-light text-neutral-500">TVA applicable</span>
-          <span className="text-sm font-medium text-neutral-900">{formatTND(tva_amount)}</span>
+          <span className="font-bold text-[#78716C]">TVA applicable</span>
+          <span className="font-black text-[#1C1917]">{formatTND(tva_amount)}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm font-light text-neutral-500">Droit de Timbre</span>
-          <span className="text-sm font-medium text-neutral-900">{formatTND(timbre_fiscal)}</span>
+          <span className="font-bold text-[#78716C]">Droit de Timbre</span>
+          <span className="font-black text-[#1C1917]">{formatTND(timbre_fiscal)}</span>
         </div>
       </div>
 
-      <div className="pt-3 border-t border-neutral-100 flex justify-between items-center mb-1">
-        <span className="text-base font-bold text-neutral-900">Montant Total TTC</span>
-        <span className="text-lg font-black text-neutral-900 tracking-tight">{formatTND(grand_total)}</span>
+      <div className="pt-4 border-t border-[#E7E5E4] flex justify-between items-center mb-2">
+        <span className="text-[14px] font-black uppercase tracking-wider text-[#1C1917]">Total TTC</span>
+        <span className="text-[20px] font-black text-[#8A652D] tracking-tight">{formatTND(grand_total)}</span>
       </div>
 
       {change_needed_for != null && change_needed_for > grand_total && (
-        <div className="mt-4 bg-neutral-50 border border-neutral-100/80 rounded-xl p-3.5 flex items-start gap-3">
-          <div className="bg-white p-1.5 rounded-lg border border-neutral-200/60 shadow-sm mt-0.5">
-            <Banknote className="w-4 h-4 text-neutral-700 shrink-0" />
+        <div className="mt-5 bg-[#FAF9F6] border border-[#C59648]/20 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+          <div className="bg-white p-2 rounded-xl border border-[#C59648]/10 shadow-sm shrink-0">
+            <Banknote className="w-5 h-5 text-[#8A652D]" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-neutral-900 tracking-tight mb-1">
-              Paiement en Espèces (Cash)
+          <div className="flex flex-col gap-1">
+            <span className="text-[12px] font-black text-[#1C1917] uppercase tracking-tight">
+              Paiement en Espèces
             </span>
-            <span className="text-[11px] font-medium text-neutral-500 leading-relaxed">
-              Le client a préparé <strong className="text-neutral-700">{formatTND(change_needed_for)}</strong>. 
-              Reste à rendre au client : <strong className="text-neutral-900 bg-white px-1.5 py-0.5 rounded border border-neutral-200 ml-1 shadow-sm">{formatTND(change_needed_for - grand_total)}</strong>
+            <span className="text-[11px] font-bold text-[#78716C] leading-relaxed">
+              Préparé par le client : <strong className="text-[#1C1917]">{formatTND(change_needed_for)}</strong>.
+              <br/>Reste à rendre : <strong className="text-white bg-gradient-to-r from-[#1C1917] to-[#292524] px-2 py-0.5 rounded-lg ml-1 shadow-sm">{formatTND(change_needed_for - grand_total)}</strong>
             </span>
           </div>
         </div>

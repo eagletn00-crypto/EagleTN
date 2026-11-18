@@ -1,5 +1,8 @@
 import React, { memo, useState, useEffect } from 'react';
-import { ArrowLeft, Loader2, LogOut, Package, ShieldCheck, MapPin, Phone } from 'lucide-react';
+import { Session, AuthChangeEvent } from "@supabase/supabase-js";
+import { ArrowLeft, Loader2, LogOut, Package, ShieldCheck, MapPin, Phone, User, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '../lib/supabase';
 
 export interface ProfileScreenProps {
@@ -9,7 +12,7 @@ export interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onBack, onNavigateOrders }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null); // Type strictly in a real environment
   const [isLoadingSession, setIsLoadingSession] = useState(true);
 
   const syncCustomerProfile = async (authUser: any) => {
@@ -41,21 +44,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onBack, onNav
 
   useEffect(() => {
     let isMounted = true;
+    window.scrollTo(0, 0);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && isMounted) {
-        syncCustomerProfile(session.user);
-      } else if (isMounted) {
-        setIsLoadingSession(false);
-      }
+    supabase.auth.getSession().then(({ data: { session } }: any) => {
+      if (session?.user && isMounted) syncCustomerProfile(session.user);
+      else if (isMounted) setIsLoadingSession(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user && isMounted) {
-        syncCustomerProfile(session.user);
-      } else if (isMounted) {
-        setUser(null);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      if (session?.user && isMounted) syncCustomerProfile(session.user);
+      else if (isMounted) setUser(null);
     });
 
     return () => {
@@ -64,153 +62,173 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onBack, onNav
     };
   }, []);
 
+  const triggerHaptic = async (style = ImpactStyle.Light) => {
+    try { await Haptics.impact({ style }); } catch(e) {}
+  };
+
   const handleFacebookLogin = async () => {
     try {
+      await triggerHaptic();
       setIsLoggingIn(true);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
-        options: {
-          redirectTo: window.location.origin,
-          skipBrowserRedirect: false
-        },
+        options: { redirectTo: window.location.origin, skipBrowserRedirect: false },
       });
       if (error) throw error;
     } catch (err) {
-      console.error("[EAGLE TN Engine] Facebook Auth Error:", err);
+      console.error("Auth Error:", err);
       setIsLoggingIn(false);
     }
   };
 
   const handleLogout = async () => {
     try {
+      await triggerHaptic(ImpactStyle.Heavy);
       setIsLoadingSession(true);
       await supabase.auth.signOut();
     } catch (error) {
-      console.error("[EAGLE TN Engine] Logout Error:", error);
+      console.error("Logout Error:", error);
     } finally {
       setIsLoadingSession(false);
     }
   };
 
-  // ألوان النيومورفيزم المركزية لسهولة التعديل
-  const bgNeumorphic = "bg-[#EAEFF5]";
-  const shadowOut = "shadow-[6px_6px_14px_#D0D8E6,-6px_-6px_14px_#FFFFFF]";
-  const shadowIn = "shadow-[inset_4px_4px_8px_#D0D8E6,inset_-4px_-4px_8px_#FFFFFF]";
-  const shadowActive = "active:shadow-[inset_4px_4px_8px_#D0D8E6,inset_-4px_-4px_8px_#FFFFFF]";
-
   return (
-    <div className={`min-h-[100dvh] ${bgNeumorphic} font-sans text-slate-800 pb-32 selection:bg-emerald-500/20 antialiased overflow-x-hidden`}>
+    <div className="min-h-[100dvh] bg-[#FAF8F5] font-sans text-[#1C1917] pb-[120px] selection:bg-[#C1121F]/20">
       
-      {/* HEADER NEUMORPHIC */}
-      <header className="pt-10 pb-4 px-5 flex items-center justify-between sticky top-0 z-20">
-        <button
-          onClick={onBack}
-          aria-label="Retour"
-          className={`w-11 h-11 flex items-center justify-center rounded-2xl ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200`}
+      {/* SOVEREIGN HEADER */}
+      <header className="sticky top-0 z-40 bg-[#FAF8F5]/90 backdrop-blur-xl border-b border-gray-200/50 px-4 h-16 flex items-center justify-between">
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={async () => { await triggerHaptic(); onBack && onBack(); }}
+          className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center outline-none"
         >
-          <ArrowLeft className="w-5 h-5 text-slate-600 stroke-[2.5]" />
-        </button>
-        <h1 className="text-xs font-black text-slate-800 tracking-widest uppercase flex-1 text-center pr-11">
-          Espace VIP
+          <ArrowLeft className="w-5 h-5 text-[#1C1917]" strokeWidth={2.5} />
+        </motion.button>
+        <h1 className="text-[16px] font-black text-[#1C1917] uppercase tracking-widest">
+          Mon Compte <span className="text-[12px] text-[#C1121F] ml-1">(حسابي)</span>
         </h1>
+        <div className="w-10" />
       </header>
 
-      <main className="px-5 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {isLoadingSession ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <div className={`w-16 h-16 rounded-full ${bgNeumorphic} ${shadowIn} flex items-center justify-center`}>
-              <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-            </div>
-          </div>
-        ) : user ? (
-          /* ========================================= */
-          /* LOGGED IN VIEW                            */
-          /* ========================================= */
-          <div className="space-y-6">
-            <div className={`rounded-[2rem] p-8 flex flex-col items-center text-center ${bgNeumorphic} ${shadowOut}`}>
+      <main className="px-4 mt-6">
+        <AnimatePresence mode="wait">
+          {isLoadingSession ? (
+            <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-32 space-y-4">
+              <div className="w-12 h-12 border-[3px] border-gray-200 border-t-[#C1121F] rounded-full animate-spin mb-4" />
+            </motion.div>
+          ) : user ? (
+            /* ========================================= */
+            /* VIP LOGGED IN VIEW                        */
+            /* ========================================= */
+            <motion.div key="profile" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
               
-              <div className={`w-24 h-24 rounded-full p-2 mb-6 ${bgNeumorphic} ${shadowIn} relative`}>
-                {user.user_metadata?.avatar_url ? (
-                  <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full rounded-full object-cover shadow-sm" />
-                ) : (
-                  <div className="w-full h-full rounded-full flex items-center justify-center">
-                    <span className="text-3xl font-black text-emerald-600">{user.email?.charAt(0).toUpperCase()}</span>
+              {/* Profile Card */}
+              <div className="bg-white p-6 rounded-[24px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100 flex flex-col items-center text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-24 bg-gray-50" />
+                
+                <div className="relative w-24 h-24 rounded-full bg-white p-1 shadow-md border border-gray-100 mb-4 z-10">
+                  {user.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                      <User className="w-10 h-10 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 right-0 bg-[#C1121F] w-7 h-7 rounded-full flex items-center justify-center shadow-sm border-2 border-white">
+                    <ShieldCheck className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
                   </div>
-                )}
-                <div className={`absolute -bottom-1 -right-1 rounded-full p-2 ${bgNeumorphic} ${shadowOut}`}>
-                  <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                </div>
+
+                <h2 className="text-[20px] font-black text-[#1C1917] leading-tight">
+                  {user.user_metadata?.full_name || 'Client VIP'}
+                </h2>
+                <p className="text-[13px] font-bold text-gray-400 mt-1 truncate w-full px-4">
+                  {user.email}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={async () => { await triggerHaptic(); onNavigateOrders && onNavigateOrders(); }}
+                  className="w-full bg-white p-4 rounded-[20px] shadow-sm border border-gray-100 flex items-center justify-between outline-none"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-[#C1121F]">
+                      <Package className="w-5 h-5" strokeWidth={2.5} />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="text-[14px] font-black text-[#1C1917] uppercase tracking-wide">Mes Commandes</span>
+                      <span className="text-[11px] font-bold text-gray-400">سجل الطلبات والتتبع</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </motion.button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <motion.button whileTap={{ scale: 0.95 }} className="bg-white p-4 rounded-[20px] shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 outline-none">
+                    <MapPin className="w-6 h-6 text-[#1C1917]" strokeWidth={2} />
+                    <span className="text-[12px] font-black uppercase text-[#1C1917]">Adresses</span>
+                  </motion.button>
+                  
+                  <motion.button whileTap={{ scale: 0.95 }} className="bg-white p-4 rounded-[20px] shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 outline-none">
+                    <Phone className="w-6 h-6 text-[#1C1917]" strokeWidth={2} />
+                    <span className="text-[12px] font-black uppercase text-[#1C1917]">Contact</span>
+                  </motion.button>
                 </div>
               </div>
 
-              <h2 className="text-xl font-black text-slate-800 mb-1 tracking-tight">
-                {user.user_metadata?.full_name || 'Client VIP'}
+              {/* Logout Button */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleLogout}
+                className="w-full mt-6 bg-gray-50 text-[#1C1917] font-black rounded-[20px] py-4 flex items-center justify-center gap-2 outline-none hover:bg-gray-100 transition-colors border border-gray-200"
+              >
+                <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                <span className="text-[13px] uppercase tracking-wider">Se déconnecter (تسجيل خروج)</span>
+              </motion.button>
+            </motion.div>
+          ) : (
+            /* ========================================= */
+            /* LOGGED OUT VIEW                           */
+            /* ========================================= */
+            <motion.div key="login" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mt-10">
+              
+              <div className="w-24 h-24 bg-white rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100 flex items-center justify-center mb-6 relative">
+                <ShieldCheck className="w-10 h-10 text-[#C1121F]" strokeWidth={2} />
+                <div className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
+              </div>
+
+              <h2 className="text-[26px] font-black text-[#1C1917] mb-3 tracking-tight leading-none text-center">
+                Bienvenue sur <br/><span className="text-[#C1121F]">EAGLE TN</span>
               </h2>
-              <p className="text-xs font-bold text-slate-400 mb-8 truncate w-full px-4">
-                {user.email}
+              <p className="text-[13px] font-bold text-gray-500 leading-relaxed text-center px-6 mb-10">
+                Connectez-vous pour suivre vos commandes en temps réel et profiter de l'excellence logistique.
+                <br/><span className="font-arabic mt-1 block">سجل دخولك لتتبع طلباتك لحظة بلحظة.</span>
               </p>
 
-              <div className="w-full grid grid-cols-2 gap-4 mb-8">
-                <div className={`rounded-2xl p-4 flex flex-col items-center justify-center ${bgNeumorphic} ${shadowOut} ${shadowActive} cursor-pointer transition-all`}>
-                  <MapPin className="w-5 h-5 text-emerald-500 mb-2" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Adresses</span>
-                </div>
-                <div className={`rounded-2xl p-4 flex flex-col items-center justify-center ${bgNeumorphic} ${shadowOut} ${shadowActive} cursor-pointer transition-all`}>
-                  <Phone className="w-5 h-5 text-emerald-500 mb-2" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contact</span>
-                </div>
-              </div>
-
-              <button
-                onClick={onNavigateOrders}
-                className={`w-full flex items-center justify-center gap-3 text-emerald-600 font-black rounded-2xl py-4 ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200`}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleFacebookLogin}
+                disabled={isLoggingIn}
+                className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white font-black rounded-full py-4 shadow-[0_8px_24px_rgba(24,119,242,0.3)] transition-all outline-none disabled:opacity-70 disabled:grayscale-[50%]"
               >
-                <Package className="w-5 h-5" />
-                <span className="tracking-widest text-xs uppercase">Mes Commandes</span>
-              </button>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className={`w-full flex items-center justify-center gap-3 text-rose-500 font-bold rounded-2xl py-4 ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200`}
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="tracking-widest text-xs uppercase">Se Déconnecter</span>
-            </button>
-          </div>
-        ) : (
-          /* ========================================= */
-          /* LOGGED OUT VIEW                           */
-          /* ========================================= */
-          <div className={`rounded-[2rem] p-8 flex flex-col items-center text-center ${bgNeumorphic} ${shadowOut}`}>
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-8 ${bgNeumorphic} ${shadowIn}`}>
-              <ShieldCheck className="w-10 h-10 text-slate-400" />
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">
-              EAGLE TN
-            </h2>
-            <p className="text-xs font-bold text-slate-400 leading-relaxed px-2 mb-10">
-              Sécurisez votre compte pour suivre vos commandes en temps réel et gérer vos adresses.
-            </p>
-
-            <button
-              onClick={handleFacebookLogin}
-              disabled={isLoggingIn}
-              className={`w-full flex items-center justify-center gap-3 text-[#1877F2] font-black rounded-2xl py-4 ${bgNeumorphic} ${shadowOut} ${shadowActive} transition-all duration-200 disabled:opacity-50`}
-            >
-              {isLoggingIn ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              )}
-              <span className="tracking-wide text-sm">
-                {isLoggingIn ? 'Connexion...' : 'Continuer avec Facebook'}
-              </span>
-            </button>
-          </div>
-        )}
+                {isLoggingIn ? (
+                  <div className="w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                )}
+                <span className="tracking-wide text-[14px] uppercase mt-0.5">
+                  {isLoggingIn ? 'Connexion...' : 'Continuer avec Facebook'}
+                </span>
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

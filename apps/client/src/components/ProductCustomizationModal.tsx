@@ -1,311 +1,227 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
-import {
-  X,
-  Plus,
-  Minus,
-  ShieldCheck,
-  Check,
-  ChefHat,
-  Sparkles,
-  ShoppingBag,
-  Wine,
-  MessageSquarePlus,
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Check, Plus, Minus } from 'lucide-react';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { createPortal } from 'react-dom';
+import SmartImage from './SmartImage';
 
-export interface ProductCustomizationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    image_url?: string;
-  };
-  onConfirm: (customData: {
-    type: 'Plat' | 'Sandwich';
-    beverage: string;
-    supplements: string[];
-    notes: string;
-    quantity: number;
-  }) => void;
+export interface CustomizationPayload {
+  productId: string;
+  name_fr: string;
+  unitPriceTTC: number;
+  quantity: number;
+  modifiers: Record<string, string | number>[];
+  image_url?: string;
 }
 
-const BEVERAGES = [
-  { id: 'Sans Boisson', label: 'بدون مشروب (Sans boisson)', price: 0.0 },
-  { id: 'Coca-Cola', label: 'كوكا كولا (Coca-Cola)', price: 1.3 },
-  { id: 'Eau Minérale', label: 'ماء معدني (Eau minérale)', price: 1.0 },
+interface ProductCustomizationModalProps {
+  isOpen: boolean;
+  item: any;
+  onClose: () => void;
+  onConfirm: (payload: CustomizationPayload) => void;
+}
+
+const FORMAT_OPTIONS = [
+  { id: 'sandwich', label: 'Format Sandwich', price: 0 },
+  { id: 'plat', label: 'Format Plat', price: 3.000 }
 ];
 
-const SUPPLEMENTS = [
-  { id: 'Harissa', label: 'صلصة هريسة', price: 0.5 },
-  { id: 'Fromage', label: 'جبن فوندو', price: 1.0 },
-  { id: 'Frites', label: 'بطاطا مقلية', price: 1.5 },
+const BEVERAGE_OPTIONS = [
+  { id: 'none', label: 'Sans boisson', price: 0 },
+  { id: 'coca', label: 'Coca-Cola', price: 2.500 },
+  { id: 'boga', label: 'Boga Cidre', price: 2.500 },
+  { id: 'water', label: 'Eau Minérale', price: 1.000 }
 ];
 
-export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = memo(({
-  isOpen,
-  product,
-  onClose,
-  onConfirm,
-}) => {
-  const [servingType, setServingType] = useState<'Plat' | 'Sandwich'>('Plat');
-  const [selectedBeverage, setSelectedBeverage] = useState<string>('Sans Boisson');
-  const [supplements, setSupplements] = useState<string[]>([]);
-  const [chefNotes, setChefNotes] = useState<string>('');
-  const [quantity, setQuantity] = useState<number>(1);
+const SUPPLEMENT_OPTIONS = [
+  { id: 'harissa', label: 'Harissa maison', price: 0.500 },
+  { id: 'cheese', label: 'Fromage fondant', price: 1.500 },
+  { id: 'egg', label: 'Œuf supplément', price: 1.000 },
+  { id: 'fries', label: 'Frites extra', price: 2.000 }
+];
 
-  // Lock body scroll and register ESC key on modal open
+export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ isOpen, item, onClose, onConfirm }) => {
+  const [quantity, setQuantity] = useState(1);
+  const [selectedFormat, setSelectedFormat] = useState(FORMAT_OPTIONS[0]);
+  const [selectedBeverage, setSelectedBeverage] = useState(BEVERAGE_OPTIONS[0]);
+  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
+
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+      setQuantity(1);
+      setSelectedFormat(FORMAT_OPTIONS[0]);
+      setSelectedBeverage(BEVERAGE_OPTIONS[0]);
+      setSelectedSupplements([]);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen, item]);
 
-    document.body.style.overflow = 'hidden';
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+  const basePrice = Number(item?.current_price ?? item?.price ?? 0);
+  
+  const unitPriceTTC = useMemo(() => {
+    let total = basePrice + selectedFormat.price + selectedBeverage.price;
+    selectedSupplements.forEach(supId => {
+      const sup = SUPPLEMENT_OPTIONS.find(s => s.id === supId);
+      if (sup) total += sup.price;
+    });
+    return total;
+  }, [basePrice, selectedFormat, selectedBeverage, selectedSupplements]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.body.style.overflow = 'unset';
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+  const handleConfirm = async () => {
+    try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+    
+    const modifiers = [
+      { type: 'Format', choice: selectedFormat.label, price: selectedFormat.price },
+      { type: 'Boisson', choice: selectedBeverage.label, price: selectedBeverage.price },
+      ...selectedSupplements.map(supId => {
+        const sup = SUPPLEMENT_OPTIONS.find(s => s.id === supId);
+        return { type: 'Supplément', choice: sup?.label || '', price: sup?.price || 0 };
+      })
+    ].filter(m => m.choice !== 'Sans boisson');
 
-  const handleToggleSupplement = (id: string) => {
-    setSupplements((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    onConfirm({
+      productId: String(item.id),
+      name_fr: item.name_fr || item.name || 'Produit',
+      unitPriceTTC,
+      quantity,
+      modifiers,
+      image_url: item.image_url || item.current_photo_url || item.img
+    });
+    onClose();
+  };
+
+  const toggleSupplement = async (id: string) => {
+    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    setSelectedSupplements(prev => 
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
   };
 
-  const calculatedAddonsPrice = useMemo(() => {
-    let extra = 0;
-    const beverageObj = BEVERAGES.find((b) => b.id === selectedBeverage);
-    if (beverageObj) extra += beverageObj.price;
+  if (!isOpen || !item) return null;
 
-    supplements.forEach((supId) => {
-      const supObj = SUPPLEMENTS.find((s) => s.id === supId);
-      if (supObj) extra += supObj.price;
-    });
+  const safeImg = item.image_url || item.current_photo_url || item.img;
+  const displayName = item.name_fr || item.item_name_fr || item.name;
 
-    return extra;
-  }, [selectedBeverage, supplements]);
-
-  const finalUnitPrice = (product?.price || 0) + calculatedAddonsPrice;
-  const totalSummaryPrice = finalUnitPrice * quantity;
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl max-h-[88vh] overflow-y-auto border-t sm:border border-slate-100/80 space-y-5 animate-in slide-in-from-bottom duration-300 font-sans no-scrollbar"
-        onClick={(e) => e.stopPropagation()}
+  const modalContent = (
+    <div className="fixed inset-0 z-[999] flex items-end justify-center">
+      <motion.div 
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-[#1C1917]/60 backdrop-blur-sm"
+      />
+      <motion.div 
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="relative w-full max-w-lg bg-[#FAF9F6] rounded-t-[2rem] z-[1000] flex flex-col max-h-[90vh] overflow-hidden shadow-2xl"
       >
-        {/* Mobile Pull Indicator Bar */}
-        <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto -mt-2 mb-1 sm:hidden" />
-
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-black tracking-wider uppercase">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
-            <span>Recette Fraîche & Certifiée EAGLE TN</span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer"
-            className="w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer active:scale-95"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
+        <div className="relative w-full bg-[#FFFFFF] pt-12 pb-5 px-6 flex items-center justify-center border-b border-[#1C1917]/10 rounded-t-[2rem]">
+          <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 bg-[#FAF9F6] rounded-full shadow-sm border border-[#1C1917]/10 flex items-center justify-center text-[#1C1917] outline-none">
+            <X className="w-4 h-4" />
           </button>
-        </div>
-
-        {/* Product Card Details */}
-        <div className="flex gap-3.5 items-center bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70 shadow-xs">
-          {product.image_url ? (
-            <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-slate-200/80 bg-white">
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
+          {safeImg ? (
+            <img src={safeImg} alt={displayName} className="h-40 object-contain drop-shadow-lg" />
           ) : (
-            <div className="w-16 h-16 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-              <ChefHat className="w-8 h-8" />
-            </div>
+            <div className="h-20" />
           )}
-          <div className="min-w-0 flex-1">
-            <h3 className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">
-              {product.name}
-            </h3>
-            <p className="text-xs font-black text-emerald-600 mt-1">
-              {(product.price || 0).toFixed(3)} DT
-            </p>
-          </div>
         </div>
+        
+        <div className="p-5 flex-1 overflow-y-auto space-y-6">
+          <div>
+            <h3 className="text-[22px] font-black text-[#1C1917] leading-tight">{displayName}</h3>
+            {item.description && <p className="text-[13px] font-medium text-[#1C1917]/60 mt-2">{item.description}</p>}
+          </div>
 
-        {/* Section 1: Presentation Type */}
-        <div className="space-y-2">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">
-            1. Format de présentation / نوع التقديم
-          </label>
-          <div className="grid grid-cols-2 gap-2.5">
-            {(['Sandwich', 'Plat'] as const).map((t) => {
-              const isSelected = servingType === t;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setServingType(t)}
-                  className={`py-3.5 px-3 rounded-2xl font-extrabold text-xs text-center transition-all duration-200 cursor-pointer active:scale-95 border ${
-                    isSelected
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/10'
-                      : 'bg-slate-50/80 border-slate-200/70 text-slate-700 hover:bg-slate-100'
-                  }`}
+          {/* Format Section */}
+          <section>
+            <h4 className="text-[14px] font-bold text-[#1C1917] mb-3 uppercase tracking-wider">Format</h4>
+            <div className="flex flex-col gap-2">
+              {FORMAT_OPTIONS.map(opt => (
+                <button 
+                  key={opt.id}
+                  onClick={() => { Haptics.impact({ style: ImpactStyle.Light }); setSelectedFormat(opt); }}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${selectedFormat.id === opt.id ? 'bg-[#1C1917] text-[#FFFFFF] border-[#1C1917]' : 'bg-[#FFFFFF] text-[#1C1917] border-[#1C1917]/10'}`}
                 >
-                  {t === 'Plat' ? 'صحن (Plat)' : 'ساندويش (Sandwich)'}
+                  <span className="text-[14px] font-bold">{opt.label}</span>
+                  {opt.price > 0 && <span className="text-[13px] font-black tabular-nums">+{opt.price.toFixed(3)} DT</span>}
                 </button>
-              );
-            })}
-          </div>
-        </div>
+              ))}
+            </div>
+          </section>
 
-        {/* Section 2: Beverages */}
-        <div className="space-y-2">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <Wine className="w-3 h-3 text-slate-400" />
-            <span>2. Boissons accompagnantes / المشروبات المصاحبة</span>
-          </label>
-          <div className="space-y-2">
-            {BEVERAGES.map((bev) => {
-              const isSelected = selectedBeverage === bev.id;
-              return (
-                <div
-                  key={bev.id}
-                  onClick={() => setSelectedBeverage(bev.id)}
-                  className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer text-xs font-bold transition-all duration-200 active:scale-[0.99] ${
-                    isSelected
-                      ? 'bg-emerald-50/80 border-emerald-500/80 text-emerald-950 shadow-xs ring-1 ring-emerald-500/20'
-                      : 'bg-slate-50/80 border-slate-200/70 text-slate-800 hover:bg-slate-100'
-                  }`}
+          {/* Beverage Section */}
+          <section>
+            <h4 className="text-[14px] font-bold text-[#1C1917] mb-3 uppercase tracking-wider">Boisson</h4>
+            <div className="flex flex-col gap-2">
+              {BEVERAGE_OPTIONS.map(opt => (
+                <button 
+                  key={opt.id}
+                  onClick={() => { Haptics.impact({ style: ImpactStyle.Light }); setSelectedBeverage(opt); }}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${selectedBeverage.id === opt.id ? 'bg-[#1C1917] text-[#FFFFFF] border-[#1C1917]' : 'bg-[#FFFFFF] text-[#1C1917] border-[#1C1917]/10'}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span>{bev.label}</span>
-                    {bev.price > 0 && (
-                      <span className="text-[10px] text-emerald-600 font-extrabold">
-                        (+{bev.price.toFixed(3)} DT)
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                      isSelected
-                        ? 'border-emerald-600 bg-emerald-600'
-                        : 'border-slate-300 bg-white'
-                    }`}
+                  <span className="text-[14px] font-bold">{opt.label}</span>
+                  {opt.price > 0 && <span className="text-[13px] font-black tabular-nums">+{opt.price.toFixed(3)} DT</span>}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Supplements Section */}
+          <section>
+            <h4 className="text-[14px] font-bold text-[#1C1917] mb-3 uppercase tracking-wider flex justify-between items-center">
+              <span>Suppléments</span>
+              <span className="text-[#1C1917]/50 text-[11px] normal-case tracking-normal">Optionnel</span>
+            </h4>
+            <div className="flex flex-col gap-2">
+              {SUPPLEMENT_OPTIONS.map(opt => {
+                const isSelected = selectedSupplements.includes(opt.id);
+                return (
+                  <button 
+                    key={opt.id}
+                    onClick={() => toggleSupplement(opt.id)}
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${isSelected ? 'bg-[#FAF9F6] border-[#C59648] ring-1 ring-[#C59648]' : 'bg-[#FFFFFF] border-[#1C1917]/10'}`}
                   >
-                    {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" aria-hidden="true" />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-[#C59648] border-[#C59648]' : 'bg-transparent border-[#1C1917]/20'}`}>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#FFFFFF] stroke-[3]" />}
+                      </div>
+                      <span className={`text-[14px] font-bold ${isSelected ? 'text-[#C59648]' : 'text-[#1C1917]'}`}>{opt.label}</span>
+                    </div>
+                    <span className={`text-[13px] font-black tabular-nums ${isSelected ? 'text-[#C59648]' : 'text-[#1C1917]/80'}`}>+{opt.price.toFixed(3)} DT</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </div>
 
-        {/* Section 3: Supplements */}
-        <div className="space-y-2">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-slate-400" />
-            <span>3. Suppléments / الإضافات</span>
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {SUPPLEMENTS.map((sup) => {
-              const hasIt = supplements.includes(sup.id);
-              return (
-                <div
-                  key={sup.id}
-                  onClick={() => handleToggleSupplement(sup.id)}
-                  className={`p-3 rounded-2xl border text-center cursor-pointer select-none transition-all duration-200 active:scale-95 ${
-                    hasIt
-                      ? 'border-emerald-500 bg-emerald-50/80 shadow-xs ring-1 ring-emerald-500/20'
-                      : 'border-slate-200/70 bg-slate-50/80 hover:bg-slate-100'
-                  }`}
-                >
-                  <p className="text-[11px] font-black text-slate-900 tracking-tight">
-                    {sup.label}
-                  </p>
-                  <p className="text-[10px] font-extrabold text-emerald-600 mt-0.5">
-                    +{sup.price.toFixed(3)} DT
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Section 4: Special Notes */}
-        <div className="space-y-1.5">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <MessageSquarePlus className="w-3 h-3 text-slate-400" />
-            <span>Instructions spéciales / توجيهات خاصة</span>
-          </label>
-          <input
-            type="text"
-            placeholder="Ex: Sans oignon, sauce à part..."
-            value={chefNotes}
-            onChange={(e) => setChefNotes(e.target.value)}
-            className="w-full bg-slate-50/80 border border-slate-200/70 rounded-2xl p-3.5 text-xs font-bold focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-900 transition-all placeholder:text-slate-400"
-          />
-        </div>
-
-        {/* Counter & Action Footer Block */}
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-          <div className="flex items-center border border-slate-200/80 rounded-2xl bg-slate-50 p-1">
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="p-2 hover:bg-white rounded-xl transition-all cursor-pointer active:scale-95 text-slate-600 hover:text-slate-900"
-              aria-label="Diminuer la quantité"
-            >
-              <Minus className="w-3.5 h-3.5" />
+        <div className="p-5 bg-[#FFFFFF] border-t border-[#1C1917]/10 pb-[env(safe-area-inset-bottom,20px)] flex items-center gap-4 shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center bg-[#FAF9F6] rounded-xl border border-[#1C1917]/10 h-14 px-1.5 shrink-0">
+            <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-11 h-11 flex items-center justify-center rounded-lg text-[#1C1917] bg-[#FFFFFF] shadow-sm active:scale-95 transition-all">
+              <Minus className="w-5 h-5" />
             </button>
-            <span className="px-3 text-xs font-black text-slate-900 font-mono">{quantity}</span>
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => q + 1)}
-              className="p-2 hover:bg-white rounded-xl transition-all cursor-pointer active:scale-95 text-slate-600 hover:text-slate-900"
-              aria-label="Augmenter la quantité"
-            >
-              <Plus className="w-3.5 h-3.5" />
+            <span className="text-[#1C1917] text-[16px] font-black min-w-[32px] text-center tabular-nums">{quantity}</span>
+            <button onClick={() => setQuantity(quantity + 1)} className="w-11 h-11 flex items-center justify-center rounded-lg text-[#1C1917] bg-[#FFFFFF] shadow-sm active:scale-95 transition-all">
+              <Plus className="w-5 h-5" />
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              onConfirm({
-                type: servingType,
-                beverage: selectedBeverage,
-                supplements,
-                notes: chefNotes,
-                quantity,
-              });
-              onClose();
-            }}
-            className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider py-4 px-4 rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-[0.98] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+          <button 
+            onClick={handleConfirm}
+            className="flex-1 h-14 bg-[#1C1917] text-[#FFFFFF] rounded-xl font-bold text-[15px] shadow-lg flex items-center justify-center active:scale-[0.98] transition-all"
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Ajouter ({totalSummaryPrice.toFixed(3)} DT)</span>
+            Ajouter • {(unitPriceTTC * quantity).toFixed(3)} DT
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
-});
 
-ProductCustomizationModal.displayName = 'ProductCustomizationModal';
+  return createPortal(
+    <AnimatePresence>{isOpen && modalContent}</AnimatePresence>,
+    document.body
+  );
+};
 
 export default ProductCustomizationModal;

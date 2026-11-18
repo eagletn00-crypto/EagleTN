@@ -8,7 +8,10 @@
     ".": "./src/supabase.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "@eagletn/types": "workspace:*"
+    "@eagletn/types": "workspace:*",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0"
   }
 }

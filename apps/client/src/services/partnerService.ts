@@ -5,7 +5,7 @@ export type { Partner, Category, MenuItem };
 
 export const partnerService = {
   async getPartners(): Promise<Partner[]> {
-    const { data, error } = await supabase.from('partners').select('*').eq('is_active', true);
+    const { data, error } = await supabase.from('partners').select('*').eq('status', 'active');
     if (error) {
       console.warn('Supabase fetch partners failed:', error);
       return [];

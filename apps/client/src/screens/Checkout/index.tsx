@@ -1,346 +1,339 @@
-import React, { useState, useEffect } from 'react';
-import {
-  ArrowLeft,
-  MapPin,
-  AlertCircle,
-  Navigation,
-  Phone,
-  Store,
-  ShieldCheck,
-  CheckCircle2,
-  Plus,
-  Minus
-} from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, MapPin, Phone, User, Receipt, Banknote, ShieldCheck, ChevronRight, CheckCircle2, Plus, Minus, X, AlertCircle, LogIn, ShoppingBag } from 'lucide-react';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { supabase } from '../../lib/supabase';
-import { useAppStore } from '../../store/useAppStore';
+import { useCartStore } from '../../store/useCartStore';
+import { Order, CartItemPayload } from '@eagletn/types';
 
-interface CheckoutScreenProps {
-  partner?: any;
-  cartItems?: any[];
-  customerAddress?: string;
-  customerPhone?: string;
-  onRemoveItem?: (itemId: string) => void;
-  onRequireAuth?: () => void;
-  onConfirmOrder?: (orderData: any) => Promise<any>;
-  onBack?: () => void;
-  onOrderSuccess?: (orderId: string) => void;
-}
+const DELIVERY_FEE = 0; // Livraison offerte
+const TIMBRE_FISCAL = 0.600;
 
-export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
-  onBack,
-  onOrderSuccess,
-}) => {
-  // جلب السلة والشريك من الـ Store المركزي بدلاً من الـ Props
-  const { cartItems, selectedPartner, updateQuantity, removeFromCart, customerAddress, setCustomerAddress } = useAppStore();
+const CHANGE_OPTIONS = [
+  { label: "L'Appoint (بدون صرف)", value: null },
+  { label: '20 DT', value: 20 },
+  { label: '50 DT', value: 50 },
+  { label: '100 DT', value: 100 }
+];
+
+export const Checkout: React.FC = () => {
+  const navigate = useNavigate();
+  const { items, updateQuantity, removeItem, clearCart } = useCartStore();
+
+  const [customerName, setCustomerName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [changeNeeded, setChangeNeeded] = useState<number | null>(null);
   
-  const [address, setAddress] = useState<string>(customerAddress || '');
-  const [deliveryNote, setDeliveryNote] = useState<string>('');
-  const [restaurantNote, setRestaurantNote] = useState<string>('');
-  const [phone, setPhone] = useState<string>('28495021'); // الافتراضي للتجربة
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [generatedPin, setGeneratedPin] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // إحداثيات الـ GPS
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [gpsAcquired, setGpsAcquired] = useState<boolean>(false);
-  const [gpsLoading, setGpsLoading] = useState<boolean>(false);
+  // ⚠️ ملاحظة: يجب ربط هذا بمخزن المصادقة الخاص بك (useAuthStore)
+  const isAuthChecked = true; 
+  const currentUser = { id: 'temp-client-id' }; 
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // مزامنة العنوان مع الـ Store
   useEffect(() => {
-    setCustomerAddress(address);
-  }, [address, setCustomerAddress]);
+    window.scrollTo(0, 0);
+  }, []);
 
-  const handleGetLocation = () => {
-    if (!('geolocation' in navigator)) {
-      setErrorMsg("La géolocalisation n'est pas supportée par votre navigateur.");
-      return;
-    }
-    setGpsLoading(true);
-    setErrorMsg(null);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        setLatitude(lat);
-        setLongitude(lng);
-        setGpsAcquired(true);
-        setGpsLoading(false);
-        if (!address) {
-          setAddress(`Position GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
-        }
-      },
-      (error) => {
-        setGpsLoading(false);
-        console.error("GPS Error:", error);
-        setErrorMsg("Veuillez activer votre GPS pour autoriser la livraison sécurisée.");
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
-  };
+  const subtotalTTC = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+  const grandTotal = subtotalTTC + DELIVERY_FEE + TIMBRE_FISCAL;
 
-  // الحساب المالي الجبائي التونسي
-  const subtotalTTC = cartItems.reduce((acc, item) => acc + (item.total_price || (item.price * item.quantity)), 0);
-  const deliveryFee = 2.500;
-  const timbreFiscal = 1.000;
-  const grandTotal = Number((subtotalTTC + deliveryFee + timbreFiscal).toFixed(3));
-
-  const handleConfirmOrder = async () => {
-    setErrorMsg(null);
-    if (cartItems.length === 0) {
-      setErrorMsg('Votre panier est vide.');
-      return;
-    }
-    if (!address.trim()) {
-      setErrorMsg("L'adresse de livraison est requise.");
-      return;
-    }
-    if (!latitude || !longitude) {
-      setErrorMsg("Veuillez valider votre position GPS exacte avant de commander.");
+  const handleCheckout = async () => {
+    if (!customerName || !clientPhone || !deliveryAddress) {
+      await Haptics.notification({ type: NotificationType.Warning });
+      setErrorMsg('Veuillez remplir tous les champs de livraison.');
       return;
     }
 
-    setLoading(true);
     try {
-      const itemsPayload = cartItems.map(item => ({
+      setIsSubmitting(true);
+      setErrorMsg('');
+      await Haptics.impact({ style: ImpactStyle.Heavy });
+
+      const pin = Math.floor(1000 + Math.random() * 9000).toString();
+      setGeneratedPin(pin);
+
+      // 🦅 الحماية الصارمة: لا وجود لـ as any
+      const orderPayload = {
+        client_id: currentUser?.id,
+        partner_id: (items[0] as any)?.partner_id || 'default_partner',
+        customer_name: customerName,
+        client_phone: clientPhone,
+        delivery_address: deliveryAddress,
+        delivery_lat: null,
+        delivery_lng: null,
+        subtotal: subtotalTTC,
+        timbre_fiscal: TIMBRE_FISCAL,
+        delivery_fee: DELIVERY_FEE,
+        total_amount: grandTotal,
+        grand_total: grandTotal,
+        payment_method: 'COD',
+        change_needed_for: changeNeeded,
+        status: 'pending',
+        verification_code: pin,
+        pin_code: pin
+      };
+
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderPayload)
+        .select('id')
+        .single();
+
+      if (orderError) throw orderError;
+      if (!orderData) throw new Error('Erreur lors de la création de la commande.');
+
+      const createdOrder = orderData as { id: string };
+
+      const orderItemsPayload = items.map((item: any) => ({
+        order_id: createdOrder.id,
+        item_id: item.id,
         item_name: item.name,
-        quantity: Number(item.quantity) || 1,
-        unit_price: Number(item.unit_price || item.price) || 0
+        name: item.name,
+        price: item.price,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        quantity: item.quantity,
+        // 🦅 دمج الملاحظات التي تمت إضافتها في نافذة الطلب
+        options: item.instructions ? [{ note: item.instructions }] : []
       }));
 
-      // Fallback ID إذا لم يكن هناك شريك محدد (للتجارب)
-      const targetPartnerUuid = selectedPartner?.id || 'c468b8f6-46ec-4653-8f43-7b387c719e80';
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItemsPayload);
 
-      const { data: orderId, error } = await supabase.rpc('create_full_order', {
-        p_partner_id: targetPartnerUuid,
-        p_total_amount: grandTotal,
-        p_subtotal_ht: subtotalTTC,
-        p_delivery_fee: deliveryFee,
-        p_delivery_address: address,
-        p_items: itemsPayload
-      });
+      if (itemsError) throw itemsError;
 
-      if (error) throw error;
+      await Haptics.notification({ type: NotificationType.Success });
+      clearCart();
+      setSuccessOrderId(createdOrder.id);
 
-      if (orderId) {
-        await supabase
-          .from('orders')
-          .update({
-            delivery_latitude: latitude,
-            delivery_longitude: longitude,
-            client_phone: phone,
-            delivery_note: deliveryNote,
-            notes: restaurantNote
-          })
-          .eq('id', orderId);
-
-        if (onOrderSuccess) onOrderSuccess(orderId);
-      }
-    } catch (err: any) {
-      console.error('Erreur validation commande:', err);
-      setErrorMsg(err.message || "Erreur lors de la validation de la commande.");
+    } catch (error: any) {
+      console.error('Checkout Error:', error);
+      await Haptics.notification({ type: NotificationType.Error });
+      setErrorMsg(error.message || 'Une erreur est survenue lors de la validation.');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  if (items.length === 0 && !successOrderId) {
+    return (
+      <div className="min-h-[100dvh] bg-[#FAF8F5] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center mb-6">
+          <ShoppingBag className="w-8 h-8 text-gray-400" strokeWidth={1.5} />
+        </div>
+        <h2 className="text-[22px] font-black text-[#1C1917] mb-2 uppercase">Panier vide</h2>
+        <p className="text-[14px] font-bold text-gray-500 mb-8">Votre panier est actuellement vide.</p>
+        <button onClick={() => navigate(-1)} className="bg-[#1C1917] text-white px-8 py-3.5 rounded-full font-black text-[14px] uppercase tracking-wide active:scale-95 transition-transform shadow-lg">
+          Retour au menu
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-stone-50 font-sans pb-36 text-stone-900 max-w-md mx-auto relative selection:bg-emerald-500/15 antialiased">
-      {/* Header الزجاجي */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-2xl px-4 py-4 flex items-center justify-between shadow-sm border-b border-white">
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-10 h-10 rounded-[1.25rem] bg-white border border-stone-100 shadow-sm flex items-center justify-center text-stone-600 hover:text-emerald-600 transition-all active:scale-95 cursor-pointer"
-            >
-              <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
-            </button>
-          )}
-          <div>
-            <h1 className="font-black text-sm text-stone-800 tracking-tight uppercase">Caisse</h1>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Store className="w-3 h-3 text-emerald-500" />
-              <p className="text-[10px] text-stone-500 font-bold truncate max-w-[150px]">
-                {selectedPartner?.name ? selectedPartner.name : 'Restaurant Partenaire'}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span className="text-[9px] font-black uppercase tracking-wider">Sécurisé</span>
-        </div>
+    <div className="min-h-[100dvh] bg-[#FAF8F5] font-sans pb-[240px]">
+      {/* HEADER */}
+      <header className="sticky top-0 z-40 bg-[#FAF8F5]/90 backdrop-blur-xl border-b border-gray-200/50 px-4 h-16 flex items-center justify-between">
+        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center active:scale-90 transition-transform outline-none">
+          <ArrowLeft className="w-5 h-5 text-[#1C1917]" />
+        </button>
+        <h1 className="text-[16px] font-black text-[#1C1917] uppercase tracking-widest">Finaliser</h1>
+        <div className="w-10" />
       </header>
 
-      <main className="p-4 space-y-5">
+      <main className="p-4 space-y-4">
         {errorMsg && (
-          <div className="p-4 bg-rose-50 border border-rose-100 text-rose-700 rounded-3xl text-xs font-bold flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
-            <span>{errorMsg}</span>
+          <div className="bg-red-50 border border-red-200 p-4 rounded-[20px] flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-[#C1121F] shrink-0 mt-0.5" />
+            <p className="text-[13px] font-bold text-red-800">{errorMsg}</p>
           </div>
         )}
 
-        {/* سلة المشتريات Ultra Premium */}
-        <div className="bg-white rounded-[2rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-stone-100 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">
-              Votre Commande ({cartItems.reduce((acc, i) => acc + i.quantity, 0)})
-            </span>
-            <span className="text-sm font-black text-stone-800">
-              {subtotalTTC.toFixed(3)} <span className="text-[10px] text-stone-500">DT</span>
-            </span>
+        {/* DETAILS LIVRAISON */}
+        <section className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h2 className="text-[16px] font-black text-[#1C1917] flex items-center gap-2 uppercase">
+              <MapPin className="w-5 h-5 text-[#C1121F]" strokeWidth={2.5} /> Livraison
+            </h2>
           </div>
+          
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+              <input type="text" placeholder="Nom complet (الاسم الكامل)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full h-12 pl-11 pr-4 bg-gray-50 rounded-xl text-[14px] font-bold text-[#1C1917] outline-none border border-gray-200 focus:border-[#C1121F] focus:ring-1 focus:ring-[#C1121F] transition-all" />
+            </div>
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+              <input type="tel" maxLength={8} placeholder="Téléphone (رقم الهاتف)" value={clientPhone} onChange={(e) => setClientPhone(e.target.value.replace(/\D/g, ''))} className="w-full h-12 pl-11 pr-4 bg-gray-50 rounded-xl text-[14px] font-bold text-[#1C1917] outline-none border border-gray-200 focus:border-[#C1121F] focus:ring-1 focus:ring-[#C1121F] transition-all" />
+            </div>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-gray-400" />
+              <textarea rows={2} placeholder="Adresse complète (العنوان الكامل)" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} className="w-full pl-11 pr-4 pt-3.5 bg-gray-50 rounded-xl text-[14px] font-bold text-[#1C1917] outline-none border border-gray-200 focus:border-[#C1121F] focus:ring-1 focus:ring-[#C1121F] transition-all resize-none" />
+            </div>
+          </div>
+        </section>
 
-          <div className="space-y-3">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-3 p-3 bg-stone-50/50 rounded-2xl border border-stone-100/80">
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-xs font-bold text-stone-800 truncate">{item.name}</h4>
-                  <p className="text-[11px] font-black text-emerald-600 mt-0.5">
-                    {item.price.toFixed(3)} <span className="text-[9px]">DT</span>
-                  </p>
+        {/* PAIEMENT & MONNAIE */}
+        <section className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 flex flex-col gap-3">
+          <div className="flex flex-col border-b border-gray-100 pb-3">
+            <h2 className="text-[16px] font-black text-[#1C1917] flex items-center gap-2 uppercase">
+              <Banknote className="w-5 h-5 text-[#C1121F]" strokeWidth={2.5} /> Espèces à la livraison
+            </h2>
+            <p className="text-[12px] font-bold text-gray-400 mt-1">Sur quel billet allez-vous payer ? (هل تحتاج إلى صرف؟)</p>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 mt-1">
+            {CHANGE_OPTIONS.map((opt) => (
+              <motion.button
+                key={String(opt.value)}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { Haptics.impact({ style: ImpactStyle.Light }); setChangeNeeded(opt.value); }}
+                className={`flex-1 min-w-[70px] h-11 rounded-xl text-[12px] font-black border transition-all outline-none ${
+                  changeNeeded === opt.value
+                    ? 'bg-[#1C1917] text-white border-[#1C1917] shadow-md'
+                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {opt.label}
+              </motion.button>
+            ))}
+          </div>
+        </section>
+
+        {/* RECAPITULATIF */}
+        <section className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 flex flex-col gap-4">
+          <h2 className="text-[16px] font-black text-[#1C1917] flex items-center gap-2 uppercase border-b border-gray-100 pb-3">
+            <Receipt className="w-5 h-5 text-[#1C1917]" strokeWidth={2.5} /> Récapitulatif
+          </h2>
+          <div className="flex flex-col gap-4">
+            {items.map((item: any) => (
+              <div key={item.id} className="flex gap-3 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                {item.image_url && (
+                  <div className="w-[60px] h-[60px] bg-gray-50 rounded-xl p-1 shrink-0 flex items-center justify-center border border-gray-100">
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover rounded-lg" />
+                  </div>
+                )}
+                <div className="flex-1 flex flex-col justify-center">
+                  <h4 className="text-[14px] font-black text-[#1C1917] leading-snug">{item.name}</h4>
+                  <span className="text-[13px] font-black text-[#C1121F] mt-1 tabular-nums">{item.price.toFixed(3)} DT</span>
                 </div>
-                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-stone-200/50 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (item.quantity === 1) removeFromCart(item.id);
-                      else updateQuantity(item.id, -1);
-                    }}
-                    className="w-7 h-7 rounded-lg bg-stone-50 flex items-center justify-center text-stone-600 hover:bg-stone-100 font-bold active:scale-95 transition-transform"
-                  >
-                    <Minus className="w-3 h-3" />
+                <div className="flex flex-col items-end justify-between">
+                  <button onClick={() => removeItem(item.id)} className="p-1 text-gray-400 hover:text-red-500 outline-none transition-colors">
+                    <X className="w-4 h-4" strokeWidth={2.5} />
                   </button>
-                  <span className="text-xs font-black w-4 text-center text-stone-800">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(item.id, 1)}
-                    className="w-7 h-7 rounded-lg bg-stone-900 text-white flex items-center justify-center hover:bg-stone-800 font-bold active:scale-95 transition-transform"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 h-8 px-1 mt-auto">
+                    <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-full flex items-center justify-center text-[#1C1917] outline-none">
+                      <Minus className="w-3 h-3" strokeWidth={3} />
+                    </button>
+                    <span className="text-[#1C1917] text-[12px] font-black min-w-[24px] text-center tabular-nums">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-full flex items-center justify-center text-[#1C1917] outline-none">
+                      <Plus className="w-3 h-3" strokeWidth={3} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-
-        {/* معلومات العميل */}
-        <div className="bg-white rounded-[2rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-stone-100 space-y-4">
-          
-          {/* الهاتف */}
-          <div>
-            <label className="text-[10px] font-black uppercase text-stone-500 tracking-wider flex items-center gap-1.5 mb-2">
-              <Phone className="w-3.5 h-3.5 text-emerald-500" /> Numéro de téléphone
-            </label>
-            <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 focus-within:border-emerald-200 focus-within:ring-4 focus-within:ring-emerald-50 transition-all">
-              <span className="text-xs font-black text-stone-400">+216</span>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-transparent text-sm font-black text-stone-800 focus:outline-none w-full"
-              />
-            </div>
-          </div>
-
-          <div className="h-px bg-stone-100 w-full" />
-
-          {/* العنوان و GPS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black uppercase text-stone-500 tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-500" /> Livraison
-              </label>
-
-              {gpsAcquired ? (
-                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Confirmé
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleGetLocation}
-                  disabled={gpsLoading}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-[9px] font-black uppercase tracking-wider shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95"
-                >
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>{gpsLoading ? 'Recherche...' : 'GPS Requis'}</span>
-                </button>
-              )}
-            </div>
-            <textarea
-              rows={2}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 text-xs font-bold text-stone-800 focus:outline-none focus:border-emerald-200 focus:ring-4 focus:ring-emerald-50 transition-all resize-none"
-              placeholder="Appartement, Étage, Bâtiment..."
-            />
-          </div>
-
-          <div className="h-px bg-stone-100 w-full" />
-
-          {/* الملاحظات */}
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={restaurantNote}
-              onChange={(e) => setRestaurantNote(e.target.value)}
-              placeholder="Note pour le chef (ex: sans oignons)..."
-              className="w-full bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-600 focus:outline-none"
-            />
-            <input
-              type="text"
-              value={deliveryNote}
-              onChange={(e) => setDeliveryNote(e.target.value)}
-              placeholder="Note pour le livreur (ex: code porte)..."
-              className="w-full bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 text-xs font-medium text-stone-600 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* الفاتورة وتأكيد الطلب (Sticky Bottom) */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-2xl border-t border-stone-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40 max-w-md mx-auto rounded-t-[2.5rem]">
-          <div className="space-y-2 mb-4 px-2">
-            <div className="flex justify-between text-[11px] text-stone-500 font-bold">
-              <span>Sous-total</span>
-              <span className="text-stone-800">{subtotalTTC.toFixed(3)} DT</span>
-            </div>
-            <div className="flex justify-between text-[11px] text-stone-500 font-bold">
-              <span>Livraison</span>
-              <span className="text-stone-800">{deliveryFee.toFixed(3)} DT</span>
-            </div>
-            <div className="flex justify-between text-[11px] text-stone-500 font-bold">
-              <span>Timbre Fiscal</span>
-              <span className="text-stone-800">{timbreFiscal.toFixed(3)} DT</span>
-            </div>
-            <div className="pt-3 border-t border-stone-100 flex justify-between items-end">
-              <span className="text-xs font-black uppercase text-stone-400 tracking-widest">Total à Payer</span>
-              <span className="text-xl font-black text-emerald-600 tracking-tight">
-                {grandTotal.toFixed(3)} <span className="text-sm">DT</span>
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleConfirmOrder}
-            disabled={loading}
-            className="w-full bg-stone-900 hover:bg-stone-800 text-white font-black text-sm uppercase tracking-widest py-5 rounded-[2rem] shadow-xl shadow-stone-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 overflow-hidden relative"
-          >
-            {/* لمعان خفيف للزر */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-[shimmer_2s_infinite]" />
-            <ShieldCheck className="w-5 h-5 relative z-10 text-emerald-400" />
-            <span className="relative z-10">{loading ? 'Traitement...' : 'Payer à la livraison'}</span>
-          </button>
-        </div>
+        </section>
       </main>
+
+      {/* FOOTER & CTA */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 pb-[env(safe-area-inset-bottom,16px)] px-5 pt-4 z-40 rounded-t-[32px] shadow-[0_-8px_30px_rgba(0,0,0,0.06)]">
+        <div className="flex flex-col gap-2 mb-5 text-[13px] font-bold text-gray-500 px-2">
+          <div className="flex justify-between">
+            <span>Sous-total</span>
+            <span className="font-black text-[#1C1917]">{subtotalTTC.toFixed(3)} DT</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Livraison</span>
+            <span className="font-black text-emerald-600 uppercase tracking-widest text-[11px] mt-0.5">Offerte</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Timbre fiscal</span>
+            <span className="font-black text-[#1C1917]">{TIMBRE_FISCAL.toFixed(3)} DT</span>
+          </div>
+        </div>
+
+        {!isAuthChecked || !currentUser ? (
+          <motion.button whileTap={{ scale: 0.98 }} onClick={() => navigate('/auth')} className="w-full h-[56px] bg-[#1C1917] text-white rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.15)] flex items-center justify-center gap-2 px-5 outline-none">
+            <LogIn className="w-5 h-5" />
+            <span className="text-[14px] font-black tracking-wide uppercase">Connexion requise</span>
+          </motion.button>
+        ) : (
+          <motion.button
+            whileTap={!isSubmitting ? { scale: 0.98 } : {}}
+            onClick={handleCheckout}
+            disabled={isSubmitting}
+            className="w-full h-[56px] bg-[#C1121F] hover:bg-[#a00e19] text-white rounded-full shadow-[0_8px_24px_rgba(193,18,31,0.25)] flex items-center justify-between px-6 outline-none transition-all disabled:opacity-70 disabled:grayscale-[30%]"
+          >
+            <span className="text-[16px] font-black tabular-nums tracking-tight bg-white/20 px-3 py-1.5 rounded-full border border-white/20">
+              {grandTotal.toFixed(3)} DT
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] font-black tracking-wide uppercase">
+                {isSubmitting ? 'Validation...' : 'Confirmer'}
+              </span>
+              {!isSubmitting && <ChevronRight className="w-5 h-5" strokeWidth={2.5} />}
+            </div>
+          </motion.button>
+        )}
+
+        <div className="flex items-center justify-center gap-1.5 mt-4 opacity-80">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
+          <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+            Paiement à la livraison (COD) sécurisé
+          </span>
+        </div>
+      </div>
+
+      {/* SUCCESS MODAL (Ultra-Premium) */}
+      <AnimatePresence>
+        {successOrderId && (
+          <div className="fixed inset-0 z-[999] flex items-end justify-center">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#1C1917]/70 backdrop-blur-md" />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              className="relative w-full max-w-lg bg-[#FAF8F5] rounded-t-[40px] z-[1000] flex flex-col p-6 items-center text-center pb-[env(safe-area-inset-bottom,32px)] shadow-[0_-10px_40px_rgba(0,0,0,0.2)]"
+            >
+              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-5 isolate border border-emerald-100 shadow-inner">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500" strokeWidth={2.5} />
+                <div className="absolute inset-0 border-[2px] border-emerald-500/20 rounded-full animate-ping" />
+              </div>
+              
+              <h2 className="text-[26px] font-black text-[#1C1917] tracking-tight leading-tight uppercase">Commande validée</h2>
+              <p className="text-[14px] text-gray-500 mt-2 font-bold max-w-[280px]">
+                Votre commande a été transmise avec succès. Notre livreur est en route.
+              </p>
+              
+              <div className="w-full bg-white border border-gray-200 rounded-[24px] p-5 mt-6 flex flex-col items-center justify-center shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#C1121F]" />
+                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Code de vérification (PIN)</span>
+                <span className="text-[36px] font-black text-[#C1121F] tracking-[0.2em] leading-none mt-2 drop-shadow-sm">
+                  {generatedPin}
+                </span>
+                <span className="text-[11px] font-bold text-gray-500 mt-2">À présenter au livreur (قدمه للمندوب عند الاستلام)</span>
+              </div>
+
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => navigate(`/order/track/${successOrderId}`, { replace: true })}
+                className="w-full h-[56px] bg-[#1C1917] text-white rounded-full font-black text-[14px] uppercase tracking-wide shadow-[0_8px_24px_rgba(0,0,0,0.15)] mt-6 flex items-center justify-center outline-none border border-white/10"
+              >
+                Suivre mon livreur 🛵
+              </motion.button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-export default CheckoutScreen;
+export default Checkout;

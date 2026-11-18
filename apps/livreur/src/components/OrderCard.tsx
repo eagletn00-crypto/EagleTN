@@ -1,5 +1,5 @@
 import React from 'react';
-import { DeliveryOrder } from '../types/order';
+import { Order as DeliveryOrder } from '@eagletn/types';
 import { PhoneCall, Navigation2, CheckCheck, ArrowRight, AlertTriangle } from 'lucide-react';
 
 interface Props {
@@ -60,17 +60,17 @@ export const OrderCard: React.FC<Props> = ({
       <div className="bg-slate-900 text-white rounded-2xl p-3.5 space-y-2">
         <div className="flex justify-between items-center text-xs">
           <span className="font-bold text-slate-400">Frais Livraison (Gain):</span>
-          <span className="font-black text-amber-400 text-sm">+{order.delivery_fee.toFixed(3)} DT</span>
+          <span className="font-black text-amber-400 text-sm">+{(order.delivery_fee || 0).toFixed(3)} DT</span>
         </div>
         <div className="flex justify-between items-center text-sm border-t border-slate-800 pt-2">
           <span className="font-black text-white">À Collecter (Cash):</span>
-          <span className="font-black text-emerald-400 text-xl tracking-tight">{order.order_value.toFixed(3)} DT</span>
+          <span className="font-black text-emerald-400 text-xl tracking-tight">{(order.order_value || 0).toFixed(3)} DT</span>
         </div>
       </div>
 
       <div className="space-y-2 pt-1">
         <button 
-          onClick={() => onOpenNavigation(order.lat, order.lng)}
+          onClick={() => onOpenNavigation(order.lat || 0, order.lng || 0)}
           className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-900 font-black rounded-2xl text-xs flex items-center justify-center gap-2 border border-slate-200 transition-all"
         >
           <Navigation2 className="w-4 h-4 text-red-600 fill-red-600" />

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import type { Database } from '@eagle/types';
+import type { Database } from '@eagletn/types';
 
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type OrderStatus = Order['status'];

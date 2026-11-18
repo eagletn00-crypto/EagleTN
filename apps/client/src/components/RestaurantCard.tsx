@@ -1,89 +1,116 @@
-import React from 'react';
-import { Star, Clock } from 'lucide-react';
+import React, { memo } from 'react';
+import { motion } from 'framer-motion';
+import { Star, Clock, Bike } from 'lucide-react';
+import SmartImage from './SmartImage';
+// 🦅 الاستيراد السيادي المركزي (لا وجود لـ any بعد اليوم)
+import { Restaurant } from '@eagletn/types';
 
-interface RestaurantCardProps {
-  name: string;
-  image: string;
-  tag?: string;
-  rating?: number;
-  reviewCount?: number;
-  deliveryTime?: string;
-  deliveryFee?: string | number;
-  isOpen?: boolean;
+export interface RestaurantCardProps {
+  restaurant: Restaurant;
   onClick?: () => void;
 }
 
-export const RestaurantCard: React.FC<RestaurantCardProps> = ({
-  name,
-  image,
-  tag = 'ROI DU HERGMA',
-  rating = 4.9,
-  reviewCount = 142,
-  deliveryTime = '20-30 min',
-  deliveryFee = '2.000 DT',
-  isOpen = true,
-  onClick,
-}) => {
-  const formatFee = (val: string | number): string => {
-    const raw = val.toString().replace(/dt/i, '').trim();
-    const parsed = Number(raw);
-    if (!isNaN(parsed)) return `${parsed.toFixed(3)} DT`;
-    return val.toString().includes('DT') ? val.toString() : `${val} DT`;
-  };
+const splitBilingual = (raw: string | undefined | null) => {
+  const str = String(raw || '').trim();
+  const match = str.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (match) return { primary: match[1].trim(), secondary: match[2].trim() };
+  return { primary: str, secondary: null };
+};
+
+export const RestaurantCard: React.FC<RestaurantCardProps> = memo(({ restaurant, onClick }) => {
+  // المعالجة الآمنة للبيانات
+  const coverImg = restaurant.cover_url || restaurant.image_url;
+  const isOpen = restaurant.is_open !== false;
+  const fee = restaurant.delivery_fee || 0;
+  const eta = restaurant.delivery_time || '20-30 min';
+  const rating = Number(restaurant.rating || 0).toFixed(1);
+
+  const rawNameFr = restaurant.name_fr || restaurant.name || '';
+  const pNames = splitBilingual(rawNameFr);
+  const parsedNameFr = pNames.primary;
+  let parsedNameAr = restaurant.name_ar || pNames.secondary || '';
+
+  if (parsedNameAr === 'عند عم على') parsedNameAr = 'عند عم علي';
 
   return (
-    <div
+    <motion.article
+      whileTap={{ scale: 0.96 }}
       onClick={onClick}
-      className="relative w-full rounded-[2.2rem] bg-[#E9EBEF] p-1.5 shadow-[6px_6px_16px_#c8cacb,-6px_-6px_16px_#ffffff] cursor-pointer select-none active:scale-[0.99] transition-transform duration-200 mb-5"
+      className="group w-full flex flex-col bg-white border border-gray-100 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] cursor-pointer outline-none overflow-hidden transition-all duration-400 hover:border-[#C1121F]/20 hover:shadow-[0_8px_30px_-6px_rgba(193,18,31,0.12)]"
     >
-      {/* Conteneur Image avec Bord Arrondi Épais */}
-      <div className="relative w-full h-56 rounded-[1.8rem] overflow-hidden bg-stone-900">
-        <img
-          src={image}
-          alt={name}
-          className="w-full h-full object-cover"
-          loading="lazy"
+      {/* 16:9 CINEMATIC COVER WITH GLASSMORPHISM */}
+      <div className="relative w-full aspect-[16/9] bg-gray-50 overflow-hidden">
+        <SmartImage
+          src={coverImg || ''}
+          alt={parsedNameFr}
+          className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ease-[cubic-bezier(0.16,1,0.3,1)] ${!isOpen ? 'grayscale-[50%] opacity-90' : ''}`}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
+        
+        {/* Premium Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1C1917]/70 via-transparent to-transparent pointer-events-none" />
 
-        {/* Badges Supérieurs */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-          <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#E57E24] text-stone-900 font-black text-[11px] shadow-md tracking-wider">
-            <span className="text-xs">👑</span>
-            <span className="font-extrabold">{tag}</span>
-          </div>
-
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-md text-stone-900 font-black text-xs shadow-md border border-white/60">
-            <Star className="w-3.5 h-3.5 fill-[#EAB308] text-[#EAB308] stroke-none" />
-            <span>{rating.toFixed(1)}</span>
-            <span className="text-[10px] text-stone-500 font-bold">({reviewCount})</span>
-          </div>
+        {/* LIVE STATUS GLASS BADGE */}
+        <div className="absolute top-3 left-3 z-10">
+          <span className="bg-white/90 backdrop-blur-md px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 border border-white/50">
+            {isOpen ? (
+              <>
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-emerald-700 mt-0.5">Ouvert</span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                <span className="text-gray-500 mt-0.5">Fermé</span>
+              </>
+            )}
+          </span>
         </div>
 
-        {/* Barre d'Informations Inférieure : 3 Capsules Neumorphiques */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-1.5 z-10">
-          {/* 1. Temps */}
-          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-full bg-white/30 backdrop-blur-md border border-white/40 text-white font-extrabold text-[11px]">
-            <Clock className="w-3.5 h-3.5 text-white/90" />
-            <span>{deliveryTime}</span>
+        {/* RATING FLOATING BADGE (Visual Weight Engineering) */}
+        {Number(rating) > 0 && (
+          <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2 py-1.5 rounded-lg shadow-sm border border-white/50 flex items-center gap-1 z-10">
+            <Star className="w-3.5 h-3.5 text-[#C1121F] fill-[#C1121F]" />
+            <span className="text-[12px] font-black text-[#1C1917] mt-0.5">{rating}</span>
           </div>
+        )}
+      </div>
 
-          {/* 2. Frais */}
-          <div className="flex-1 flex items-center justify-center py-2 px-2 rounded-full bg-white/85 backdrop-blur-md text-stone-900 font-black text-[11px] shadow-sm">
-            <span>{formatFee(deliveryFee)}</span>
+      {/* CARD BODY - ULTRA CLEAN UI */}
+      <div className="p-4 bg-white relative z-10 flex flex-col w-full text-left">
+        <div className="flex flex-col w-full min-w-0">
+          <h3 className="text-[18px] font-black text-[#1C1917] leading-tight truncate">
+            {parsedNameFr}
+          </h3>
+          {parsedNameAr && (
+            <h4 dir="auto" className="text-[14px] font-bold text-gray-400 leading-tight mt-1 truncate w-full text-left">
+              {parsedNameAr}
+            </h4>
+          )}
+        </div>
+
+        {/* METRICS - COMPRESSED ROW */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 w-full overflow-hidden">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Clock className="w-4 h-4 text-gray-400" strokeWidth={2.5} />
+            <span className="text-[12px] font-bold text-[#1C1917] mt-0.5">{eta}</span>
           </div>
-
-          {/* 3. Statut */}
-          <div className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-full font-black text-[11px] shadow-sm ${
-            isOpen ? 'bg-[#00A86B] text-white' : 'bg-rose-600 text-white'
-          }`}>
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            <span>{isOpen ? 'OUVERT' : 'FERMÉ'}</span>
+          
+          <div className="w-1 h-1 rounded-full bg-gray-300 shrink-0" />
+          
+          <div className="flex items-center gap-1.5 truncate">
+            <Bike className={`w-4 h-4 shrink-0 ${fee === 0 ? 'text-emerald-500' : 'text-gray-400'}`} strokeWidth={2.5} />
+            <span className={`text-[12px] font-bold mt-0.5 truncate ${fee === 0 ? 'text-emerald-600' : 'text-[#1C1917]'}`}>
+              {fee === 0 ? 'Livraison offerte' : `${fee.toFixed(3)} DT`}
+            </span>
           </div>
         </div>
       </div>
-    </div>
+    </motion.article>
   );
-};
+});
 
+RestaurantCard.displayName = 'RestaurantCard';
 export default RestaurantCard;

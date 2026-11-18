@@ -1,94 +1,87 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 export interface Category {
   id: string;
-  label: string;
-  image: string;
+  name: string;
+  image_url?: string | null;
+  icon?: string | null;
 }
 
 export interface CategoryScrollProps {
-  activeCategory?: string;
-  onSelectCategory?: (id: string) => void;
+  categories: Category[];
+  selectedCategoryId: string | null;
+  onSelectCategory: (id: string | null) => void;
 }
 
-const CATEGORIES: Category[] = [
-  {
-    id: 'restaurants',
-    label: 'RESTAURANTS',
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'patisserie',
-    label: 'PÂTISSERIE',
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'mode',
-    label: 'MODE & SHOPPING',
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'cosmetique',
-    label: 'COSMÉTIQUE',
-    image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'fleurs',
-    label: 'FLEURS & CADEAUX',
-    image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'boutiques',
-    label: 'BOUTIQUES',
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&auto=format&fit=crop&q=80',
-  },
-];
-
-export const CategoryScroll: React.FC<CategoryScrollProps> = ({
-  activeCategory = 'restaurants',
-  onSelectCategory,
-}) => {
-  return (
-    <div className="w-full space-y-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-          EXPLORER L'ÉCOSYSTÈME
-        </h2>
-        <span className="text-[10px] font-bold text-slate-400">
-          6 Catégories
-        </span>
-      </div>
-      <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 px-0.5">
-        {CATEGORIES.map((cat) => {
-          const isActive = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => onSelectCategory && onSelectCategory(cat.id)}
-              type="button"
-              className={`flex-none w-28 p-2 rounded-2xl flex flex-col items-center justify-between gap-2 border transition-all duration-200 ${
-                isActive
-                  ? 'bg-white border-[#E70013] shadow-md ring-2 ring-[#E70013]/10 scale-102'
-                  : 'bg-white/90 border-slate-200/80 hover:bg-white shadow-2xs'
-              }`}
-            >
-              <div className="w-full h-16 rounded-xl overflow-hidden bg-slate-100 relative">
-                <img
-                  src={cat.image}
-                  alt={cat.label}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-              <span className="text-[10px] font-black text-slate-800 text-center line-clamp-2 uppercase leading-tight">
-                {cat.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+// 2026 Tier-1 Appetizing Visuals: Zero generic cafe interiors
+const CATEGORY_VISUALS: Record<string, string> = {
+  restaurants: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80',
+  gourmet: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=400&q=80',
+  tunisien: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=400&q=80',
+  patisseries: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=400&q=80',
+  pâtisseries: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=400&q=80',
+  courses: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
 };
 
+export const CategoryScroll: React.FC<CategoryScrollProps> = memo(({
+  categories,
+  selectedCategoryId,
+  onSelectCategory
+}) => {
+  const visibleCategories = categories.filter(
+    (c) => c.id !== 'all' && c.name.toLowerCase() !== 'tout'
+  );
+
+  return (
+    <div 
+      className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none [-webkit-overflow-scrolling:touch] gap-2.5 px-4 scroll-pl-4 py-1 w-full"
+      dir="auto"
+    >
+      {visibleCategories.map((category) => {
+        const isActive = selectedCategoryId === category.id;
+        const normalizedKey = category.name.toLowerCase().trim();
+        const safeImg = category.image_url || category.icon || CATEGORY_VISUALS[normalizedKey] || CATEGORY_VISUALS.restaurants;
+
+        return (
+          <button
+            key={category.id}
+            onClick={() => onSelectCategory(isActive ? null : category.id)}
+            className={`
+              relative flex flex-col items-center justify-between shrink-0 snap-start outline-none cursor-pointer
+              w-[88px] h-[96px] p-2 rounded-xl transition-all duration-150 active:scale-[0.96]
+              ${isActive 
+                ? 'bg-white border-2 border-[#8A652D] shadow-[0_2px_12px_rgba(163,120,54,0.18)] text-[#8A652D]' 
+                : 'bg-white border border-neutral-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] text-[#111827] hover:border-neutral-300'
+              }
+            `}
+            role="tab"
+            aria-selected={isActive}
+            aria-label={`Catégorie ${category.name}`}
+          >
+            {/* Visual Food Tile */}
+            <div className="w-full h-[75%] rounded-lg overflow-hidden bg-neutral-50 flex items-center justify-center">
+              <img 
+                src={safeImg} 
+                alt={category.name} 
+                className="w-full h-full object-cover rounded-md"
+                loading="lazy" 
+              />
+            </div>
+
+            {/* Title Label */}
+            <div className="w-full h-[25%] flex items-center justify-center">
+              <span className={`text-[12px] font-bold tracking-tight truncate text-center ${
+                isActive ? 'text-[#8A652D]' : 'text-[#111827]'
+              }`}>
+                {category.name}
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+CategoryScroll.displayName = 'CategoryScroll';
 export default CategoryScroll;

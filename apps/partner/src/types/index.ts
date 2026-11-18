@@ -26,4 +26,4 @@ export interface MenuItem {
   category_id?: string;
 }
 
-export * from './order';
+
