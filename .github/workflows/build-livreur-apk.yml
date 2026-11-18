@@ -46,7 +46,8 @@ jobs:
         working-directory: apps/livreur
         run: |
           pnpm add @capacitor/android
-          npx cap add android || echo "Platform exists"
+          npx cap init TheEagletn com.eagletn.livreur --web-dir dist --force
+          npx cap add android
           npx cap sync android
 
       - name: 🔐 حقن تصاريح الـ GPS والاهتزاز آلياً
