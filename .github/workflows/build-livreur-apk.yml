@@ -59,7 +59,7 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo $KEYSTORE_BASE64 | base64 --decode > apps/livreur/android/app/eagletn-livreur.keystore
+          echo $KEYSTORE_BASE64 | base64 --decode > apps/livreur/android/app/eagletn-livreur.keystore && keytool -list -keystore apps/livreur/android/app/eagletn-livreur.keystore -storepass "${{ secrets.STORE_PASSWORD }}"
 
       - name: 🔥 Build & Sign Release APK
         working-directory: apps/livreur/android
@@ -72,7 +72,7 @@ jobs:
             -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/apps/livreur/android/app/eagletn-livreur.keystore" \
             -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD" \
+            -Pandroid.injected.signing.key.password="$STORE_PASSWORD" \
             --stacktrace
 
       - name: 📦 Upload Release APK
