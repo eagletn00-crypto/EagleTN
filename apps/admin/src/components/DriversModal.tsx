@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 
 interface DriverWallet {
   driver_id: string;
+  full_name: string;
+  phone: string;
   cash_in_hand: number;
   commission_debt: number;
   max_cash_limit: number;
@@ -31,9 +33,26 @@ export default function DriversModal({ onClose }: { onClose: () => void }) {
       .order('updated_at', { ascending: false });
 
     if (!error && data) {
+      const rows = data as any[];
+      const ids = rows.map((w) => w.profile_id).filter(Boolean);
+      const profileMap: Record<string, { full_name?: string; phone?: string }> = {};
+
+      if (ids.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .in('id', ids);
+
+        (profilesData as any[] | null)?.forEach((p) => {
+          profileMap[p.id] = { full_name: p.full_name, phone: p.phone };
+        });
+      }
+
       setWallets(
-        (data as any[]).map((w) => ({
+        rows.map((w) => ({
           driver_id: w.profile_id,
+          full_name: profileMap[w.profile_id]?.full_name || `Coursier #${String(w.profile_id).slice(0, 8)}`,
+          phone: profileMap[w.profile_id]?.phone || '',
           cash_in_hand: Number(w.current_cash_balance ?? 0),
           commission_debt: 0,
           max_cash_limit: Number(w.max_cash_threshold ?? 200),
@@ -223,7 +242,10 @@ export default function DriversModal({ onClose }: { onClose: () => void }) {
                   className="flex items-center justify-between rounded-2xl bg-white border border-slate-200/70 p-3"
                 >
                   <div className="space-y-0.5">
-                    <p className="text-xs font-mono text-slate-700">{w.driver_id.slice(0, 12)}...</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{w.full_name}</p>
+                      {w.phone && <span className="text-xs text-slate-500">· {w.phone}</span>}
+                    </div>
                     <p className="text-xs text-slate-500">
                       Cash: <strong className="text-slate-800">{Number(w.cash_in_hand).toFixed(3)} TND</strong> ·
                       Plafond: <strong className="text-slate-800">{Number(w.max_cash_limit).toFixed(3)} TND</strong>
