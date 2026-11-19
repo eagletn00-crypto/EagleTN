@@ -33,3 +33,7 @@ pnpm-debug.log*
 
 # Database & Termux temp scripts
 *.sql.bak
+
+# Android Signing Secrets
+*.keystore
+*.b64
