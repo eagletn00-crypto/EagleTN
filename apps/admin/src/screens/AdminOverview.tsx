@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { AlertOctagon, Zap, Activity, Lock, Store, MessageSquare, ShieldAlert, Sliders } from 'lucide-react';
+import { AlertOctagon, Zap, Activity, Lock, Store, Bike, MessageSquare, ShieldAlert, Sliders } from 'lucide-react';
 import { useAdminStore } from '../stores/useAdminStore';
 import ClotureModal from '../components/ClotureModal';
 import LiveRadarMap from '../components/LiveRadarMap';
 import PartnersModal from '../components/PartnersModal';
+import DriversModal from '../components/DriversModal';
 import IncidentsModal from '../components/IncidentsModal';
 import HeaderGovernance from '../components/HeaderGovernance';
 import KpiCard from '../components/KpiCard';
@@ -18,13 +19,14 @@ export default function AdminOverview() {
 
   const [showClotureModal, setShowClotureModal] = useState(false);
   const [showPartnersModal, setShowPartnersModal] = useState(false);
+  const [showDriversModal, setShowDriversModal] = useState(false);
   const [showIncidentsModal, setShowIncidentsModal] = useState(false);
 
   // 🚀 تفعيل عصب الاستماع (الرادار) بمجرد فتح الشاشة
   useEffect(() => {
     console.log('[AdminOverview] Démarrage du radar en temps réel...');
     const unsubscribe = setupRealtimeSubscription();
-    
+
     // إيقاف الرادار عند إغلاق الشاشة لتوفير الموارد
     return () => {
       console.log('[AdminOverview] Arrêt du radar.');
@@ -37,6 +39,7 @@ export default function AdminOverview() {
 
       {showClotureModal && <ClotureModal onClose={() => setShowClotureModal(false)} />}
       {showPartnersModal && <PartnersModal onClose={() => setShowPartnersModal(false)} />}
+      {showDriversModal && <DriversModal onClose={() => setShowDriversModal(false)} />}
       {showIncidentsModal && <IncidentsModal onClose={() => setShowIncidentsModal(false)} />}
 
       <HeaderGovernance />
@@ -80,13 +83,21 @@ export default function AdminOverview() {
       <KpiCard />
 
       {/* MODULE DE GESTION OPÉRATIONNELLE */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button onClick={() => setShowPartnersModal(true)} className="bg-[#E9EBEF] p-4 rounded-2xl shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-between border border-white/50 transition-all group">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-[#E9EBEF] shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] flex items-center justify-center"><Store className="w-4 h-4 text-blue-600" /></div>
             <span className="text-[11px] font-black text-stone-800 uppercase tracking-widest">Partenaires</span>
           </div>
           <Sliders className="w-4 h-4 text-stone-400 group-hover:text-blue-500 transition-colors" />
+        </button>
+
+        <button onClick={() => setShowDriversModal(true)} className="bg-[#E9EBEF] p-4 rounded-2xl shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-between border border-white/50 transition-all group">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-[#E9EBEF] shadow-[inset_2px_2px_4px_#c8cad0,inset_-2px_-2px_4px_#ffffff] flex items-center justify-center"><Bike className="w-4 h-4 text-emerald-600" /></div>
+            <span className="text-[11px] font-black text-stone-800 uppercase tracking-widest">Coursiers</span>
+          </div>
+          <Sliders className="w-4 h-4 text-stone-400 group-hover:text-emerald-500 transition-colors" />
         </button>
 
         <button onClick={() => alert("Module MSG en cours de construction")} className="bg-[#E9EBEF] p-4 rounded-2xl shadow-[4px_4px_8px_#c8cad0,-4px_-4px_8px_#ffffff] active:shadow-[inset_4px_4px_8px_#c8cad0,inset_-4px_-4px_8px_#ffffff] flex items-center justify-between border border-white/50 transition-all group">
