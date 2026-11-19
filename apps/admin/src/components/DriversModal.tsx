@@ -66,7 +66,16 @@ export default function DriversModal({ onClose }: { onClose: () => void }) {
       });
 
       if (error || data?.error) {
-        throw new Error(data?.error || error?.message || 'Erreur lors de la création');
+        let serverMsg = data?.error;
+        if (!serverMsg && error?.context && typeof error.context.json === 'function') {
+          try {
+            const errBody = await error.context.json();
+            serverMsg = errBody?.error;
+          } catch {
+            // fallback to default error message
+          }
+        }
+        throw new Error(serverMsg || error?.message || 'Erreur lors de la création');
       }
 
       setFeedback({

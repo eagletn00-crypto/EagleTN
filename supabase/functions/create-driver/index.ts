@@ -7,6 +7,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const jsonResponse = (body: Record<string, unknown>, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -19,10 +25,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "En-tête d'autorisation manquant." }, 401);
     }
 
     // 1. Verify caller identity & admin role
@@ -31,10 +34,7 @@ serve(async (req) => {
     });
     const { data: { user: caller }, error: callerError } = await callerClient.auth.getUser();
     if (callerError || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Session expirée ou non autorisée." }, 401);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -53,51 +53,62 @@ serve(async (req) => {
     }
 
     if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Forbidden: Admin role required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Accès refusé : rôle administrateur requis." }, 403);
     }
 
     // 2. Validate payload
     const { full_name, email, phone, password, max_cash_limit = 200 } = await req.json();
-    if (!full_name || !email || !password || password.length < 6) {
-      return new Response(
-        JSON.stringify({ error: "Nom, email et mot de passe (min 6 caractères) requis." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    const cleanName = full_name?.trim();
+    const cleanEmail = email?.trim().toLowerCase();
+    const cleanPhone = phone?.trim() || "";
+
+    if (!cleanName || !cleanEmail || !password || password.length < 6) {
+      return jsonResponse(
+        { error: "Nom complet, email et mot de passe (min. 6 caractères) requis." },
+        400
       );
     }
 
     const limitValue = Number(max_cash_limit) || 200;
 
-    // 3. Create auth user with driver role
+    // 3. Create auth user
     const { data: created, error: createError } = await adminClient.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name.trim(), phone: phone?.trim() || "", role: "DRIVER" },
+      user_metadata: { full_name: cleanName, phone: cleanPhone, role: "DRIVER" },
       app_metadata: { role: "DRIVER" },
     });
 
     if (createError || !created.user) {
-      return new Response(JSON.stringify({ error: createError?.message || "User creation failed" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const msg = createError?.message?.toLowerCase().includes("already")
+        ? "Cet email est déjà enregistré dans le système."
+        : createError?.message || "Échec de la création du compte.";
+      return jsonResponse({ error: msg }, 400);
     }
 
     const driverId = created.user.id;
 
-    // 4. Upsert profile (uppercase DRIVER to match user_role enum)
-    await adminClient.from("profiles").upsert(
+    // Helper for atomic rollback if any downstream DB step fails
+    const rollbackUser = async (reason: string) => {
+      await adminClient.auth.admin.deleteUser(driverId);
+      return jsonResponse(
+        { error: `Annulation automatique (Rollback) : ${reason}` },
+        500
+      );
+    };
+
+    // 4. Upsert profile
+    const { error: profileError } = await adminClient.from("profiles").upsert(
       {
         id: driverId,
-        full_name: full_name.trim(),
-        phone: phone?.trim() || null,
+        full_name: cleanName,
+        phone: cleanPhone || null,
         role: "DRIVER",
       },
       { onConflict: "id" }
     );
+    if (profileError) return rollbackUser(`profiles -> ${profileError.message}`);
 
     // 5. Initialize or update drivers table
     const { data: existingDriver } = await adminClient
@@ -106,23 +117,23 @@ serve(async (req) => {
       .eq("user_id", driverId)
       .maybeSingle();
 
-    if (existingDriver) {
-      await adminClient
-        .from("drivers")
-        .update({ full_name: full_name.trim(), cash_limit: limitValue })
-        .eq("user_id", driverId);
-    } else {
-      await adminClient.from("drivers").insert({
-        user_id: driverId,
-        full_name: full_name.trim(),
-        caisse_terrain_current: 0,
-        cash_limit: limitValue,
-        total_gains: 0,
-        total_commissions_owed: 0,
-      });
-    }
+    const driverRes = existingDriver
+      ? await adminClient
+          .from("drivers")
+          .update({ full_name: cleanName, cash_limit: limitValue })
+          .eq("user_id", driverId)
+      : await adminClient.from("drivers").insert({
+          user_id: driverId,
+          full_name: cleanName,
+          caisse_terrain_current: 0,
+          cash_limit: limitValue,
+          total_gains: 0,
+          total_commissions_owed: 0,
+        });
 
-    // 6. Initialize or update real wallets table
+    if (driverRes.error) return rollbackUser(`drivers -> ${driverRes.error.message}`);
+
+    // 6. Initialize or update wallets table (Single Source of Truth for Cash)
     const { data: existingWallet } = await adminClient
       .from("wallets")
       .select("id")
@@ -142,30 +153,22 @@ serve(async (req) => {
           is_frozen: false,
         });
 
-    if (walletRes.error) {
-      return new Response(
-        JSON.stringify({ error: `Compte créé mais erreur portefeuille: ${walletRes.error.message}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (walletRes.error) return rollbackUser(`wallets -> ${walletRes.error.message}`);
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: true,
         driver: {
           id: driverId,
           email: created.user.email,
-          full_name: full_name.trim(),
-          phone: phone?.trim() || "",
+          full_name: cleanName,
+          phone: cleanPhone,
           max_cash_limit: limitValue,
         },
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      },
+      200
     );
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err?.message || "Internal Server Error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: err?.message || "Internal Server Error" }, 500);
   }
 });
