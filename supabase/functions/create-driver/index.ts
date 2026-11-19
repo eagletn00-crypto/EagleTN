@@ -68,13 +68,15 @@ serve(async (req) => {
       );
     }
 
+    const limitValue = Number(max_cash_limit) || 200;
+
     // 3. Create auth user with driver role
     const { data: created, error: createError } = await adminClient.auth.admin.createUser({
       email: email.trim().toLowerCase(),
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name.trim(), phone: phone?.trim() || "", role: "driver" },
-      app_metadata: { role: "driver" },
+      user_metadata: { full_name: full_name.trim(), phone: phone?.trim() || "", role: "DRIVER" },
+      app_metadata: { role: "DRIVER" },
     });
 
     if (createError || !created.user) {
@@ -86,32 +88,63 @@ serve(async (req) => {
 
     const driverId = created.user.id;
 
-    // 4. Upsert profile (safe if trigger already created row)
+    // 4. Upsert profile (uppercase DRIVER to match user_role enum)
     await adminClient.from("profiles").upsert(
       {
         id: driverId,
         full_name: full_name.trim(),
         phone: phone?.trim() || null,
-        role: "driver",
+        role: "DRIVER",
       },
       { onConflict: "id" }
     );
 
-    // 5. Initialize driver_wallets
-    const { error: walletError } = await adminClient.from("driver_wallets").upsert(
-      {
-        driver_id: driverId,
-        cash_in_hand: 0,
-        commission_debt: 0,
-        max_cash_limit: Number(max_cash_limit) || 200,
-        is_locked: false,
-      },
-      { onConflict: "driver_id" }
-    );
+    // 5. Initialize or update drivers table
+    const { data: existingDriver } = await adminClient
+      .from("drivers")
+      .select("id")
+      .eq("user_id", driverId)
+      .maybeSingle();
 
-    if (walletError) {
+    if (existingDriver) {
+      await adminClient
+        .from("drivers")
+        .update({ full_name: full_name.trim(), cash_limit: limitValue })
+        .eq("user_id", driverId);
+    } else {
+      await adminClient.from("drivers").insert({
+        user_id: driverId,
+        full_name: full_name.trim(),
+        caisse_terrain_current: 0,
+        cash_limit: limitValue,
+        total_gains: 0,
+        total_commissions_owed: 0,
+      });
+    }
+
+    // 6. Initialize or update real wallets table
+    const { data: existingWallet } = await adminClient
+      .from("wallets")
+      .select("id")
+      .eq("profile_id", driverId)
+      .maybeSingle();
+
+    const walletRes = existingWallet
+      ? await adminClient
+          .from("wallets")
+          .update({ max_cash_threshold: limitValue, is_frozen: false })
+          .eq("profile_id", driverId)
+      : await adminClient.from("wallets").insert({
+          profile_id: driverId,
+          current_cash_balance: 0,
+          total_earnings: 0,
+          max_cash_threshold: limitValue,
+          is_frozen: false,
+        });
+
+    if (walletRes.error) {
       return new Response(
-        JSON.stringify({ error: `Compte créé mais erreur portefeuille: ${walletError.message}` }),
+        JSON.stringify({ error: `Compte créé mais erreur portefeuille: ${walletRes.error.message}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -124,7 +157,7 @@ serve(async (req) => {
           email: created.user.email,
           full_name: full_name.trim(),
           phone: phone?.trim() || "",
-          max_cash_limit: Number(max_cash_limit) || 200,
+          max_cash_limit: limitValue,
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

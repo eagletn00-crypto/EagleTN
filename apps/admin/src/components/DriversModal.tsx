@@ -26,11 +26,22 @@ export default function DriversModal({ onClose }: { onClose: () => void }) {
   const fetchDrivers = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('driver_wallets')
-      .select('driver_id, cash_in_hand, commission_debt, max_cash_limit, is_locked, updated_at')
+      .from('wallets')
+      .select('profile_id, current_cash_balance, total_earnings, max_cash_threshold, is_frozen, updated_at')
       .order('updated_at', { ascending: false });
 
-    if (!error && data) setWallets(data);
+    if (!error && data) {
+      setWallets(
+        (data as any[]).map((w) => ({
+          driver_id: w.profile_id,
+          cash_in_hand: Number(w.current_cash_balance ?? 0),
+          commission_debt: 0,
+          max_cash_limit: Number(w.max_cash_threshold ?? 200),
+          is_locked: Boolean(w.is_frozen),
+          updated_at: w.updated_at,
+        }))
+      );
+    }
     setLoading(false);
   };
 
@@ -77,9 +88,9 @@ export default function DriversModal({ onClose }: { onClose: () => void }) {
 
   const toggleLock = async (wallet: DriverWallet) => {
     const { error } = await supabase
-      .from('driver_wallets')
-      .update({ is_locked: !wallet.is_locked })
-      .eq('driver_id', wallet.driver_id);
+      .from('wallets')
+      .update({ is_frozen: !wallet.is_locked } as never)
+      .eq('profile_id', wallet.driver_id);
 
     if (!error) {
       setWallets((prev) =>
