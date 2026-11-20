@@ -37,7 +37,7 @@ export const MultiCheckoutCart: React.FC<{ isOpen: boolean; onClose: () => void 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end font-sans">
+        <div className="fixed inset-0 z-[9999] flex justify-end font-sans">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#1C1917]/40 backdrop-blur-sm" />
           
           <motion.div

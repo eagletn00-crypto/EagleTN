@@ -110,7 +110,7 @@ export const JoinUsModal: React.FC<JoinUsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 font-['Plus_Jakarta_Sans'] transition-opacity">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 font-['Plus_Jakarta_Sans'] transition-opacity">
       <div className="bg-white w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
 
         {/* Modal Header */}

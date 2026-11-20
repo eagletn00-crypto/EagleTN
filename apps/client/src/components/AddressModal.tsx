@@ -44,7 +44,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({ isOpen, onClose }) =
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-end justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center">
       <motion.div 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
@@ -53,7 +53,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({ isOpen, onClose }) =
       <motion.div 
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="relative w-full max-w-lg bg-[#FAF8F5] rounded-t-[2rem] z-[1000] flex flex-col overflow-hidden shadow-2xl"
+        className="relative w-full max-w-lg bg-[#FAF8F5] rounded-t-[2rem] z-[9999]0] flex flex-col overflow-hidden shadow-2xl"
       >
         <div className="p-5 border-b border-[#1C1917]/10 flex items-center justify-between bg-[#FFFFFF]">
           <h3 className="text-[17px] font-black text-[#141413] flex items-center gap-2">

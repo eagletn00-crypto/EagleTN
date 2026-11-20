@@ -99,7 +99,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         }
       `}</style>
 
-      <div className="fixed inset-0 z-[100] bg-[#1C1917]/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto no-print">
+      <div className="fixed inset-0 z-[9999] bg-[#1C1917]/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto no-print">
         <div className="bg-[#FAF8F5] w-full max-w-3xl rounded-[32px] border border-white/20 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-300 my-auto flex flex-col max-h-[92vh]">
           
           {/* 🦅 TOOLBAR (Z-Index Secured) */}

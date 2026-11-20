@@ -47,7 +47,7 @@ export const OrderJourneyContainer: React.FC = () => {
 
   if (cartItems.length === 0 && !isBottomSheetOpen) {
     return (
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="fixed bottom-6 right-6 z-50">
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="fixed bottom-6 right-6 z-[9999]">
         <button onClick={() => setIsBottomSheetOpen(true)} className="w-14 h-14 rounded-2xl bg-[var(--color-surface-elevated)] border-none shadow-[var(--shadow-ambient)] flex items-center justify-center text-[#8A652D] hover:bg-[#FAF9F6] active:scale-95 transition-all outline-none">
           <ShoppingBag className="w-6 h-6 stroke-[2]" />
         </button>
@@ -82,7 +82,7 @@ export const OrderJourneyContainer: React.FC = () => {
 
       <AnimatePresence>
         {isBottomSheetOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="fixed inset-0 z-[9999] flex items-end justify-center">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBottomSheetOpen(false)} className="absolute inset-0 bg-[#1C1917]/40 backdrop-blur-sm" />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="relative w-full max-w-md bg-[var(--color-surface-base)] rounded-t-[2rem] p-5 space-y-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] max-h-[90vh] overflow-y-auto z-10 border-none no-scrollbar">
               <div className="w-12 h-1 bg-[#D6D3D1] rounded-full mx-auto mb-1" />

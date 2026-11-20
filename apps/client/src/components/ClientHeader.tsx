@@ -101,11 +101,11 @@ export const ClientHeader: React.FC = memo(() => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-full pl-11 pr-12 bg-white rounded-xl text-[14px] font-semibold text-[#1C1917] transition-all outline-none border border-gray-200 focus:border-[#C1121F] focus:ring-2 focus:ring-[#C1121F]/10 relative z-10"
+              className="w-full h-full pl-11 pr-12 bg-white rounded-xl text-[14px] font-semibold text-[#1C1917] transition-all outline-none border border-gray-200 focus:border-[#C1121F] focus:ring-2 focus:ring-[#C1121F]/10 relative z-40"
             />
             
             {!searchQuery && (
-              <div className="absolute left-[44px] top-0 bottom-0 flex items-center pointer-events-none overflow-hidden right-[48px] z-20">
+              <div className="absolute left-[44px] top-0 bottom-0 flex items-center pointer-events-none overflow-hidden right-[48px] z-40">
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={phIndex}
@@ -121,11 +121,11 @@ export const ClientHeader: React.FC = memo(() => {
               </div>
             )}
 
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400 group-focus-within:text-[#C1121F] transition-colors z-20" strokeWidth={2.5} /> 
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400 group-focus-within:text-[#C1121F] transition-colors z-40" strokeWidth={2.5} /> 
             
             <button
               onClick={() => triggerHaptic()}
-              className="absolute right-1 top-1 bottom-1 w-[36px] bg-[#FAF8F5] rounded-lg flex items-center justify-center text-gray-600 hover:text-[#C1121F] transition-colors border border-gray-100 outline-none z-20"
+              className="absolute right-1 top-1 bottom-1 w-[36px] bg-[#FAF8F5] rounded-lg flex items-center justify-center text-gray-600 hover:text-[#C1121F] transition-colors border border-gray-100 outline-none z-40"
             >
               <SlidersHorizontal className="w-4 h-4" strokeWidth={2.5} />
             </button>

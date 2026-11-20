@@ -1,0 +1,159 @@
+=== 1. SYSTEM & MONOREPO OVERVIEW ===
+{
+  "name": "the-eagletn-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:all": "turbo dev",
+    "dev:client": "pnpm --filter client dev",
+    "dev:livreur": "pnpm --filter livreur dev",
+    "dev:partner": "pnpm --filter partner dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@supabase/supabase-js": "^2.117.2",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "turbo": "^2.11.7",
+    "typescript": "^7.0.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "lint-staged": {
+    "apps/client/**/*.{js,jsx,ts,tsx}": [
+      "npx eslint --fix"
+    ]
+  },
+  "type": "module",
+  "overrides": {
+    "uuid": "^10.0.0"
+  }
+}
+
+--- PNPM WORKSPACE ---
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+=== 2. PACKAGES ARCHITECTURE ===
+packages
+packages/database
+packages/database/package.json
+packages/database/src
+packages/database/src/index.ts
+packages/database/src/supabase.ts
+packages/database/src/types.ts
+packages/database/src/useOrderStream.ts
+packages/types
+packages/types/package.json
+packages/types/src
+packages/types/src/database.types.ts
+packages/types/src/index.ts
+packages/ui
+packages/ui/package.json
+packages/ui/public
+packages/ui/public/eagle-bg.png
+packages/ui/public/eagle.mp3
+packages/ui/public/favicon.svg
+packages/ui/public/icons.svg
+packages/ui/src
+packages/ui/src/InvoiceBreakdown.tsx
+packages/ui/src/components
+packages/ui/src/index.ts
+packages/ui/src/luxury-art
+packages/ui/src/primitives
+packages/ui/src/styles
+packages/ui/src/tokens
+packages/ui/src/utils
+packages/ui/tsconfig.json
+
+=== 3. CLIENT APP & CAPACITOR CONFIG ===
+{
+  "name": "client",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/geolocation": "^8.2.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/toast": "^8.0.1",
+    "@eagle/ui": "workspace:*",
+    "@eagletn/types": "workspace:^",
+    "@lottiefiles/dotlottie-react": "^0.20.0",
+    "@supabase/supabase-js": "^2.110.2",
+    "@tanstack/react-query": "^5.104.3",
+    "@types/leaflet": "^1.9.21",
+    "framer-motion": "^12.43.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.24.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.90.0",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^6.30.4",
+    "sonner": "^2.0.8",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/postcss": "^4.3.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^10.8.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.5.0",
+    "vite": "^5.0.0"
+  }
+}
+--- CAPACITOR CONFIG ---
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'tn.eagle.app',
+  appName: 'EAGLE TN',
+  webDir: 'dist'
+};
+
+export default config;
+
+=== 4. DESIGN SYSTEM & TAILWIND V4 TOKENS ===
+/* Injecting the Ultra-Premium Monorepo Theme */
+@import "../../../packages/ui/src/styles/theme.css";
+
+/* Client-specific overrides (keep empty for now, rely on UI package) */
+
+=== 5. DATABASE & TYPES (SUPABASE / SCHEMA) ===
+./apps/admin/src/types
+./apps/client/src/types
+./apps/livreur/src/types
+./apps/partner/src/types
+./packages/database/src/supabase.ts
+./packages/database/src/types.ts
+./packages/types
+./packages/types/src/database.types.ts
+./scripts/check-supabase-link.mjs
+./scripts/diagnostic_db_schema.js
+./scripts/diagnostic_partner_schema.js
+./scripts/diagnostic_supabase.js
+./scripts/eagle_schema_xray.js
+./scripts/inspect-orders-schema.mjs
+./scripts/inspect-supabase.js
+./supabase

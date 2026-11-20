@@ -106,7 +106,7 @@ export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps>
   const displayName = item.name_fr || item.item_name_fr || item.name;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[999] flex items-end justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center">
       <motion.div 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
@@ -115,7 +115,7 @@ export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps>
       <motion.div 
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="relative w-full max-w-lg bg-[#FAF9F6] rounded-t-[2rem] z-[1000] flex flex-col max-h-[90vh] overflow-hidden shadow-2xl"
+        className="relative w-full max-w-lg bg-[#FAF9F6] rounded-t-[2rem] z-[9999]0] flex flex-col max-h-[90vh] overflow-hidden shadow-2xl"
       >
         <div className="relative w-full bg-[#FFFFFF] pt-12 pb-5 px-6 flex items-center justify-center border-b border-[#1C1917]/10 rounded-t-[2rem]">
           <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 bg-[#FAF9F6] rounded-full shadow-sm border border-[#1C1917]/10 flex items-center justify-center text-[#1C1917] outline-none">
