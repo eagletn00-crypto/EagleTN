@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import LivreurDashboard from './screens/LivreurDashboard';
 import { supabase } from './lib/supabase';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Bike, RefreshCw, LogIn, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [email, setEmail] = useState('');
@@ -15,16 +16,23 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    let active = true;
+
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (!active) return;
+      setSession(currentSession);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      setSession(nextSession);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -39,13 +47,16 @@ export default function App() {
       });
 
       if (error) {
-        const msg = error.message.toLowerCase().includes('invalid')
-          ? 'Email ou mot de passe incorrect. (البريد أو كلمة المرور غير صحيحة)'
-          : error.message;
-        setErrorMsg(msg);
+        const isInvalidCredentials = error.message.toLowerCase().includes('invalid');
+        setErrorMsg(
+          isInvalidCredentials
+            ? 'Email ou mot de passe incorrect.'
+            : error.message
+        );
       }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Erreur de connexion réseau.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erreur de connexion réseau.';
+      setErrorMsg(message);
     } finally {
       setSubmitting(false);
     }
@@ -55,7 +66,9 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#1C1917] flex flex-col items-center justify-center">
         <RefreshCw className="w-8 h-8 text-[#C1121F] animate-spin mb-4" />
-        <p className="text-white text-sm font-black tracking-widest uppercase">EAGLE FLEET INIT...</p>
+        <p className="text-white text-sm font-black tracking-widest uppercase">
+          EAGLE FLEET INIT...
+        </p>
       </div>
     );
   }
@@ -68,8 +81,12 @@ export default function App() {
             <div className="w-20 h-20 bg-[#C1121F] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(193,18,31,0.4)] mb-5">
               <Bike className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-3xl font-black text-white mb-1 tracking-tight">EAGLE Livreur</h1>
-            <p className="text-gray-400 text-sm font-medium">Portail des coursiers souverains</p>
+            <h1 className="text-3xl font-black text-white mb-1 tracking-tight">
+              EAGLE Livreur
+            </h1>
+            <p className="text-gray-400 text-sm font-medium">
+              Portail des coursiers souverains
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -124,7 +141,7 @@ export default function App() {
               ) : (
                 <LogIn className="w-5 h-5" />
               )}
-              <span>{submitting ? 'Connexion...' : 'Connexion Pilote (تسجيل الدخول)'}</span>
+              <span>{submitting ? 'Connexion...' : 'Connexion Pilote'}</span>
             </button>
           </form>
         </div>

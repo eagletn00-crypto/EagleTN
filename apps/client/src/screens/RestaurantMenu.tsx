@@ -206,46 +206,6 @@ const RestaurantMenu = () => {
         </AnimatePresence>
       </div>
 
-      {/* 🦅 TIER 4: LIVE FLOATING CART */}
-      <AnimatePresence>
-        {cartItemsCount > 0 && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className="fixed bottom-6 left-4 right-4 z-50 pointer-events-auto"
-          >
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={async () => { await triggerHaptic(ImpactStyle.Medium); navigate('/checkout'); }}
-              className="w-full bg-[#1C1917]/95 backdrop-blur-xl text-white p-3.5 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.25)] flex items-center justify-between border border-white/10 outline-none relative overflow-hidden group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#C1121F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              
-              <div className="flex items-center gap-3 relative z-10">
-                <div className="w-11 h-11 bg-[#C1121F] rounded-full flex items-center justify-center text-white font-black text-[14px] shadow-sm border border-white/20">
-                  {cartItemsCount}
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-[13px] font-black uppercase tracking-wider leading-none">Voir le panier</span>
-                  <span className="text-[10px] font-bold text-gray-300 mt-0.5">الذهاب إلى الدفع</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 relative z-10">
-                <span className="text-[16px] font-black bg-white/10 px-3 py-1.5 rounded-full border border-white/5">
-                  {cartTotal.toFixed(3)} DT
-                </span>
-                <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center border border-white/5">
-                  <ChevronLeft className="w-5 h-5 text-white rotate-180" strokeWidth={2.5} />
-                </div>
-              </div>
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* 🦅 THE SMART MODAL */}
       <MenuItemModal
         isOpen={!!selectedItem}

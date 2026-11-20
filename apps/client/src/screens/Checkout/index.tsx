@@ -31,9 +31,22 @@ export const Checkout: React.FC = () => {
   const [generatedPin, setGeneratedPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // ⚠️ ملاحظة: يجب ربط هذا بمخزن المصادقة الخاص بك (useAuthStore)
-  const isAuthChecked = true; 
-  const currentUser = { id: 'temp-client-id' }; 
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active) return;
+      setCurrentUser(data.user ? { id: data.user.id } : null);
+      setIsAuthChecked(true);
+    }).catch(() => {
+      if (!active) return;
+      setCurrentUser(null);
+      setIsAuthChecked(true);
+    });
+    return () => { active = false; };
+  }, []); 
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -43,11 +56,23 @@ export const Checkout: React.FC = () => {
   const grandTotal = subtotalTTC + DELIVERY_FEE + TIMBRE_FISCAL;
 
   const handleCheckout = async () => {
-    if (!customerName || !clientPhone || !deliveryAddress) {
+    if (!customerName.trim() || !clientPhone.trim() || !deliveryAddress.trim()) {
       await Haptics.notification({ type: NotificationType.Warning });
-      setErrorMsg('Veuillez remplir tous les champs de livraison.');
+      setErrorMsg("Veuillez remplir tous les champs de livraison.");
       return;
     }
+
+    const merchantIds = Array.from(new Set(items.map((item) => item.merchantId).filter(Boolean)));
+    if (merchantIds.length !== 1) {
+      await Haptics.notification({ type: NotificationType.Error });
+      setErrorMsg(
+        merchantIds.length === 0
+          ? "Identifiant du partenaire manquant. Veuillez vider le panier et réessayer."
+          : "Votre panier contient des articles de plusieurs établissements."
+      );
+      return;
+    }
+    const partnerId = merchantIds[0];
 
     try {
       setIsSubmitting(true);
@@ -59,8 +84,8 @@ export const Checkout: React.FC = () => {
 
       // 🦅 الحماية الصارمة: لا وجود لـ as any
       const orderPayload = {
-        client_id: currentUser?.id,
-        partner_id: (items[0] as any)?.partner_id || 'default_partner',
+        client_id: currentUser?.id ?? null,
+        partner_id: partnerId,
         customer_name: customerName,
         client_phone: clientPhone,
         delivery_address: deliveryAddress,
@@ -89,17 +114,16 @@ export const Checkout: React.FC = () => {
 
       const createdOrder = orderData as { id: string };
 
-      const orderItemsPayload = items.map((item: any) => ({
+      const orderItemsPayload = items.map((item) => ({
         order_id: createdOrder.id,
-        item_id: item.id,
+        item_id: item.item_id,
         item_name: item.name,
         name: item.name,
         price: item.price,
         unit_price: item.price,
-        total_price: item.price * item.quantity,
+        total_price: Number((item.price * item.quantity).toFixed(3)),
         quantity: item.quantity,
-        // 🦅 دمج الملاحظات التي تمت إضافتها في نافذة الطلب
-        options: item.instructions ? [{ note: item.instructions }] : []
+        options: item.notes ? [{ note: item.notes }] : []
       }));
 
       const { error: itemsError } = await supabase
@@ -260,7 +284,7 @@ export const Checkout: React.FC = () => {
           </div>
         </div>
 
-        {!isAuthChecked || !currentUser ? (
+        {!isAuthChecked ? (
           <motion.button whileTap={{ scale: 0.98 }} onClick={() => navigate('/auth')} className="w-full h-[56px] bg-[#1C1917] text-white rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.15)] flex items-center justify-center gap-2 px-5 outline-none">
             <LogIn className="w-5 h-5" />
             <span className="text-[14px] font-black tracking-wide uppercase">Connexion requise</span>

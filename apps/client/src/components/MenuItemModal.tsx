@@ -41,14 +41,15 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ isOpen, onClose, item }) 
     
     // 🛒 ضخ البيانات بقوة في السلة
     addItem({
-      item_id: item.id,
-      merchantId: item.partner_id,
-      options: [],
-      name: item.name_fr,
-      price: item.price,
-      quantity,
-      image_url: item.image_url,
-});
+        item_id: item.id,
+        merchantId: item.partner_id,
+        options: [],
+        name: item.name_fr,
+        price: item.price,
+        quantity,
+        image_url: item.image_url,
+        ...(instructions.trim() ? { notes: instructions.trim() } : {}),
+      });
     
     onClose();
   };
@@ -73,7 +74,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ isOpen, onClose, item }) 
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-            className="relative w-full max-h-[90vh] bg-[#FAF8F5] rounded-t-[32px] overflow-hidden flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.2)]"
+            className="relative w-full max-w-lg mx-auto max-h-[90dvh] bg-[#FAF8F5] rounded-t-[32px] overflow-hidden flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.2)]"
           >
             {/* 16:9 CINEMATIC HERO IMAGE */}
             <div className="relative h-[260px] shrink-0 bg-gray-100">
